@@ -17,9 +17,9 @@ import type { Freight, Driver } from "@/lib/types";
 import { PlusCircle, Trash2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { DatePicker } from "@/components/ui/date-picker";
 
-const expenseCategories = ['Maintenance', 'Fuel', 'Repairs', 'Other'] as const;
+const expenseCategories = ["Maintenance", "Fuel", "Repairs", "Other"] as const;
 
 const expenseSchema = z.object({
   id: z.string().optional(),
@@ -47,7 +47,7 @@ const formSchema = z.object({
 type FreightFormValues = z.infer<typeof formSchema>;
 
 type FreightFormProps = {
-  onSubmit: (values: Omit<Freight, 'id'> & { id?: string }) => void;
+  onSubmit: (values: Omit<Freight, "id"> & { id?: string }) => void;
   initialData?: Freight | null;
   drivers: Driver[];
 };
@@ -121,9 +121,11 @@ export function FreightForm({ onSubmit, initialData, drivers }: FreightFormProps
               control={form.control}
               name="date"
               render={({ field }) => (
-                <FormItem className="flex flex-col">
+                <FormItem>
                   <FormLabel>Load Date</FormLabel>
-                    <DateRangePicker date={field.value} onDateChange={field.onChange} />
+                  <FormControl>
+                    <DatePicker date={field.value} onDateChange={field.onChange} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -346,7 +348,7 @@ export function FreightForm({ onSubmit, initialData, drivers }: FreightFormProps
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => append({ category: 'Other', description: '', amount: 0 })}
+              onClick={() => append({ category: "Other", description: "", amount: 0 })}
             >
               <PlusCircle className="mr-2 h-4 w-4" />
               Add Expense
@@ -355,7 +357,7 @@ export function FreightForm({ onSubmit, initialData, drivers }: FreightFormProps
         </Card>
 
 
-        <Button type="submit" className="w-full">{initialData ? 'Save Changes' : 'Add Load'}</Button>
+        <Button type="submit" className="w-full">{initialData ? "Save Changes" : "Add Load"}</Button>
       </form>
     </Form>
   );
