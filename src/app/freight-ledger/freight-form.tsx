@@ -1,4 +1,3 @@
-
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -18,7 +17,7 @@ import type { Freight, Driver } from "@/lib/types";
 import { PlusCircle, Trash2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DatePicker } from "@/components/ui/date-picker";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
 
 const expenseCategories = ['Maintenance', 'Fuel', 'Repairs', 'Other'] as const;
 
@@ -124,7 +123,7 @@ export function FreightForm({ onSubmit, initialData, drivers }: FreightFormProps
               render={({ field }) => (
                 <FormItem className="flex flex-col">
                   <FormLabel>Load Date</FormLabel>
-                    <DatePicker date={field.value} onDateChange={field.onChange} />
+                    <DateRangePicker date={field.value} onDateChange={field.onChange} />
                   <FormMessage />
                 </FormItem>
               )}
