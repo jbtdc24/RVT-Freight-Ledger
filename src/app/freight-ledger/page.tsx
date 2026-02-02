@@ -153,7 +153,7 @@ export default function FreightLedgerPage() {
         }
         setIsDialogOpen(open);
       }}>
-        <DialogContent className="max-w-[90vw] md:max-w-3xl">
+        <DialogContent className="max-w-[95vw] md:max-w-5xl lg:max-w-6xl">
           <DialogHeader>
             <DialogTitle>{editingFreight ? 'Edit Load' : 'Add New Load'}</DialogTitle>
             <DialogDescription>
