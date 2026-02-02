@@ -14,7 +14,9 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Trash2 } from "lucide-react";
+import type { Asset } from "@/lib/types";
 
 const assetTypes = ['Truck', 'Business Car'] as const;
 

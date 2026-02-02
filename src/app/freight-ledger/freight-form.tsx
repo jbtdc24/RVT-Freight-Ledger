@@ -53,7 +53,7 @@ type FreightFormProps = {
   drivers: Driver[];
 };
 
-export function FreightForm({ onSubmit, initialData, drivers }: FreightFormProps) {
+export function FreightForm({ onSubmit, onDelete, initialData, drivers }: FreightFormProps) {
   const form = useForm<FreightFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: initialData ? {
