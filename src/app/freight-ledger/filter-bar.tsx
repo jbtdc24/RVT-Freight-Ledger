@@ -49,28 +49,28 @@ export function FilterBar({ onFilterChange }: FilterBarProps) {
     setNetProfit({ min: "", max: "" });
     setDateRange(undefined);
   };
-  
+
   const setPresetDateRange = (preset: 'today' | 'this-week' | 'this-month' | 'this-year') => {
-      const now = new Date();
-      switch(preset) {
-          case 'today':
-              setDateRange({ from: startOfDay(now), to: startOfDay(now) });
-              break;
-          case 'this-week':
-              setDateRange({ from: startOfWeek(now, { weekStartsOn: 1 }), to: endOfWeek(now, { weekStartsOn: 1 }) });
-              break;
-          case 'this-month':
-              setDateRange({ from: startOfMonth(now), to: endOfMonth(now) });
-              break;
-          case 'this-year':
-              setDateRange({ from: startOfYear(now), to: endOfYear(now) });
-              break;
-      }
+    const now = new Date();
+    switch (preset) {
+      case 'today':
+        setDateRange({ from: startOfDay(now), to: startOfDay(now) });
+        break;
+      case 'this-week':
+        setDateRange({ from: startOfWeek(now, { weekStartsOn: 1 }), to: endOfWeek(now, { weekStartsOn: 1 }) });
+        break;
+      case 'this-month':
+        setDateRange({ from: startOfMonth(now), to: endOfMonth(now) });
+        break;
+      case 'this-year':
+        setDateRange({ from: startOfYear(now), to: endOfYear(now) });
+        break;
+    }
   }
 
   return (
     <Card className="mb-4">
-      <Accordion type="single" collapsible className="w-full" defaultValue="filters">
+      <Accordion type="single" collapsible className="w-full">
         <AccordionItem value="filters">
           <AccordionTrigger className="p-4">
             <div className="flex items-center gap-2">
@@ -115,25 +115,25 @@ export function FilterBar({ onFilterChange }: FilterBarProps) {
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 items-start">
                 <div>
-                    <Label>Revenue</Label>
-                    <div className="flex items-center gap-2 mt-2">
-                        <Input type="number" placeholder="Min" value={revenue.min} onChange={e => setRevenue(p => ({...p, min: e.target.value}))} />
-                        <Input type="number" placeholder="Max" value={revenue.max} onChange={e => setRevenue(p => ({...p, max: e.target.value}))} />
-                    </div>
+                  <Label>Revenue</Label>
+                  <div className="flex items-center gap-2 mt-2">
+                    <Input type="number" placeholder="Min" value={revenue.min} onChange={e => setRevenue(p => ({ ...p, min: e.target.value }))} />
+                    <Input type="number" placeholder="Max" value={revenue.max} onChange={e => setRevenue(p => ({ ...p, max: e.target.value }))} />
+                  </div>
                 </div>
                 <div>
-                    <Label>Expenses</Label>
-                    <div className="flex items-center gap-2 mt-2">
-                        <Input type="number" placeholder="Min" value={expenses.min} onChange={e => setExpenses(p => ({...p, min: e.target.value}))} />
-                        <Input type="number" placeholder="Max" value={expenses.max} onChange={e => setExpenses(p => ({...p, max: e.target.value}))} />
-                    </div>
+                  <Label>Expenses</Label>
+                  <div className="flex items-center gap-2 mt-2">
+                    <Input type="number" placeholder="Min" value={expenses.min} onChange={e => setExpenses(p => ({ ...p, min: e.target.value }))} />
+                    <Input type="number" placeholder="Max" value={expenses.max} onChange={e => setExpenses(p => ({ ...p, max: e.target.value }))} />
+                  </div>
                 </div>
                 <div>
-                    <Label>Net Profit</Label>
-                    <div className="flex items-center gap-2 mt-2">
-                        <Input type="number" placeholder="Min" value={netProfit.min} onChange={e => setNetProfit(p => ({...p, min: e.target.value}))} />
-                        <Input type="number" placeholder="Max" value={netProfit.max} onChange={e => setNetProfit(p => ({...p, max: e.target.value}))} />
-                    </div>
+                  <Label>Net Profit</Label>
+                  <div className="flex items-center gap-2 mt-2">
+                    <Input type="number" placeholder="Min" value={netProfit.min} onChange={e => setNetProfit(p => ({ ...p, min: e.target.value }))} />
+                    <Input type="number" placeholder="Max" value={netProfit.max} onChange={e => setNetProfit(p => ({ ...p, max: e.target.value }))} />
+                  </div>
                 </div>
               </div>
 

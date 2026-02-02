@@ -65,13 +65,24 @@ export default function DashboardPage() {
     });
   }, [activeFreight, timeRange, customRange]);
 
+  /* --- Helper for Consistent Math --- */
+  const calculateOwnerRevenue = (item: Freight) => {
+    // If ownerAmount exists, use it + surcharges.
+    // If it doesn't exist (legacy/manual?), assume Revenue is the owner's part? 
+    // Data model says revenue = lineHaul + surcharges.
+    // Safest bet for 'Your Take-home' is strictly ownerAmount + surcharges.
+    const base = item.ownerAmount ?? 0;
+    const surcharges = (item.fuelSurcharge || 0) + (item.loading || 0) + (item.unloading || 0) + (item.accessorials || 0);
+    return base + surcharges;
+  };
+
   const totalGrossRevenue = useMemo(() =>
     filteredFreight.reduce((sum, item) => sum + item.revenue, 0),
     [filteredFreight]
   );
 
   const totalOwnerRevenue = useMemo(() =>
-    filteredFreight.reduce((sum, item) => sum + (item.ownerAmount ?? item.revenue) + (item.fuelSurcharge || 0) + (item.loading || 0) + (item.unloading || 0) + (item.accessorials || 0), 0),
+    filteredFreight.reduce((sum, item) => sum + calculateOwnerRevenue(item), 0),
     [filteredFreight]
   );
 
@@ -80,8 +91,10 @@ export default function DashboardPage() {
     [filteredFreight]
   );
 
+  // We recalculate netProfit from the consistent revenue/expenses to ensure (Rev - Exp = Profit) is always visually true,
+  // rather than relying on the item.netProfit field which might drift if data source logic changes.
   const netProfit = useMemo(() =>
-    filteredFreight.reduce((sum, item) => sum + (item.netProfit || 0), 0),
+    filteredFreight.reduce((sum, item) => sum + (calculateOwnerRevenue(item) - item.totalExpenses), 0),
     [filteredFreight]
   );
 
@@ -136,10 +149,7 @@ export default function DashboardPage() {
         return d >= item.range[0] && d <= item.range[1];
       });
 
-      const revenue = monthFreight.reduce((sum, f) =>
-        sum + (f.ownerAmount ?? f.revenue) + (f.fuelSurcharge || 0) + (f.loading || 0) + (f.unloading || 0) + (f.accessorials || 0)
-        , 0);
-
+      const revenue = monthFreight.reduce((sum, f) => sum + calculateOwnerRevenue(f), 0);
       const expenses = monthFreight.reduce((sum, f) => sum + f.totalExpenses, 0);
       const profit = revenue - expenses;
 
