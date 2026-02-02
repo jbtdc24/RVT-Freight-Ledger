@@ -20,65 +20,83 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   const navLinks = (
-    <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
+    <nav className="grid gap-2 px-4 py-4">
       {navItems.map(({ href, label, icon: Icon }) => (
         <Link
           key={href}
           href={href}
-          className={`flex items-center gap-3 rounded-lg px-3 py-3 transition-all hover:text-primary ${
-            pathname === href ? "bg-muted text-primary" : "text-muted-foreground"
-          }`}
+          className={`flex items-center gap-3 rounded-xl px-4 py-3 transition-all duration-300 group ${pathname === href
+              ? "bg-primary text-primary-foreground shadow-[0_0_15px_rgba(var(--primary),0.3)]"
+              : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
+            }`}
         >
-          <Icon className="h-4 w-4" />
-          {label}
+          <Icon className={`h-4 w-4 transition-transform duration-300 group-hover:scale-110 ${pathname === href ? "" : "text-primary/70"}`} />
+          <span className="font-medium">{label}</span>
+          {pathname === href && (
+            <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary-foreground animate-pulse" />
+          )}
         </Link>
       ))}
     </nav>
   );
 
   return (
-    <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
-      <div className="hidden border-r bg-card md:block">
-        <div className="flex h-full max-h-screen flex-col gap-2">
-          <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
-            <Link href="/" className="flex items-center gap-2 font-semibold">
-              <RvtLogo className="h-8 w-8 text-primary" />
-              <span className="font-headline text-lg">RVT Accounting</span>
-            </Link>
-          </div>
-          <div className="flex-1 overflow-auto py-4">
-            {navLinks}
+    <div className="flex min-h-screen w-full bg-background overflow-hidden">
+      {/* Desktop Sidebar */}
+      <aside className="hidden md:flex flex-col w-[260px] glass border-r-0">
+        <div className="flex h-20 items-center px-8">
+          <Link href="/" className="flex items-center gap-3 group">
+            <div className="p-2 bg-primary/10 rounded-xl group-hover:bg-primary/20 transition-colors">
+              <RvtLogo className="h-7 w-7 text-primary" />
+            </div>
+            <div className="flex flex-col">
+              <span className="font-headline text-lg font-bold leading-none tracking-tight">RVT</span>
+              <span className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-medium">Accounting</span>
+            </div>
+          </Link>
+        </div>
+        <div className="flex-1 overflow-auto">
+          {navLinks}
+        </div>
+        <div className="p-6">
+          <div className="glass-card !p-4 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-primary to-accent" />
+            <div className="flex flex-col">
+              <span className="text-xs font-bold">Alex Driver</span>
+              <span className="text-[10px] text-muted-foreground">Premium Account</span>
+            </div>
           </div>
         </div>
-      </div>
-      <div className="flex flex-col">
-        <header className="flex h-14 items-center gap-4 border-b bg-card px-4 lg:h-[60px] lg:px-6">
+      </aside>
+
+      <div className="flex flex-col flex-1 min-w-0">
+        <header className="flex h-16 items-center gap-4 bg-transparent px-6 border-b border-white/5">
           <Sheet>
             <SheetTrigger asChild>
-              <Button variant="outline" size="icon" className="shrink-0 md:hidden">
+              <Button variant="outline" size="icon" className="shrink-0 md:hidden glass border-none">
                 <Menu className="h-5 w-5" />
                 <span className="sr-only">Toggle navigation menu</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="flex flex-col">
-              <div className="mb-4 flex h-14 items-center border-b px-4">
-                 <Link href="/" className="flex items-center gap-2 font-semibold">
-                    <RvtLogo className="h-8 w-8 text-primary" />
-                    <span className="font-headline text-lg">RVT Accounting</span>
-                 </Link>
+            <SheetContent side="left" className="flex flex-col glass border-none p-0 w-[280px]">
+              <div className="flex h-20 items-center px-8 border-b border-white/5">
+                <Link href="/" className="flex items-center gap-2">
+                  <RvtLogo className="h-8 w-8 text-primary" />
+                  <span className="font-headline text-xl font-bold">RVT</span>
+                </Link>
               </div>
-              <div className="overflow-auto">
+              <div className="overflow-auto flex-1">
                 {navLinks}
               </div>
             </SheetContent>
           </Sheet>
-          <div className="w-full flex-1">
-            {/* Header content can go here, e.g. search bar or user menu */}
-          </div>
+          <div className="flex-1" />
           <ThemeToggle />
         </header>
-        <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 overflow-auto">
-          {children}
+        <main className="flex-1 overflow-auto p-6 md:p-8 lg:p-10 scroll-smooth">
+          <div className="max-w-7xl mx-auto space-y-8">
+            {children}
+          </div>
         </main>
       </div>
     </div>
