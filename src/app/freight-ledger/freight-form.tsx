@@ -129,10 +129,12 @@ export function FreightForm({ onSubmit, onDelete, initialData, drivers, assets }
     const processedExpenses = (values.expenses || []).map(exp => ({ ...exp, id: exp.id || `exp-${Date.now()}-${Math.random()}` }));
 
     // Calculate Diff (only if editing)
-    let changeLog = "Load created.";
+    // Calculate Diff (only if editing)
+    let changeLog = initialData ? "Load updated" : "Load created";
     let hasChanges = false;
 
     if (initialData) {
+      console.log("DEBUG: Initial Driver:", initialData.driverId, "New Driver:", values.driverId);
       const changes: string[] = [];
       const formatValue = (field: keyof FreightFormValues, val: any) => {
         if (val === undefined || val === null) return 'N/A';
@@ -250,7 +252,16 @@ export function FreightForm({ onSubmit, onDelete, initialData, drivers, assets }
     // We can infer "added in this session" by checking if values.comments has more items than initialData.comments
     const initialCommentCount = initialData?.comments?.length || 0;
     const currentCommentCount = values.comments?.length || 0;
-    const hasAddedComment = currentCommentCount > initialCommentCount;
+    // Check if pending comment exists OR if comment count increased
+    const hasAddedComment = (currentCommentCount > initialCommentCount) || (newComment.trim().length > 0);
+
+    // If we have a new comment (pending or added), consider it a change effectively for the `hasChanges` check
+    if (hasAddedComment) {
+      hasChanges = true;
+      if (changeLog === "Load updated") {
+        changeLog += ". New comment added";
+      }
+    }
 
     // Enforce Comment Requirement
     if (initialData && hasChanges && !hasAddedComment && !newComment.trim()) {

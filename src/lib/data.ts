@@ -34,40 +34,51 @@ export const initialDrivers: Driver[] = [
 const random = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
 const randomInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
 
-// Generate 5 freight items (4 valid, 1 invalid)
-// MATH VERIFICATION:
-// Broker Revenue = LineHaul + Fuel + Accessorials
-// Owner Pay = (LineHaul * Split%) + Fuel + Accessorials
-// Net Profit = Owner Pay - Expenses
+// Generate 4 freight items (3 valid, 1 invalid)
+// MATH VERIFICATION RULES:
+// 1. Revenue (Broker Pay) = Line Haul + Fuel Surcharge + Accessorials + Loading + Unloading
+// 2. Owner Amount (Our Share) = (Line Haul * Owner %) + Fuel Surcharge + Accessorials + Loading + Unloading
+// 3. Total Expenses = Sum of all individual expense items
+// 4. Net Profit = Owner Amount - Total Expenses
 export const initialFreight: Freight[] = [
-  ...Array.from({ length: 4 }).map((_, i) => {
+  ...Array.from({ length: 3 }).map((_, i) => {
     const origin = random(['Dallas, TX', 'Miami, FL', 'Atlanta, GA', 'Chicago, IL']);
     const destination = random(['Phoenix, AZ', 'Houston, TX', 'Detroit, MI']);
     const dist = randomInt(400, 2500);
 
-    // 1. Establish Base Numbers
+    // --- 1. Define Base Component Values ---
     const lineHaul = dist * (randomInt(180, 350) / 100);
     const fuelSurcharge = randomInt(100, 500);
-    const accessorials = 0; // Keeping simple for simulation
+    const accessorials = 0;
     const loading = 0;
     const unloading = 0;
+    const ownerPercentage = 65; // We keep 65% of Line Haul
 
-    // 2. Establish Expenses
-    const totalExp = randomInt(200, 600);
+    // --- 2. Calculate Revenue (What Broker Pays) ---
+    // Revenue = LH + Fuel + Acc + Load + Unload
+    const revenue = lineHaul + fuelSurcharge + accessorials + loading + unloading;
 
-    // 3. Establish Split
-    const ownerPercentage = 65; // 65% split
-
-    // 4. Calculate Derived Values
-    const brokerRevenue = lineHaul + fuelSurcharge + accessorials + loading + unloading;
+    // --- 3. Calculate Owner Amount (What We Get Before Expenses) ---
+    // Owner Amount = (LH * 0.65) + Fuel + Acc + Load + Unload
+    // Note: Surcharges are typically passed through 100% to the owner/truck
     const ownerBase = lineHaul * (ownerPercentage / 100);
-    const ownerGross = ownerBase + fuelSurcharge + accessorials + loading + unloading;
-    const netProfit = ownerGross - totalExp;
+    const ownerAmount = ownerBase + fuelSurcharge + accessorials + loading + unloading;
+
+    // --- 4. Define and Calculate Expenses ---
+    const expenseAmount = randomInt(200, 600);
+    const expenses: LoadExpense[] = [
+      { id: `exp-${i}`, category: 'Fuel', description: 'Fuel', amount: expenseAmount }
+    ];
+    const totalExpenses = expenseAmount;
+
+    // --- 5. Calculate Net Profit ---
+    // Net Profit = Owner Amount - Total Expenses
+    const netProfit = ownerAmount - totalExpenses;
 
     // Valid Load
     return {
       id: `frt-valid-${i}`,
-      freightId: `#${4000 + i}`,
+      freightId: `#${5000 + i}`,
       origin,
       destination,
       distance: dist,
@@ -78,22 +89,21 @@ export const initialFreight: Freight[] = [
       assetId: 'ast-1',
       assetName: 'Unit 101',
 
-      // Breakdown
+      // Financials
       lineHaul,
       fuelSurcharge,
       loading,
       unloading,
       accessorials,
       ownerPercentage,
-      ownerAmount: ownerBase,
+      ownerAmount,    // Calculated above
+      revenue,        // Calculated above
 
-      expenses: [{ id: `exp-${i}`, category: 'Fuel', description: 'Fuel', amount: totalExp }],
+      expenses,
+      totalExpenses,  // Calculated above
+      netProfit,      // Calculated above
+
       comments: [{ id: `com-${i}`, text: "System generated valid load.", author: "System", timestamp: new Date().toISOString(), type: 'system' }],
-
-      // Totals
-      revenue: brokerRevenue,       // What the broker pays (Total)
-      totalExpenses: totalExp,      // What we spent
-      netProfit: netProfit,         // What we kept
     } as Freight;
   }),
 
@@ -111,10 +121,10 @@ export const initialFreight: Freight[] = [
     assetId: 'ast-1',
     assetName: 'Unit 101',
 
-    // Math Check:
-    // LH: 5000
-    // Split: 65% -> 3250
-    // Exp: 0
+    // Math Check for Invalid Load:
+    // Line Haul: 5000
+    // Owner Split (65%): 3250
+    // Expenses: 0
     // Profit: 3250
     lineHaul: 5000,
     fuelSurcharge: 0,
@@ -122,7 +132,7 @@ export const initialFreight: Freight[] = [
     unloading: 0,
     accessorials: 0,
     ownerPercentage: 65,
-    ownerAmount: 3250,
+    ownerAmount: 3250, // 5000 * 0.65
 
     expenses: [],
     comments: [], // Missing

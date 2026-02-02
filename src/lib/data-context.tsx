@@ -28,9 +28,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     // Initial load - runs only once
     useEffect(() => {
         try {
-            const savedFreight = localStorage.getItem('rvt_freight_v4');
-            const savedAssets = localStorage.getItem('rvt_assets_v4');
-            const savedDrivers = localStorage.getItem('rvt_drivers_v4');
+            const savedFreight = localStorage.getItem('rvt_freight_v5');
+            const savedAssets = localStorage.getItem('rvt_assets_v5');
+            const savedDrivers = localStorage.getItem('rvt_drivers_v5');
 
             if (savedFreight) {
                 const parsed = JSON.parse(savedFreight);
@@ -61,19 +61,19 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     // Save to localStorage - runs whenever data changes, but only after initial load
     useEffect(() => {
         if (isLoaded) {
-            localStorage.setItem('rvt_freight_v4', JSON.stringify(freight));
+            localStorage.setItem('rvt_freight_v5', JSON.stringify(freight));
         }
     }, [freight, isLoaded]);
 
     useEffect(() => {
         if (isLoaded) {
-            localStorage.setItem('rvt_assets_v4', JSON.stringify(assets));
+            localStorage.setItem('rvt_assets_v5', JSON.stringify(assets));
         }
     }, [assets, isLoaded]);
 
     useEffect(() => {
         if (isLoaded) {
-            localStorage.setItem('rvt_drivers_v4', JSON.stringify(drivers));
+            localStorage.setItem('rvt_drivers_v5', JSON.stringify(drivers));
         }
     }, [drivers, isLoaded]);
 
