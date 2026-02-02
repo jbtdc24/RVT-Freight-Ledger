@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useMemo } from 'react';
-import { DollarSign, Wrench, Wallet } from "lucide-react";
+import { DollarSign, Wrench, Wallet, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from 'next/link';
+import { cn } from "@/lib/utils";
 import { PageHeader } from '@/components/page-header';
 import type { Freight } from '@/lib/types';
 import { useData } from "@/lib/data-context";
@@ -335,36 +336,104 @@ export default function DashboardPage() {
       <div className="grid gap-6">
         <Card className="glass-card border-none">
           <CardHeader>
-            <CardTitle className="text-xl">Recent Transactions</CardTitle>
+            <CardTitle className="text-xl">Recent Activity</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
-              {filteredFreight.slice(0, 3).map((item) => (
-                <div key={item.id} className="flex items-center justify-between group cursor-pointer">
-                  <div className="flex items-center gap-4">
-                    <div className="p-2 rounded-full bg-success/20 text-success">
-                      <DollarSign className="h-4 w-4" />
+              {(() => {
+                const transactions: any[] = [];
+
+                // 1. Add normal freight revenue
+                activeFreight.forEach(item => {
+                  transactions.push({
+                    id: `rev-${item.id}`,
+                    loadId: item.id,
+                    type: 'revenue',
+                    title: `Freight #${item.freightId} - ${item.origin} to ${item.destination}`,
+                    date: new Date(item.date),
+                    amount: item.revenue,
+                    status: 'Completed',
+                    link: '/freight-ledger',
+                    icon: <DollarSign className="h-4 w-4" />,
+                    color: 'success'
+                  });
+
+                  // 2. Add individual expenses from each load
+                  item.expenses.forEach(exp => {
+                    transactions.push({
+                      id: `exp-${exp.id}`,
+                      loadId: item.id,
+                      type: 'expense',
+                      title: `${exp.category}: ${exp.description} (Load #${item.freightId})`,
+                      date: new Date(item.date),
+                      amount: -exp.amount,
+                      status: 'Paid',
+                      link: '/freight-ledger',
+                      icon: <Wrench className="h-4 w-4" />,
+                      color: 'destructive'
+                    });
+                  });
+                });
+
+                // 3. Add deletions
+                freight.filter(f => f.isDeleted).forEach(item => {
+                  transactions.push({
+                    id: `del-${item.id}`,
+                    type: 'deletion',
+                    title: `DELETED: Load #${item.freightId}`,
+                    date: item.deletedAt ? new Date(item.deletedAt) : new Date(),
+                    amount: 0,
+                    status: 'Removed',
+                    link: '/recycle-bin',
+                    icon: <Trash2 className="h-4 w-4" />,
+                    color: 'muted'
+                  });
+                });
+
+                // Sort by date descending and take top 10 for a better "history" view
+                const recent = transactions
+                  .sort((a, b) => b.date.getTime() - a.date.getTime())
+                  .slice(0, 8);
+
+                if (recent.length === 0) {
+                  return <p className="text-sm text-muted-foreground text-center py-4">No recent activity.</p>;
+                }
+
+                return recent.map((item) => (
+                  <Link href={`${item.link}${item.loadId ? `?edit=${item.loadId}` : ''}`} key={item.id}>
+                    <div className="flex items-center justify-between group cursor-pointer hover:bg-white/5 p-2 rounded-xl transition-all active:scale-[0.98]">
+                      <div className="flex items-center gap-4">
+                        <div className={cn(
+                          "p-2 rounded-full",
+                          item.color === 'success' ? "bg-success/20 text-success" :
+                            item.color === 'destructive' ? "bg-destructive/20 text-destructive" :
+                              "bg-white/10 text-white/40"
+                        )}>
+                          {item.icon}
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold group-hover:text-primary transition-colors">{item.title}</span>
+                          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{format(item.date, 'MMM dd, yyyy')}</span>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end">
+                        <span className={cn(
+                          "text-sm font-bold",
+                          item.amount > 0 ? "text-success" :
+                            item.amount < 0 ? "text-destructive" : "text-white/20"
+                        )}>
+                          {item.amount !== 0 ? (item.amount > 0 ? '+' : '') + formatCurrency(item.amount) : '---'}
+                        </span>
+                        <span className="text-[10px] py-0.5 px-2 bg-white/5 rounded-full text-white/40 font-medium">{item.status}</span>
+                      </div>
                     </div>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-bold group-hover:text-primary transition-colors">Freight {item.freightId} - {item.origin} to {item.destination}</span>
-                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{format(item.date, 'MMM dd, yyyy')}</span>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end">
-                    <span className="text-sm font-bold text-success">
-                      +{formatCurrency(item.revenue)}
-                    </span>
-                    <span className="text-[10px] py-0.5 px-2 bg-muted rounded-full text-muted-foreground font-medium">Completed</span>
-                  </div>
-                </div>
-              ))}
-              {activeFreight.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">No recent transactions.</p>
-              )}
+                  </Link>
+                ));
+              })()}
             </div>
             <Link href="/freight-ledger">
-              <Button variant="ghost" className="w-full mt-6 text-xs text-muted-foreground hover:text-primary">
-                View All Transactions
+              <Button variant="ghost" className="w-full mt-6 text-[10px] font-black uppercase tracking-widest text-white/20 hover:text-primary hover:bg-white/5">
+                View All Activity
               </Button>
             </Link>
           </CardContent>

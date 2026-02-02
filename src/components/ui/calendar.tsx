@@ -20,19 +20,19 @@ function Calendar({
       showOutsideDays={showOutsideDays}
       className={cn("p-0 font-sans", className)}
       classNames={{
-        months: "flex flex-col md:flex-row gap-8",
-        month: "space-y-6",
-        month_caption: "flex justify-center relative items-center mb-4 gap-2",
+        months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0 relative", // Add relative here
+        month: "space-y-4",
+        month_caption: "flex justify-center relative items-center mb-1", // Slightly reduced margin
         caption_label: "hidden",
-        caption_dropdowns: "flex justify-center gap-1 z-20",
-        nav: "flex items-center",
+        caption_dropdowns: "flex justify-center gap-1 z-20 mx-8", // Add horizontal margin to make space for arrows
+        nav: "flex items-center absolute w-full justify-between z-10 px-1", // Absolute nav spanning full width
         button_previous: cn(
           buttonVariants({ variant: "ghost" }),
-          "h-8 w-8 bg-transparent p-0 text-white opacity-50 hover:opacity-100 absolute left-0 z-30 flex items-center justify-center rounded-full hover:bg-white/5"
+          "h-7 w-7 bg-transparent p-0 text-white opacity-50 hover:opacity-100 flex items-center justify-center rounded-full hover:bg-white/5"
         ),
         button_next: cn(
           buttonVariants({ variant: "ghost" }),
-          "h-8 w-8 bg-transparent p-0 text-white opacity-50 hover:opacity-100 absolute right-0 z-30 flex items-center justify-center rounded-full hover:bg-white/5"
+          "h-7 w-7 bg-transparent p-0 text-white opacity-50 hover:opacity-100 flex items-center justify-center rounded-full hover:bg-white/5"
         ),
         month_grid: "w-full border-collapse",
         weekdays: "flex mb-4",

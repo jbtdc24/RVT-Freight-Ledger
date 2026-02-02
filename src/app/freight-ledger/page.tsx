@@ -1,8 +1,9 @@
 
 "use client";
 
-import { useState, Fragment, useMemo } from "react";
+import { useState, Fragment, useMemo, useEffect } from "react";
 import { PlusCircle, ChevronDown, Pencil, Wallet, ArrowRight } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import {
@@ -43,6 +44,18 @@ export default function FreightLedgerPage() {
     netProfit: { min: '', max: '' },
     dateRange: undefined,
   });
+
+  const searchParams = useSearchParams();
+  const editId = searchParams.get('edit');
+
+  useEffect(() => {
+    if (editId) {
+      const itemToEdit = freight.find(f => f.id === editId);
+      if (itemToEdit) {
+        handleOpenDialog(itemToEdit);
+      }
+    }
+  }, [editId, freight]);
 
   const handleOpenDialog = (freight?: Freight) => {
     setEditingFreight(freight || null);
