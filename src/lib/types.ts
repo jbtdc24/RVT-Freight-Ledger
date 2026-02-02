@@ -9,13 +9,13 @@ export type Freight = {
   id: string;
   freightId: string;
   origin: string;
-  destination:string;
+  destination: string;
   distance: number;
   date: Date;
   weight: number;
   driverId?: string;
   driverName?: string;
-  
+
   // Revenue
   lineHaul: number;
   fuelSurcharge: number;
@@ -30,18 +30,26 @@ export type Freight = {
   revenue: number;
   totalExpenses: number;
   netProfit: number;
+
+  // Soft delete
+  isDeleted?: boolean;
+  deletedAt?: string;
 };
 
 export type Asset = {
   id: string;
   type: 'Truck' | 'Business Car';
   identifier: string;
-  description: string;
+  description?: string;
+  isDeleted?: boolean;
+  deletedAt?: string;
 };
 
 export type Driver = {
-    id: string;
-    name: string;
-    payRate: number; // can be $/mile or % of revenue
-    payType: 'per-mile' | 'percentage';
+  id: string;
+  name: string;
+  payRate: number; // can be $/mile or % of revenue
+  payType: 'per-mile' | 'percentage';
+  isDeleted?: boolean;
+  deletedAt?: string;
 };

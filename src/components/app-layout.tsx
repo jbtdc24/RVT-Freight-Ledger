@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Gauge, Truck, Warehouse, Calculator, Menu, Users } from "lucide-react";
+import { Gauge, Truck, Warehouse, Calculator, Menu, Users, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { RvtLogo } from "@/components/icons";
@@ -14,6 +14,7 @@ const navItems = [
   { href: "/assets", label: "Assets", icon: Warehouse },
   { href: "/drivers", label: "Drivers", icon: Users },
   { href: "/payroll", label: "Payroll", icon: Calculator },
+  { href: "/recycle-bin", label: "Recycle Bin", icon: Trash2 },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -25,9 +26,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <Link
           key={href}
           href={href}
-          className={`flex items-center gap-3 rounded-lg px-3 py-3 transition-all hover:text-primary ${
-            pathname === href ? "bg-muted text-primary" : "text-muted-foreground"
-          }`}
+          className={`flex items-center gap-3 rounded-lg px-3 py-3 transition-all hover:text-primary ${pathname === href ? "bg-muted text-primary" : "text-muted-foreground"
+            }`}
         >
           <Icon className="h-4 w-4" />
           {label}
@@ -62,10 +62,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </SheetTrigger>
             <SheetContent side="left" className="flex flex-col">
               <div className="mb-4 flex h-14 items-center border-b px-4">
-                 <Link href="/" className="flex items-center gap-2 font-semibold">
-                    <RvtLogo className="h-8 w-8 text-primary" />
-                    <span className="font-headline text-lg">RVT Accounting</span>
-                 </Link>
+                <Link href="/" className="flex items-center gap-2 font-semibold">
+                  <RvtLogo className="h-8 w-8 text-primary" />
+                  <span className="font-headline text-lg">RVT Accounting</span>
+                </Link>
               </div>
               <div className="overflow-auto">
                 {navLinks}

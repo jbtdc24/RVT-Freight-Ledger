@@ -29,7 +29,7 @@ const expenseSchema = z.object({
 });
 
 const formSchema = z.object({
-  date: z.date({ required_error: "A date is required."}),
+  date: z.date({ required_error: "A date is required." }),
   freightId: z.string().min(2, "Freight ID must be at least 2 characters."),
   driverId: z.string().optional(),
   origin: z.string().min(2, "Origin is required."),
@@ -48,6 +48,7 @@ type FreightFormValues = z.infer<typeof formSchema>;
 
 type FreightFormProps = {
   onSubmit: (values: Omit<Freight, "id"> & { id?: string }) => void;
+  onDelete?: (id: string) => void;
   initialData?: Freight | null;
   drivers: Driver[];
 };
@@ -85,8 +86,8 @@ export function FreightForm({ onSubmit, initialData, drivers }: FreightFormProps
     const revenue = (values.lineHaul || 0) + (values.fuelSurcharge || 0) + (values.accessorials || 0) + (values.loading || 0) + (values.unloading || 0);
     const totalExpenses = (values.expenses || []).reduce((sum, exp) => sum + exp.amount, 0);
     const netProfit = revenue - totalExpenses;
-    
-    const processedExpenses = (values.expenses || []).map(exp => ({...exp, id: exp.id || `exp-${Date.now()}-${Math.random()}`}));
+
+    const processedExpenses = (values.expenses || []).map(exp => ({ ...exp, id: exp.id || `exp-${Date.now()}-${Math.random()}` }));
     const selectedDriver = drivers.find(d => d.id === values.driverId);
 
     onSubmit({
@@ -104,110 +105,110 @@ export function FreightForm({ onSubmit, initialData, drivers }: FreightFormProps
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
-            <FormField
-              control={form.control}
-              name="freightId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Freight ID</FormLabel>
+          <FormField
+            control={form.control}
+            name="freightId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Freight ID</FormLabel>
+                <FormControl>
+                  <Input placeholder="e.g., #12345" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="date"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Load Date</FormLabel>
+                <FormControl>
+                  <DatePicker date={field.value} onDateChange={field.onChange} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="driverId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Driver</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
                   <FormControl>
-                    <Input placeholder="e.g., #12345" {...field} />
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a driver" />
+                    </SelectTrigger>
                   </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="date"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Load Date</FormLabel>
-                  <FormControl>
-                    <DatePicker date={field.value} onDateChange={field.onChange} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="driverId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Driver</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a driver" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {drivers.map(driver => <SelectItem key={driver.id} value={driver.id}>{driver.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                  <SelectContent>
+                    {drivers.map(driver => <SelectItem key={driver.id} value={driver.id}>{driver.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </div>
         <div className="grid grid-cols-2 gap-6 items-start">
-            <FormField
+          <FormField
             control={form.control}
             name="origin"
             render={({ field }) => (
-                <FormItem>
+              <FormItem>
                 <FormLabel>Origin</FormLabel>
                 <FormControl>
-                    <Input placeholder="e.g., Dallas, TX" {...field} />
+                  <Input placeholder="e.g., Dallas, TX" {...field} />
                 </FormControl>
                 <FormMessage />
-                </FormItem>
+              </FormItem>
             )}
-            />
-            <FormField
+          />
+          <FormField
             control={form.control}
             name="destination"
             render={({ field }) => (
-                <FormItem>
+              <FormItem>
                 <FormLabel>Destination</FormLabel>
                 <FormControl>
-                    <Input placeholder="e.g., Miami, FL" {...field} />
+                  <Input placeholder="e.g., Miami, FL" {...field} />
                 </FormControl>
                 <FormMessage />
-                </FormItem>
+              </FormItem>
             )}
-            />
+          />
         </div>
         <div className="grid grid-cols-2 gap-6 items-start">
-            <FormField
+          <FormField
             control={form.control}
             name="distance"
             render={({ field }) => (
-                <FormItem>
+              <FormItem>
                 <FormLabel>Distance (miles)</FormLabel>
                 <FormControl>
-                    <Input type="number" {...field} />
+                  <Input type="number" {...field} />
                 </FormControl>
                 <FormMessage />
-                </FormItem>
+              </FormItem>
             )}
-            />
-            <FormField
+          />
+          <FormField
             control={form.control}
             name="weight"
             render={({ field }) => (
-                <FormItem>
+              <FormItem>
                 <FormLabel>Weight (lbs)</FormLabel>
                 <FormControl>
-                    <Input type="number" {...field} />
+                  <Input type="number" {...field} />
                 </FormControl>
                 <FormMessage />
-                </FormItem>
+              </FormItem>
             )}
-            />
+          />
         </div>
-        
+
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Revenue Breakdown</CardTitle>
@@ -344,7 +345,7 @@ export function FreightForm({ onSubmit, initialData, drivers }: FreightFormProps
                 </Button>
               </div>
             ))}
-             <Button
+            <Button
               type="button"
               variant="outline"
               size="sm"
@@ -357,7 +358,22 @@ export function FreightForm({ onSubmit, initialData, drivers }: FreightFormProps
         </Card>
 
 
-        <Button type="submit" className="w-full">{initialData ? "Save Changes" : "Add Load"}</Button>
+        <div className="flex gap-4">
+          {initialData && onDelete && (
+            <Button
+              type="button"
+              variant="destructive"
+              className="flex-1"
+              onClick={() => onDelete(initialData.id)}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete Load
+            </Button>
+          )}
+          <Button type="submit" className={initialData && onDelete ? "flex-[2]" : "w-full"}>
+            {initialData ? "Save Changes" : "Add Load"}
+          </Button>
+        </div>
       </form>
     </Form>
   );

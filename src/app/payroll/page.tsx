@@ -7,23 +7,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
-import { initialDrivers, initialFreight } from '@/lib/data';
-import type { Driver, Freight } from '@/lib/types';
+import { useData } from '@/lib/data-context';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 export default function PayrollPage() {
-    const [drivers] = useState<Driver[]>(initialDrivers);
-    const [freight] = useState<Freight[]>(initialFreight);
+    const { drivers, freight } = useData();
+    const activeDrivers = useMemo(() => drivers.filter(d => !d.isDeleted), [drivers]);
+    const activeFreight = useMemo(() => freight.filter(f => !f.isDeleted), [freight]);
+
     const [selectedDriverId, setSelectedDriverId] = useState<string | undefined>(undefined);
     const [selectedLoadIds, setSelectedLoadIds] = useState<string[]>([]);
     const [calculatedPay, setCalculatedPay] = useState<number | null>(null);
-    
-    const selectedDriver = useMemo(() => drivers.find(d => d.id === selectedDriverId), [drivers, selectedDriverId]);
-    
+
+    const selectedDriver = useMemo(() => activeDrivers.find(d => d.id === selectedDriverId), [activeDrivers, selectedDriverId]);
+
     const driverLoads = useMemo(() => {
         if (!selectedDriverId) return [];
-        return freight.filter(f => f.driverId === selectedDriverId);
-    }, [freight, selectedDriverId]);
+        return activeFreight.filter(f => f.driverId === selectedDriverId);
+    }, [activeFreight, selectedDriverId]);
 
     const handleSelectLoad = (loadId: string) => {
         setCalculatedPay(null);
@@ -34,10 +35,10 @@ export default function PayrollPage() {
 
     const calculatePay = () => {
         if (!selectedDriver) return;
-        
+
         const loadsToPay = driverLoads.filter(load => selectedLoadIds.includes(load.id));
         let totalPay = 0;
-        
+
         if (selectedDriver.payType === 'per-mile') {
             const totalDistance = loadsToPay.reduce((sum, load) => sum + load.distance, 0);
             totalPay = totalDistance * selectedDriver.payRate;
@@ -68,7 +69,7 @@ export default function PayrollPage() {
                                     <SelectValue placeholder="Select a driver" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {drivers.map(driver => (
+                                    {activeDrivers.map(driver => (
                                         <SelectItem key={driver.id} value={driver.id}>{driver.name}</SelectItem>
                                     ))}
                                 </SelectContent>
@@ -79,7 +80,7 @@ export default function PayrollPage() {
                                 Pay Rate: {selectedDriver.payType === 'per-mile' ? `${formatCurrency(selectedDriver.payRate)}/mile` : `${selectedDriver.payRate}% of revenue`}
                             </p>
                         )}
-                        
+
                     </CardContent>
                     <CardFooter className="flex-col items-start gap-4">
                         <Button onClick={calculatePay} disabled={!selectedDriver || selectedLoadIds.length === 0} className="w-full">
@@ -97,7 +98,7 @@ export default function PayrollPage() {
                     <CardHeader>
                         <CardTitle>Completed Loads</CardTitle>
                         <CardDescription>
-                             {selectedDriver ? `Showing loads for ${selectedDriver.name}. Select loads to calculate pay.` : 'Select a driver to see their loads.'}
+                            {selectedDriver ? `Showing loads for ${selectedDriver.name}. Select loads to calculate pay.` : 'Select a driver to see their loads.'}
                         </CardDescription>
                     </CardHeader>
                     <ScrollArea className="h-[400px]">

@@ -4,8 +4,8 @@ import { useState, useMemo } from 'react';
 import { DollarSign, Wrench, Wallet } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from '@/components/page-header';
-import { initialFreight } from '@/lib/data';
 import type { Freight } from '@/lib/types';
+import { useData } from "@/lib/data-context";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 
@@ -24,21 +24,23 @@ const chartConfig = {
 };
 
 export default function DashboardPage() {
-  const [freightData] = useState<Freight[]>(initialFreight);
+  const { freight } = useData();
+
+  const activeFreight = useMemo(() => freight.filter(item => !item.isDeleted), [freight]);
 
   const totalRevenue = useMemo(() =>
-    freightData.reduce((sum, item) => sum + item.revenue, 0),
-    [freightData]
+    activeFreight.reduce((sum, item) => sum + item.revenue, 0),
+    [activeFreight]
   );
 
   const totalExpenses = useMemo(() =>
-    freightData.reduce((sum, item) => sum + item.totalExpenses, 0),
-    [freightData]
+    activeFreight.reduce((sum, item) => sum + item.totalExpenses, 0),
+    [activeFreight]
   );
-  
+
   const totalExpenseItems = useMemo(() =>
-    freightData.reduce((sum, item) => sum + item.expenses.length, 0),
-    [freightData]
+    activeFreight.reduce((sum, item) => sum + item.expenses.length, 0),
+    [activeFreight]
   );
 
   const netProfit = totalRevenue - totalExpenses;
@@ -66,7 +68,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(totalRevenue)}</div>
-            <p className="text-xs text-muted-foreground">from {freightData.length} loads</p>
+            <p className="text-xs text-muted-foreground">from {activeFreight.length} loads</p>
           </CardContent>
         </Card>
         <Card>
@@ -122,7 +124,7 @@ export default function DashboardPage() {
                     formatter={(value) => formatCurrency(value as number)}
                     indicator="dot"
                   />}
-                  />
+                />
                 <Bar dataKey="total" radius={4} />
               </BarChart>
             </ChartContainer>

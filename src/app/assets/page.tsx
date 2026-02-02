@@ -22,22 +22,30 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Card } from "@/components/ui/card";
-import { initialAssets } from "@/lib/data";
+import { useData } from "@/lib/data-context";
 import type { Asset } from "@/lib/types";
 import { AssetForm } from "./assets-form";
 import { Badge } from "@/components/ui/badge";
 
 export default function AssetsPage() {
-  const [assets, setAssets] = useState<Asset[]>(initialAssets);
+  const { assets, setAssets } = useData();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
 
+  const handleDeleteAsset = (id: string) => {
+    setAssets(prev => prev.map(a =>
+      a.id === id ? { ...a, isDeleted: true, deletedAt: new Date().toISOString() } : a
+    ));
+    setIsDialogOpen(false);
+    setEditingAsset(null);
+  };
+
   const handleSaveAsset = (assetData: Omit<Asset, 'id'> & { id?: string }) => {
     if (assetData.id) {
-        setAssets(prev => prev.map(a => a.id === assetData.id ? ({ ...a, ...assetData } as Asset) : a));
+      setAssets(prev => prev.map(a => a.id === assetData.id ? ({ ...a, ...assetData } as Asset) : a));
     } else {
-        const newAsset = { ...assetData, id: `ast-${Date.now()}` };
-        setAssets(prev => [newAsset, ...prev]);
+      const newAsset = { ...assetData, id: `ast-${Date.now()}` };
+      setAssets(prev => [newAsset, ...prev]);
     }
     setIsDialogOpen(false);
     setEditingAsset(null);
@@ -47,7 +55,9 @@ export default function AssetsPage() {
     setEditingAsset(asset);
     setIsDialogOpen(true);
   }
-  
+
+  const activeAssets = assets.filter(a => !a.isDeleted);
+
   return (
     <>
       <PageHeader title="Asset Management">
@@ -70,13 +80,13 @@ export default function AssetsPage() {
               {editingAsset ? 'Edit the details for the asset.' : 'Enter the details for the new business asset.'}
             </DialogDescription>
           </DialogHeader>
-          <AssetForm onSubmit={handleSaveAsset} initialData={editingAsset} />
+          <AssetForm onSubmit={handleSaveAsset} onDelete={handleDeleteAsset} initialData={editingAsset} />
         </DialogContent>
       </Dialog>
-      
+
       <Card>
         <Table>
-          {!assets.length && <TableCaption>No assets added yet.</TableCaption>}
+          {!activeAssets.length && <TableCaption>No assets added yet.</TableCaption>}
           <TableHeader>
             <TableRow>
               <TableHead>Type</TableHead>
@@ -86,17 +96,17 @@ export default function AssetsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {assets.map((item) => (
+            {activeAssets.map((item) => (
               <TableRow key={item.id}>
                 <TableCell>
-                    <Badge variant="outline">{item.type}</Badge>
+                  <Badge variant="outline">{item.type}</Badge>
                 </TableCell>
                 <TableCell className="font-medium">{item.identifier}</TableCell>
                 <TableCell>{item.description}</TableCell>
                 <TableCell>
                   <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(item)} className="h-8 w-8">
-                      <Pencil className="h-4 w-4" />
-                      <span className="sr-only">Edit Asset</span>
+                    <Pencil className="h-4 w-4" />
+                    <span className="sr-only">Edit Asset</span>
                   </Button>
                 </TableCell>
               </TableRow>

@@ -21,22 +21,30 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Card } from "@/components/ui/card";
-import { initialDrivers } from "@/lib/data";
+import { useData } from "@/lib/data-context";
 import type { Driver } from "@/lib/types";
 import { DriverForm } from "./drivers-form";
 import { Badge } from "@/components/ui/badge";
 
 export default function DriversPage() {
-  const [drivers, setDrivers] = useState<Driver[]>(initialDrivers);
+  const { drivers, setDrivers } = useData();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
 
+  const handleDeleteDriver = (id: string) => {
+    setDrivers(prev => prev.map(d =>
+      d.id === id ? { ...d, isDeleted: true, deletedAt: new Date().toISOString() } : d
+    ));
+    setIsDialogOpen(false);
+    setEditingDriver(null);
+  };
+
   const handleSaveDriver = (driverData: Omit<Driver, 'id'> & { id?: string }) => {
     if (driverData.id) {
-        setDrivers(prev => prev.map(d => d.id === driverData.id ? ({ ...d, ...driverData } as Driver) : d));
+      setDrivers(prev => prev.map(d => d.id === driverData.id ? ({ ...d, ...driverData } as Driver) : d));
     } else {
-        const newDriver = { ...driverData, id: `drv-${Date.now()}` };
-        setDrivers(prev => [newDriver, ...prev]);
+      const newDriver = { ...driverData, id: `drv-${Date.now()}` };
+      setDrivers(prev => [newDriver, ...prev]);
     }
     setIsDialogOpen(false);
     setEditingDriver(null);
@@ -47,13 +55,15 @@ export default function DriversPage() {
     setIsDialogOpen(true);
   }
 
+  const activeDrivers = drivers.filter(d => !d.isDeleted);
+
   const formatPayRate = (driver: Driver) => {
     if (driver.payType === 'per-mile') {
-        return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(driver.payRate) + '/mile';
+      return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(driver.payRate) + '/mile';
     }
     return `${driver.payRate}% of revenue`;
   }
-  
+
   return (
     <>
       <PageHeader title="Drivers">
@@ -76,13 +86,13 @@ export default function DriversPage() {
               {editingDriver ? 'Edit the driver details.' : 'Enter the details for the new driver.'}
             </DialogDescription>
           </DialogHeader>
-          <DriverForm onSubmit={handleSaveDriver} initialData={editingDriver} />
+          <DriverForm onSubmit={handleSaveDriver} onDelete={handleDeleteDriver} initialData={editingDriver} />
         </DialogContent>
       </Dialog>
-      
+
       <Card>
         <Table>
-          {!drivers.length && <TableCaption>No drivers added yet.</TableCaption>}
+          {!activeDrivers.length && <TableCaption>No drivers added yet.</TableCaption>}
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
@@ -92,17 +102,17 @@ export default function DriversPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {drivers.map((item) => (
+            {activeDrivers.map((item) => (
               <TableRow key={item.id}>
                 <TableCell className="font-medium">{item.name}</TableCell>
                 <TableCell>
-                    <Badge variant="outline">{item.payType}</Badge>
+                  <Badge variant="outline">{item.payType}</Badge>
                 </TableCell>
                 <TableCell>{formatPayRate(item)}</TableCell>
                 <TableCell>
                   <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(item)} className="h-8 w-8">
-                      <Pencil className="h-4 w-4" />
-                      <span className="sr-only">Edit Driver</span>
+                    <Pencil className="h-4 w-4" />
+                    <span className="sr-only">Edit Driver</span>
                   </Button>
                 </TableCell>
               </TableRow>

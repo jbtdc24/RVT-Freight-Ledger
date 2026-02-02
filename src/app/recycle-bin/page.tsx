@@ -1,0 +1,182 @@
+"use client";
+
+import { useData } from "@/lib/data-context";
+import { PageHeader } from "@/components/page-header";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { RefreshCcw, Trash2, Truck, Users, Box } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
+import { format } from "date-fns";
+
+export default function RecycleBinPage() {
+    const { freight, assets, drivers, restoreItem, permanentlyDeleteItem } = useData();
+
+    const deletedFreight = freight.filter(f => f.isDeleted);
+    const deletedAssets = assets.filter(a => a.isDeleted);
+    const deletedDrivers = drivers.filter(d => d.isDeleted);
+
+    const formatCurrency = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
+
+    return (
+        <div className="space-y-8">
+            <PageHeader title="Recycle Bin">
+                <p className="text-muted-foreground">Recover deleted items or remove them permanently.</p>
+            </PageHeader>
+
+            {/* Deleted Loads */}
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <Truck className="h-5 w-5 text-primary" />
+                        <CardTitle>Deleted Loads</CardTitle>
+                    </div>
+                    <Badge variant="outline">{deletedFreight.length} items</Badge>
+                </CardHeader>
+                <CardContent>
+                    {deletedFreight.length === 0 ? (
+                        <p className="text-sm text-muted-foreground py-4 text-center">No deleted loads.</p>
+                    ) : (
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Freight ID</TableHead>
+                                    <TableHead>Deleted At</TableHead>
+                                    <TableHead>Route</TableHead>
+                                    <TableHead className="text-right">Revenue</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {deletedFreight.map((item) => (
+                                    <TableRow key={item.id}>
+                                        <TableCell className="font-medium">{item.freightId}</TableCell>
+                                        <TableCell className="text-xs text-muted-foreground">
+                                            {item.deletedAt ? format(new Date(item.deletedAt), 'MMM d, p') : 'N/A'}
+                                        </TableCell>
+                                        <TableCell className="text-sm">{item.origin} → {item.destination}</TableCell>
+                                        <TableCell className="text-right font-medium">{formatCurrency(item.revenue)}</TableCell>
+                                        <TableCell className="text-right space-x-2">
+                                            <Button variant="outline" size="sm" onClick={() => restoreItem('freight', item.id)}>
+                                                <RefreshCcw className="mr-2 h-4 w-4" />
+                                                Restore
+                                            </Button>
+                                            <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => permanentlyDeleteItem('freight', item.id)}>
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    )}
+                </CardContent>
+            </Card>
+
+            {/* Deleted Assets */}
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <Box className="h-5 w-5 text-primary" />
+                        <CardTitle>Deleted Assets</CardTitle>
+                    </div>
+                    <Badge variant="outline">{deletedAssets.length} items</Badge>
+                </CardHeader>
+                <CardContent>
+                    {deletedAssets.length === 0 ? (
+                        <p className="text-sm text-muted-foreground py-4 text-center">No deleted assets.</p>
+                    ) : (
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Identifier</TableHead>
+                                    <TableHead>Deleted At</TableHead>
+                                    <TableHead>Type</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {deletedAssets.map((item) => (
+                                    <TableRow key={item.id}>
+                                        <TableCell className="font-medium">{item.identifier}</TableCell>
+                                        <TableCell className="text-xs text-muted-foreground">
+                                            {item.deletedAt ? format(new Date(item.deletedAt), 'MMM d, p') : 'N/A'}
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge variant="outline">{item.type}</Badge>
+                                        </TableCell>
+                                        <TableCell className="text-right space-x-2">
+                                            <Button variant="outline" size="sm" onClick={() => restoreItem('asset', item.id)}>
+                                                <RefreshCcw className="mr-2 h-4 w-4" />
+                                                Restore
+                                            </Button>
+                                            <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => permanentlyDeleteItem('asset', item.id)}>
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    )}
+                </CardContent>
+            </Card>
+
+            {/* Deleted Drivers */}
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <Users className="h-5 w-5 text-primary" />
+                        <CardTitle>Deleted Drivers</CardTitle>
+                    </div>
+                    <Badge variant="outline">{deletedDrivers.length} items</Badge>
+                </CardHeader>
+                <CardContent>
+                    {deletedDrivers.length === 0 ? (
+                        <p className="text-sm text-muted-foreground py-4 text-center">No deleted drivers.</p>
+                    ) : (
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Name</TableHead>
+                                    <TableHead>Deleted At</TableHead>
+                                    <TableHead>Pay Info</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {deletedDrivers.map((item) => (
+                                    <TableRow key={item.id}>
+                                        <TableCell className="font-medium">{item.name}</TableCell>
+                                        <TableCell className="text-xs text-muted-foreground">
+                                            {item.deletedAt ? format(new Date(item.deletedAt), 'MMM d, p') : 'N/A'}
+                                        </TableCell>
+                                        <TableCell className="text-sm">
+                                            {item.payType === 'per-mile' ? `$${item.payRate}/mile` : `${item.payRate}% of rev`}
+                                        </TableCell>
+                                        <TableCell className="text-right space-x-2">
+                                            <Button variant="outline" size="sm" onClick={() => restoreItem('driver', item.id)}>
+                                                <RefreshCcw className="mr-2 h-4 w-4" />
+                                                Restore
+                                            </Button>
+                                            <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => permanentlyDeleteItem('driver', item.id)}>
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    )}
+                </CardContent>
+            </Card>
+        </div>
+    );
+}
