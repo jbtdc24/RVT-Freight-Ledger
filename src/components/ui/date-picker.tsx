@@ -1,83 +1,125 @@
 "use client"
 
 import * as React from "react"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { cn } from "@/lib/utils"
+import { format } from "date-fns"
+import { Calendar as CalendarIcon } from "lucide-react"
+
+import { cn, parseFlexibleDate } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { Calendar } from "@/components/ui/calendar"
+import {
+    Dialog,
+    DialogContent,
+    DialogTrigger,
+} from "@/components/ui/dialog"
 
 interface DatePickerProps {
     date: Date | undefined;
     onDateChange: (date: Date | undefined) => void;
     className?: string;
+    placeholder?: string;
 }
 
-const months = [
-    { value: 0, label: "January" }, { value: 1, label: "February" }, { value: 2, label: "March" },
-    { value: 3, label: "April" }, { value: 4, label: "May" }, { value: 5, label: "June" },
-    { value: 6, label: "July" }, { value: 7, label: "August" }, { value: 8, label: "September" },
-    { value: 9, label: "October" }, { value: 10, label: "November" }, { value: 11, label: "December" },
-]
+export function DatePicker({ date, onDateChange, className, placeholder = "Pick a date" }: DatePickerProps) {
+    const [internalDate, setInternalDate] = React.useState<Date | undefined>(date);
+    const [isOpen, setIsOpen] = React.useState(false);
 
-export function DatePicker({ date, onDateChange, className }: DatePickerProps) {
-    const [year, setYear] = React.useState<number | undefined>(date?.getFullYear());
-    const [month, setMonth] = React.useState<number | undefined>(date?.getMonth());
-    const [day, setDay] = React.useState<number | undefined>(date?.getDate());
+    const [dateText, setDateText] = React.useState("");
+    const isEditing = React.useRef(false);
 
     React.useEffect(() => {
-        setYear(date?.getFullYear());
-        setMonth(date?.getMonth());
-        setDay(date?.getDate());
-    }, [date]);
+        if (isOpen) {
+            setInternalDate(date);
+            setDateText(date ? format(date, "MM/dd/yyyy") : "");
+        }
+    }, [isOpen, date]);
 
-    const daysInMonth = (y?: number, m?: number) => (y !== undefined && m !== undefined) ? new Date(y, m + 1, 0).getDate() : 31;
+    React.useEffect(() => {
+        if (!isEditing.current) {
+            setDateText(internalDate ? format(internalDate, "MM/dd/yyyy") : "");
+        }
+    }, [internalDate]);
 
-    const handleDateChange = (newYear?: number, newMonth?: number, newDay?: number) => {
-        const y = newYear ?? year;
-        const m = newMonth ?? month;
-        const d = newDay ?? day;
-
-        if (y !== undefined && m !== undefined && d !== undefined) {
-            const maxDays = daysInMonth(y, m);
-            const correctedDay = Math.min(d, maxDays);
-            if (d !== correctedDay) {
-                setDay(correctedDay);
-            }
-            onDateChange(new Date(y, m, correctedDay));
-        } else {
-             onDateChange(undefined);
+    const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value;
+        setDateText(val);
+        const parsed = parseFlexibleDate(val);
+        if (parsed) {
+            setInternalDate(parsed);
         }
     };
 
-    const currentYear = new Date().getFullYear();
-    const years = Array.from({ length: 151 }, (_, i) => currentYear - 75 + i);
-    const numDays = daysInMonth(year, month);
-    const days = Array.from({ length: numDays }, (_, i) => i + 1);
+    const handleBlur = () => {
+        isEditing.current = false;
+        if (internalDate) {
+            setDateText(format(internalDate, "MM/dd/yyyy"));
+        }
+    };
+
+    const handleApply = () => {
+        onDateChange(internalDate);
+        setIsOpen(false);
+    };
 
     return (
-        <div className={cn("flex gap-2", className)}>
-            <Select onValueChange={(m) => { const newMonth = parseInt(m, 10); setMonth(newMonth); handleDateChange(year, newMonth, day); }} value={month?.toString()}>
-                <SelectTrigger>
-                    <SelectValue placeholder="Month" />
-                </SelectTrigger>
-                <SelectContent>
-                    {months.map(m => <SelectItem key={m.value} value={m.value.toString()}>{m.label}</SelectItem>)}
-                </SelectContent>
-            </Select>
-            <Select onValueChange={(d) => { const newDay = parseInt(d, 10); setDay(newDay); handleDateChange(year, month, newDay); }} value={day?.toString()}>
-                <SelectTrigger>
-                    <SelectValue placeholder="Day" />
-                </SelectTrigger>
-                <SelectContent>
-                    {days.map(d => <SelectItem key={d} value={d.toString()}>{d}</SelectItem>)}
-                </SelectContent>
-            </Select>
-            <Select onValueChange={(y) => { const newYear = parseInt(y, 10); setYear(newYear); handleDateChange(newYear, month, day); }} value={year?.toString()}>
-                <SelectTrigger>
-                    <SelectValue placeholder="Year" />
-                </SelectTrigger>
-                <SelectContent>
-                    {years.map(y => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}
-                </SelectContent>
-            </Select>
-        </div>
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+                <Button
+                    variant={"outline"}
+                    className={cn(
+                        "w-full justify-start text-left font-normal glass-card border-white/10 hover:border-primary/50 transition-all h-10",
+                        !date && "text-muted-foreground",
+                        className
+                    )}
+                >
+                    <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
+                    {date ? format(date, "MM/dd/yyyy") : <span>{placeholder}</span>}
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="w-auto p-0 border-white/10 bg-[#0B0E14] rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden scale-110">
+                <div className="p-8">
+                    <Calendar
+                        mode="single"
+                        selected={internalDate}
+                        onSelect={setInternalDate}
+                        initialFocus
+                    />
+
+                    <div className="mt-8 pt-6 border-t border-white/5 flex items-center justify-between gap-8">
+                        <input
+                            type="text"
+                            className="bg-white/5 border border-white/10 rounded-md px-4 py-2 text-[13px] text-white/90 font-mono w-[140px] text-center border-white/40 focus:outline-none focus:border-primary/50 transition-colors placeholder:text-white/20"
+                            placeholder="MM/DD/YYYY"
+                            value={dateText}
+                            onChange={handleTextChange}
+                            onFocus={() => isEditing.current = true}
+                            onBlur={handleBlur}
+                        />
+                        <div className="flex items-center gap-3">
+                            <Button
+                                variant="ghost"
+                                className="text-destructive hover:bg-destructive/10 px-6 h-10 text-[13px] font-medium"
+                                onClick={() => setInternalDate(undefined)}
+                            >
+                                Clear
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                className="text-white/40 hover:text-white hover:bg-white/5 px-6 h-10 text-[13px] font-medium"
+                                onClick={() => setIsOpen(false)}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                className="bg-[#7EE1AD] hover:bg-[#6CD09C] text-black font-bold h-10 px-8 rounded-md text-[13px]"
+                                onClick={handleApply}
+                            >
+                                Apply
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            </DialogContent>
+        </Dialog>
     )
 }

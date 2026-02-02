@@ -4,6 +4,8 @@ import { Toaster } from "@/components/ui/toaster";
 import AppLayout from '@/components/app-layout';
 import { ThemeProvider } from '@/components/theme-provider';
 
+import { DataProvider } from '@/lib/data-context';
+
 export const metadata: Metadata = {
   title: 'RVT Accounting',
   description: 'Freight and expense tracking for your trucking business.',
@@ -28,9 +30,11 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <AppLayout>
-            {children}
-          </AppLayout>
+          <DataProvider>
+            <AppLayout>
+              {children}
+            </AppLayout>
+          </DataProvider>
           <Toaster />
         </ThemeProvider>
       </body>

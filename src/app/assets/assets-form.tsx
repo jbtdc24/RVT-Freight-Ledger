@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Trash2 } from "lucide-react";
 import type { Asset } from "@/lib/types";
 
 const assetTypes = ['Truck', 'Business Car'] as const;
@@ -29,16 +30,17 @@ type AssetFormValues = z.infer<typeof formSchema>;
 
 type AssetFormProps = {
   onSubmit: (values: AssetFormValues & { id?: string }) => void;
+  onDelete?: (id: string) => void;
   initialData?: Asset | null;
 };
 
-export function AssetForm({ onSubmit, initialData }: AssetFormProps) {
+export function AssetForm({ onSubmit, initialData, onDelete }: AssetFormProps) {
   const form = useForm<AssetFormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: initialData || {
-      type: "Truck",
-      identifier: "",
-      description: "",
+    defaultValues: {
+      type: initialData?.type || "Truck",
+      identifier: initialData?.identifier || "",
+      description: initialData?.description || "",
     },
   });
 
@@ -95,7 +97,22 @@ export function AssetForm({ onSubmit, initialData }: AssetFormProps) {
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full">{initialData ? 'Save Changes' : 'Add Asset'}</Button>
+        <div className="flex gap-4">
+          {initialData && onDelete && (
+            <Button
+              type="button"
+              variant="destructive"
+              className="flex-1"
+              onClick={() => onDelete(initialData.id)}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete Asset
+            </Button>
+          )}
+          <Button type="submit" className={initialData && onDelete ? "flex-[2]" : "w-full"}>
+            {initialData ? 'Save Changes' : 'Add Asset'}
+          </Button>
+        </div>
       </form>
     </Form>
   );

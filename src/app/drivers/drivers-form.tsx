@@ -13,6 +13,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Trash2 } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import type { Driver } from "@/lib/types";
 
@@ -28,16 +29,17 @@ type DriverFormValues = z.infer<typeof formSchema>;
 
 type DriverFormProps = {
   onSubmit: (values: DriverFormValues & { id?: string }) => void;
+  onDelete?: (id: string) => void;
   initialData?: Driver | null;
 };
 
-export function DriverForm({ onSubmit, initialData }: DriverFormProps) {
+export function DriverForm({ onSubmit, initialData, onDelete }: DriverFormProps) {
   const form = useForm<DriverFormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: initialData || {
-      name: "",
-      payType: "per-mile",
-      payRate: 0,
+    defaultValues: {
+      name: initialData?.name || "",
+      payType: initialData?.payType || "per-mile",
+      payRate: initialData?.payRate || 0,
     },
   });
 
@@ -108,7 +110,22 @@ export function DriverForm({ onSubmit, initialData }: DriverFormProps) {
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full">{initialData ? 'Save Changes' : 'Add Driver'}</Button>
+        <div className="flex gap-4">
+          {initialData && onDelete && (
+            <Button
+              type="button"
+              variant="destructive"
+              className="flex-1"
+              onClick={() => onDelete(initialData.id)}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete Driver
+            </Button>
+          )}
+          <Button type="submit" className={initialData && onDelete ? "flex-[2]" : "w-full"}>
+            {initialData ? 'Save Changes' : 'Add Driver'}
+          </Button>
+        </div>
       </form>
     </Form>
   );

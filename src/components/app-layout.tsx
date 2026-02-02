@@ -2,11 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Gauge, Truck, Warehouse, Calculator, Menu, Users } from "lucide-react";
+import { Gauge, Truck, Warehouse, Calculator, Menu, Users, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { RvtLogo } from "@/components/icons";
 import { ThemeToggle } from "@/components/theme-toggle";
+
+import { useData } from "@/lib/data-context";
+import { Loader2 } from "lucide-react";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: Gauge },
@@ -14,10 +17,26 @@ const navItems = [
   { href: "/assets", label: "Assets", icon: Warehouse },
   { href: "/drivers", label: "Drivers", icon: Users },
   { href: "/payroll", label: "Payroll", icon: Calculator },
+  { href: "/recycle-bin", label: "Recycle Bin", icon: Trash2 },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { isLoaded } = useData();
+
+  if (!isLoaded) {
+    return (
+      <div className="flex min-h-screen w-full items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative">
+            <RvtLogo className="h-12 w-12 text-primary animate-pulse" />
+            <Loader2 className="h-20 w-20 text-primary/20 animate-spin absolute top-1/2 left-1/2 -mt-10 -ml-10" />
+          </div>
+          <span className="text-sm font-medium text-muted-foreground animate-pulse uppercase tracking-widest">Loading Ledger...</span>
+        </div>
+      </div>
+    );
+  }
 
   const navLinks = (
     <nav className="grid gap-2 px-4 py-4">
@@ -26,8 +45,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           key={href}
           href={href}
           className={`flex items-center gap-3 rounded-xl px-4 py-3 transition-all duration-300 group ${pathname === href
-              ? "bg-primary text-primary-foreground shadow-[0_0_15px_rgba(var(--primary),0.3)]"
-              : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
+            ? "bg-primary text-primary-foreground shadow-[0_0_15px_rgba(var(--primary),0.3)]"
+            : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
             }`}
         >
           <Icon className={`h-4 w-4 transition-transform duration-300 group-hover:scale-110 ${pathname === href ? "" : "text-primary/70"}`} />
@@ -41,7 +60,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <div className="flex min-h-screen w-full bg-background overflow-hidden">
+    <div className="flex min-h-screen w-full bg-background">
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex flex-col w-[260px] glass border-r-0">
         <div className="flex h-20 items-center px-8">

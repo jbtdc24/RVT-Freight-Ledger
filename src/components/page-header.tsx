@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+import { format } from "date-fns";
+import { useState, useEffect, type ReactNode } from "react";
 
 type PageHeaderProps = {
   title: string;
@@ -6,12 +7,13 @@ type PageHeaderProps = {
 };
 
 export function PageHeader({ title, children }: PageHeaderProps) {
-  const today = new Date().toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const today = mounted ? format(new Date(), 'EEEE, MMMM do, yyyy') : '';
 
   return (
     <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between mb-2">

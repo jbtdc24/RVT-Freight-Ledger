@@ -1,14 +1,20 @@
 "use client";
 
 import { useState, useMemo } from 'react';
-import { DollarSign, Wrench, Wallet } from "lucide-react";
+import { DollarSign, Wrench, Wallet, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import Link from 'next/link';
+import { cn } from "@/lib/utils";
 import { PageHeader } from '@/components/page-header';
-import { initialFreight } from '@/lib/data';
 import type { Freight } from '@/lib/types';
+import { useData } from "@/lib/data-context";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, ResponsiveContainer, XAxis, YAxis, CartesianGrid } from "recharts";
+import { format, subDays, subWeeks, subMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfDay, endOfDay, eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, isWithinInterval } from "date-fns";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { type DateRange } from "react-day-picker";
 
 const chartConfig = {
   revenue: {
@@ -19,35 +25,126 @@ const chartConfig = {
     label: "Expenses",
     color: "hsl(var(--destructive))",
   },
+  profit: {
+    label: "Net Profit",
+    color: "hsl(var(--success))",
+  },
 };
 
 export default function DashboardPage() {
-  const [freightData] = useState<Freight[]>(initialFreight);
+  const { freight } = useData();
+  const [timeRange, setTimeRange] = useState<'week' | 'month' | 'year' | 'custom'>('year');
+  const [customRange, setCustomRange] = useState<DateRange | undefined>(undefined);
 
-  const totalRevenue = useMemo(() =>
-    freightData.reduce((sum, item) => sum + item.revenue, 0),
-    [freightData]
+  const activeFreight = useMemo(() => freight.filter(item => !item.isDeleted), [freight]);
+
+  const filteredFreight = useMemo(() => {
+    let start: Date, end: Date;
+    const now = new Date();
+
+    if (timeRange === 'week') {
+      start = startOfDay(subDays(now, 6));
+      end = endOfDay(now);
+    } else if (timeRange === 'month') {
+      start = startOfMonth(now);
+      end = endOfMonth(now);
+    } else if (timeRange === 'year') {
+      start = startOfMonth(subMonths(now, 5));
+      end = endOfMonth(now);
+    } else if (timeRange === 'custom' && customRange?.from && customRange?.to) {
+      start = startOfDay(customRange.from);
+      end = endOfDay(customRange.to);
+    } else {
+      return activeFreight; // No filter
+    }
+
+    return activeFreight.filter(f => {
+      const d = new Date(f.date);
+      return isWithinInterval(d, { start, end });
+    });
+  }, [activeFreight, timeRange, customRange]);
+
+  const totalGrossRevenue = useMemo(() =>
+    filteredFreight.reduce((sum, item) => sum + item.revenue, 0),
+    [filteredFreight]
+  );
+
+  const totalOwnerRevenue = useMemo(() =>
+    filteredFreight.reduce((sum, item) => sum + (item.ownerAmount ?? item.revenue) + (item.fuelSurcharge || 0) + (item.loading || 0) + (item.unloading || 0) + (item.accessorials || 0), 0),
+    [filteredFreight]
   );
 
   const totalExpenses = useMemo(() =>
-    freightData.reduce((sum, item) => sum + item.totalExpenses, 0),
-    [freightData]
+    filteredFreight.reduce((sum, item) => sum + item.totalExpenses, 0),
+    [filteredFreight]
+  );
+
+  const netProfit = useMemo(() =>
+    filteredFreight.reduce((sum, item) => sum + (item.netProfit || 0), 0),
+    [filteredFreight]
   );
 
   const totalExpenseItems = useMemo(() =>
-    freightData.reduce((sum, item) => sum + item.expenses.length, 0),
-    [freightData]
+    filteredFreight.reduce((sum, item) => sum + item.expenses.length, 0),
+    [filteredFreight]
   );
 
-  const netProfit = totalRevenue - totalExpenses;
+  const chartData = useMemo(() => {
+    const labels: { label: string; range: [Date, Date]; fullDate: string }[] = [];
+    const now = new Date();
 
-  const chartData = [
-    { name: "Jan", revenue: 4500, expenses: 3200 },
-    { name: "Feb", revenue: 5200, expenses: 3800 },
-    { name: "Mar", revenue: 4800, expenses: 4100 },
-    { name: "Apr", revenue: 6100, expenses: 4500 },
-    { name: "May", revenue: totalRevenue, expenses: totalExpenses },
-  ];
+    if (timeRange === 'week') {
+      for (let i = 6; i >= 0; i--) {
+        const d = subDays(now, i);
+        labels.push({ label: format(d, 'EEE'), range: [startOfDay(d), endOfDay(d)], fullDate: format(d, 'MMMM do, yyyy') });
+      }
+    } else if (timeRange === 'month') {
+      const start = startOfMonth(now);
+      const end = endOfMonth(now);
+      const weeks = eachWeekOfInterval({ start, end });
+      weeks.forEach((w, i) => {
+        const ws = startOfWeek(w);
+        const we = endOfWeek(w);
+        labels.push({ label: `W${i + 1}`, range: [ws, we], fullDate: `${format(ws, 'MMM d')} - ${format(we, 'MMM d, yyyy')}` });
+      });
+    } else if (timeRange === 'year') {
+      for (let i = 5; i >= 0; i--) {
+        const d = subMonths(now, i);
+        labels.push({ label: format(d, 'MMM'), range: [startOfMonth(d), endOfMonth(d)], fullDate: format(d, 'MMMM yyyy') });
+      }
+    } else if (timeRange === 'custom' && customRange?.from && customRange?.to) {
+      const days = eachDayOfInterval({ start: customRange.from, end: customRange.to });
+      if (days.length <= 14) {
+        days.forEach(d => labels.push({ label: format(d, 'MMM d'), range: [startOfDay(d), endOfDay(d)], fullDate: format(d, 'MMMM d, yyyy') }));
+      } else if (days.length <= 60) {
+        const weeks = eachWeekOfInterval({ start: customRange.from, end: customRange.to });
+        weeks.forEach((w, i) => {
+          const ws = startOfWeek(w);
+          const we = endOfWeek(w);
+          labels.push({ label: `W${i + 1}`, range: [ws, we], fullDate: `${format(ws, 'MMM d')} - ${format(we, 'MMM d, yyyy')}` });
+        });
+      } else {
+        const months = eachMonthOfInterval({ start: customRange.from, end: customRange.to });
+        months.forEach(m => labels.push({ label: format(m, 'MMM'), range: [startOfMonth(m), endOfMonth(m)], fullDate: format(m, 'MMMM yyyy') }));
+      }
+    }
+
+    return labels.map(item => {
+      const monthFreight = activeFreight.filter(f => {
+        const d = new Date(f.date);
+        return d >= item.range[0] && d <= item.range[1];
+      });
+
+      const revenue = monthFreight.reduce((sum, f) =>
+        sum + (f.ownerAmount ?? f.revenue) + (f.fuelSurcharge || 0) + (f.loading || 0) + (f.unloading || 0) + (f.accessorials || 0)
+        , 0);
+
+      const expenses = monthFreight.reduce((sum, f) => sum + f.totalExpenses, 0);
+      const profit = revenue - expenses;
+
+      return { name: item.label, date: item.fullDate, revenue, expenses, profit };
+    });
+  }, [activeFreight, timeRange, customRange]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -59,23 +156,41 @@ export default function DashboardPage() {
 
   return (
     <>
-      <PageHeader title="Welcome back, Alex" />
+      <PageHeader title="Welcome back, Alex">
+        <div className="flex flex-col sm:flex-row items-center gap-4">
+          {timeRange === 'custom' && (
+            <DateRangePicker
+              date={customRange}
+              onDateChange={setCustomRange}
+              className="w-[280px]"
+            />
+          )}
+          <Tabs value={timeRange} onValueChange={(v) => setTimeRange(v as any)} className="w-[300px]">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="week">Week</TabsTrigger>
+              <TabsTrigger value="month">Month</TabsTrigger>
+              <TabsTrigger value="year">Year</TabsTrigger>
+              <TabsTrigger value="custom">Range</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+      </PageHeader>
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <Card className="glass-card overflow-hidden relative group">
           <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
             <DollarSign className="h-24 w-24 text-primary" />
           </div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Total Revenue</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Your Take-home</CardTitle>
             <div className="p-2 bg-primary/20 rounded-lg">
               <DollarSign className="h-4 w-4 text-primary" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold tracking-tight">{formatCurrency(totalRevenue)}</div>
+            <div className={`text-3xl font-bold tracking-tight ${totalOwnerRevenue >= 0 ? 'text-white' : 'text-destructive'}`}>{formatCurrency(totalOwnerRevenue)}</div>
             <div className="flex items-center gap-2 mt-1">
-              <span className="text-success text-xs font-medium">+8.5%</span>
-              <p className="text-xs text-muted-foreground italic truncate">from {freightData.length} loads</p>
+              <span className="text-success text-xs font-medium">Gross: {formatCurrency(totalGrossRevenue)}</span>
+              <p className="text-xs text-muted-foreground italic truncate">from {filteredFreight.length} loads</p>
             </div>
           </CardContent>
           <div className="absolute bottom-0 left-0 h-1 bg-primary w-full shadow-[0_0_10px_rgba(var(--primary),0.5)]" />
@@ -106,7 +221,7 @@ export default function DashboardPage() {
             <Wallet className="h-24 w-24 text-success" />
           </div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Net Profit</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Net Profit (After Split)</CardTitle>
             <div className="p-2 bg-success/20 rounded-lg">
               <Wallet className="h-4 w-4 text-success" />
             </div>
@@ -116,56 +231,103 @@ export default function DashboardPage() {
               {formatCurrency(netProfit)}
             </div>
             <div className="flex items-center gap-2 mt-1">
-              <span className="text-success text-xs font-medium">+15.2%</span>
-              <p className="text-xs text-muted-foreground italic">Your bottom line</p>
+              <p className="text-xs text-muted-foreground italic truncate">Total after all expenses</p>
             </div>
           </CardContent>
-          <div className="absolute bottom-0 left-0 h-1 bg-success w-full shadow-[0_0_10px_rgba(var(--success),0.5)]" />
+          <div className={`absolute bottom-0 left-0 h-1 w-full shadow-[0_0_10px_rgba(var(--success),0.5)] ${netProfit >= 0 ? 'bg-success' : 'bg-destructive'}`} />
         </Card>
       </div>
 
       <div className="grid gap-6">
         <Card className="glass-card border-none">
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-xl">Financial Overview</CardTitle>
+            <div>
+              <CardTitle className="text-xl">Financial Overview</CardTitle>
+              <p className="text-xs text-muted-foreground mt-1">Trend analysis for the selected period.</p>
+            </div>
             <div className="flex gap-2">
-              <div className="flex items-center gap-1.5 px-3 py-1 bg-muted rounded-full text-[10px] font-bold uppercase tracking-wider">
+              <div className="flex items-center gap-1.5 px-3 py-1 bg-primary/10 rounded-full text-[10px] font-bold uppercase tracking-wider text-primary border border-primary/20">
                 <div className="w-2 h-2 rounded-full bg-primary" /> Revenue
               </div>
-              <div className="flex items-center gap-1.5 px-3 py-1 bg-muted rounded-full text-[10px] font-bold uppercase tracking-wider">
+              <div className="flex items-center gap-1.5 px-3 py-1 bg-destructive/10 rounded-full text-[10px] font-bold uppercase tracking-wider text-destructive border border-destructive/20">
                 <div className="w-2 h-2 rounded-full bg-destructive" /> Expenses
+              </div>
+              <div className="flex items-center gap-1.5 px-3 py-1 bg-success/10 rounded-full text-[10px] font-bold uppercase tracking-wider text-success border border-success/20">
+                <div className="w-2 h-2 rounded-full bg-success" /> Profit
               </div>
             </div>
           </CardHeader>
-          <CardContent className="h-[350px]">
+          <CardContent className="h-[400px] pt-4">
             <ChartContainer config={chartConfig} className="h-full w-full">
-              <BarChart accessibilityLayer data={chartData} margin={{ top: 20 }}>
+              <AreaChart data={chartData} margin={{ top: 20, right: 20, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--color-revenue)" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="var(--color-revenue)" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="colorExpenses" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--color-expenses)" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="var(--color-expenses)" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--color-profit)" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="var(--color-profit)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="currentColor" opacity={0.1} />
                 <XAxis
                   dataKey="name"
                   stroke="currentColor"
-                  opacity={0.3}
+                  opacity={0.5}
                   fontSize={10}
                   tickLine={false}
                   axisLine={false}
+                  dy={10}
                 />
                 <YAxis
                   stroke="currentColor"
-                  opacity={0.3}
+                  opacity={0.5}
                   fontSize={10}
                   tickLine={false}
                   axisLine={false}
-                  tickFormatter={(value: number) => `$${value / 1000}k`}
+                  tickFormatter={(value: number) => `$${value}`}
                 />
                 <ChartTooltip
-                  cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                  cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 2 }}
+                  labelFormatter={(label, payload) => payload[0]?.payload?.date || label}
                   content={<ChartTooltipContent
-                    formatter={(value) => formatCurrency(value as number)}
+                    formatter={(value: any) => formatCurrency(value as number)}
                     indicator="dot"
                   />}
                 />
-                <Bar dataKey="revenue" fill="var(--color-revenue)" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="expenses" fill="var(--color-expenses)" radius={[4, 4, 0, 0]} />
-              </BarChart>
+                <Area
+                  type="monotone"
+                  dataKey="revenue"
+                  stroke="var(--color-revenue)"
+                  strokeWidth={3}
+                  fillOpacity={1}
+                  fill="url(#colorRevenue)"
+                  animationDuration={1500}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="expenses"
+                  stroke="var(--color-expenses)"
+                  strokeWidth={3}
+                  fillOpacity={1}
+                  fill="url(#colorExpenses)"
+                  animationDuration={1800}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="profit"
+                  stroke="var(--color-profit)"
+                  strokeWidth={3}
+                  fillOpacity={1}
+                  fill="url(#colorProfit)"
+                  animationDuration={2000}
+                />
+              </AreaChart>
             </ChartContainer>
           </CardContent>
         </Card>
@@ -174,37 +336,106 @@ export default function DashboardPage() {
       <div className="grid gap-6">
         <Card className="glass-card border-none">
           <CardHeader>
-            <CardTitle className="text-xl">Recent Transactions</CardTitle>
+            <CardTitle className="text-xl">Recent Activity</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
-              {[
-                { id: '1', date: 'May 12, 2024', desc: 'Freight #3053 - Dallas to Miami', amount: 4200.00, status: 'Completed', type: 'Income' },
-                { id: '2', date: 'May 10, 2024', desc: 'Fuel Stop - Love\'s Dallas', amount: -450.25, status: 'Processed', type: 'Expense' },
-                { id: '3', date: 'May 08, 2024', desc: 'Freight #3052 - Chicago to Dallas', amount: 3800.00, status: 'Completed', type: 'Income' },
-              ].map((tx) => (
-                <div key={tx.id} className="flex items-center justify-between group cursor-pointer">
-                  <div className="flex items-center gap-4">
-                    <div className={`p-2 rounded-full ${tx.type === 'Income' ? 'bg-success/20 text-success' : 'bg-destructive/20 text-destructive'}`}>
-                      {tx.type === 'Income' ? <DollarSign className="h-4 w-4" /> : <Wrench className="h-4 w-4" />}
+              {(() => {
+                const transactions: any[] = [];
+
+                // 1. Add normal freight revenue
+                activeFreight.forEach(item => {
+                  transactions.push({
+                    id: `rev-${item.id}`,
+                    loadId: item.id,
+                    type: 'revenue',
+                    title: `Freight #${item.freightId} - ${item.origin} to ${item.destination}`,
+                    date: new Date(item.date),
+                    amount: item.revenue,
+                    status: 'Completed',
+                    link: '/freight-ledger',
+                    icon: <DollarSign className="h-4 w-4" />,
+                    color: 'success'
+                  });
+
+                  // 2. Add individual expenses from each load
+                  item.expenses.forEach(exp => {
+                    transactions.push({
+                      id: `exp-${exp.id}`,
+                      loadId: item.id,
+                      type: 'expense',
+                      title: `${exp.category}: ${exp.description} (Load #${item.freightId})`,
+                      date: new Date(item.date),
+                      amount: -exp.amount,
+                      status: 'Paid',
+                      link: '/freight-ledger',
+                      icon: <Wrench className="h-4 w-4" />,
+                      color: 'destructive'
+                    });
+                  });
+                });
+
+                // 3. Add deletions
+                freight.filter(f => f.isDeleted).forEach(item => {
+                  transactions.push({
+                    id: `del-${item.id}`,
+                    type: 'deletion',
+                    title: `DELETED: Load #${item.freightId}`,
+                    date: item.deletedAt ? new Date(item.deletedAt) : new Date(),
+                    amount: 0,
+                    status: 'Removed',
+                    link: '/recycle-bin',
+                    icon: <Trash2 className="h-4 w-4" />,
+                    color: 'muted'
+                  });
+                });
+
+                // Sort by date descending and take top 10 for a better "history" view
+                const recent = transactions
+                  .sort((a, b) => b.date.getTime() - a.date.getTime())
+                  .slice(0, 8);
+
+                if (recent.length === 0) {
+                  return <p className="text-sm text-muted-foreground text-center py-4">No recent activity.</p>;
+                }
+
+                return recent.map((item) => (
+                  <Link href={`${item.link}${item.loadId ? `?edit=${item.loadId}` : ''}`} key={item.id}>
+                    <div className="flex items-center justify-between group cursor-pointer hover:bg-white/5 p-2 rounded-xl transition-all active:scale-[0.98]">
+                      <div className="flex items-center gap-4">
+                        <div className={cn(
+                          "p-2 rounded-full",
+                          item.color === 'success' ? "bg-success/20 text-success" :
+                            item.color === 'destructive' ? "bg-destructive/20 text-destructive" :
+                              "bg-white/10 text-white/40"
+                        )}>
+                          {item.icon}
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold group-hover:text-primary transition-colors">{item.title}</span>
+                          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{format(item.date, 'MMM dd, yyyy')}</span>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end">
+                        <span className={cn(
+                          "text-sm font-bold",
+                          item.amount > 0 ? "text-success" :
+                            item.amount < 0 ? "text-destructive" : "text-white/20"
+                        )}>
+                          {item.amount !== 0 ? (item.amount > 0 ? '+' : '') + formatCurrency(item.amount) : '---'}
+                        </span>
+                        <span className="text-[10px] py-0.5 px-2 bg-white/5 rounded-full text-white/40 font-medium">{item.status}</span>
+                      </div>
                     </div>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-bold group-hover:text-primary transition-colors">{tx.desc}</span>
-                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{tx.date}</span>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end">
-                    <span className={`text-sm font-bold ${tx.type === 'Income' ? 'text-success' : ''}`}>
-                      {tx.type === 'Income' ? '+' : ''}{formatCurrency(tx.amount)}
-                    </span>
-                    <span className="text-[10px] py-0.5 px-2 bg-muted rounded-full text-muted-foreground font-medium">{tx.status}</span>
-                  </div>
-                </div>
-              ))}
+                  </Link>
+                ));
+              })()}
             </div>
-            <Button variant="ghost" className="w-full mt-6 text-xs text-muted-foreground hover:text-primary">
-              View All Transactions
-            </Button>
+            <Link href="/freight-ledger">
+              <Button variant="ghost" className="w-full mt-6 text-[10px] font-black uppercase tracking-widest text-white/20 hover:text-primary hover:bg-white/5">
+                View All Activity
+              </Button>
+            </Link>
           </CardContent>
         </Card>
       </div>
