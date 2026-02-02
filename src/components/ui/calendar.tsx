@@ -58,22 +58,19 @@ function Calendar({
           return <ChevronRight className="h-5 w-5" />
         },
         Dropdown: ({ value, onChange, options, ...props }) => {
-          const selected = options?.find((option) => option.value === value);
-          const handleValueChange = (newValue: string) => {
-            if (onChange) {
-              const event = {
-                target: { value: newValue },
-              } as React.ChangeEvent<HTMLSelectElement>;
-              onChange(event);
-            }
+          const selected = options?.find((option) => String(option.value) === String(value));
+          const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+            const changeEvent = {
+              target: { value: e.target.value },
+            } as React.ChangeEvent<HTMLSelectElement>;
+            onChange?.(changeEvent);
           };
-
           return (
-            <div className="relative inline-flex items-center">
+            <div className="relative inline-flex items-center cursor-pointer hover:bg-white/5 rounded-md">
               <select
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 appearance-none"
                 value={value}
-                onChange={onChange}
+                onChange={handleChange}
               >
                 {options?.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -81,8 +78,8 @@ function Calendar({
                   </option>
                 ))}
               </select>
-              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs font-black text-white uppercase tracking-wider hover:bg-white/10 transition-colors pointer-events-none">
-                {selected?.label}
+              <div className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white uppercase tracking-wider pointer-events-none">
+                {selected?.label || value}
                 <ChevronDown className="h-3 w-3 text-white/40" />
               </div>
             </div>

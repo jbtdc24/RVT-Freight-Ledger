@@ -5,7 +5,7 @@ import { Calendar as CalendarIcon, ArrowRight } from "lucide-react"
 import { format, subDays, subMonths, startOfMonth, startOfQuarter } from "date-fns"
 import { type DateRange } from "react-day-picker"
 
-import { cn } from "@/lib/utils"
+import { cn, parseFlexibleDate } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import {
@@ -27,12 +27,62 @@ export function DateRangePicker({
   const [internalRange, setInternalRange] = React.useState<DateRange | undefined>(date);
   const [isOpen, setIsOpen] = React.useState(false);
 
+  const [fromText, setFromText] = React.useState("");
+  const [toText, setToText] = React.useState("");
+
+  const isEditingFrom = React.useRef(false);
+  const isEditingTo = React.useRef(false);
+
   // Sync internal range when dialog opens or prop changes
   React.useEffect(() => {
     if (isOpen) {
       setInternalRange(date);
+      setFromText(date?.from ? format(date.from, "MM/dd/yyyy") : "");
+      setToText(date?.to ? format(date.to, "MM/dd/yyyy") : "");
     }
   }, [isOpen, date]);
+
+  // Sync text inputs when internalRange changes (e.g. from Calendar pick)
+  React.useEffect(() => {
+    if (!isEditingFrom.current) {
+      setFromText(internalRange?.from ? format(internalRange.from, "MM/dd/yyyy") : "");
+    }
+    if (!isEditingTo.current) {
+      setToText(internalRange?.to ? format(internalRange.to, "MM/dd/yyyy") : "");
+    }
+  }, [internalRange]);
+
+  const handleFromChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setFromText(val);
+    const parsed = parseFlexibleDate(val);
+    if (parsed) {
+      setInternalRange(prev => ({ from: parsed, to: prev?.to }));
+    }
+  };
+
+  const handleToChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setToText(val);
+    const parsed = parseFlexibleDate(val);
+    if (parsed) {
+      setInternalRange(prev => ({ from: prev?.from, to: parsed }));
+    }
+  };
+
+  const handleBlurFrom = () => {
+    isEditingFrom.current = false;
+    if (internalRange?.from) {
+      setFromText(format(internalRange.from, "MM/dd/yyyy"));
+    }
+  };
+
+  const handleBlurTo = () => {
+    isEditingTo.current = false;
+    if (internalRange?.to) {
+      setToText(format(internalRange.to, "MM/dd/yyyy"));
+    }
+  };
 
   const presets = [
     { label: 'Last 30 days', range: { from: subDays(new Date(), 30), to: new Date() } },
@@ -64,17 +114,17 @@ export function DateRangePicker({
             {date?.from ? (
               date.to ? (
                 <>
-                  {format(date.from, "dd/MM/yyyy")} - {format(date.to, "dd/MM/yyyy")}
+                  {format(date.from, "MM/dd/yyyy")} - {format(date.to, "MM/dd/yyyy")}
                 </>
               ) : (
-                format(date.from, "dd/MM/yyyy")
+                format(date.from, "MM/dd/yyyy")
               )
             ) : (
               <span>Select Date Range</span>
             )}
           </Button>
         </DialogTrigger>
-        <DialogContent className="max-w-none w-auto p-0 border-white/10 bg-[#0B0E14] rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden scale-110" sideOffset={0}>
+        <DialogContent className="max-w-none w-auto p-0 border-white/10 bg-[#0B0E14] rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden scale-110">
           <div className="flex divide-x divide-white/5">
             {/* Sidebar */}
             <div className="w-[180px] p-4 flex flex-col gap-1 bg-[#0F1219]">
@@ -108,13 +158,25 @@ export function DateRangePicker({
               {/* Footer Actions */}
               <div className="mt-8 pt-6 border-t border-white/5 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="bg-white/5 border border-white/10 rounded-md px-4 py-2 text-[13px] text-white/60 font-mono w-[120px] text-center border-white/40">
-                    {internalRange?.from ? format(internalRange.from, "dd/MM/yyyy") : "DD/MM/YYYY"}
-                  </div>
+                  <input
+                    type="text"
+                    className="bg-white/5 border border-white/10 rounded-md px-4 py-2 text-[13px] text-white/90 font-mono w-[120px] text-center border-white/40 focus:outline-none focus:border-primary/50 transition-colors placeholder:text-white/20"
+                    placeholder="MM/DD/YYYY"
+                    value={fromText}
+                    onChange={handleFromChange}
+                    onFocus={() => isEditingFrom.current = true}
+                    onBlur={handleBlurFrom}
+                  />
                   <ArrowRight className="h-4 w-4 text-white/20" />
-                  <div className="bg-white/5 border border-white/10 rounded-md px-4 py-2 text-[13px] text-white/60 font-mono w-[120px] text-center border-white/40">
-                    {internalRange?.to ? format(internalRange.to, "dd/MM/yyyy") : "DD/MM/YYYY"}
-                  </div>
+                  <input
+                    type="text"
+                    className="bg-white/5 border border-white/10 rounded-md px-4 py-2 text-[13px] text-white/90 font-mono w-[120px] text-center border-white/40 focus:outline-none focus:border-primary/50 transition-colors placeholder:text-white/20"
+                    placeholder="MM/DD/YYYY"
+                    value={toText}
+                    onChange={handleToChange}
+                    onFocus={() => isEditingTo.current = true}
+                    onBlur={handleBlurTo}
+                  />
                 </div>
                 <div className="flex items-center gap-3">
                   <Button
