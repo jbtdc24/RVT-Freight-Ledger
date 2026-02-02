@@ -18,44 +18,41 @@ function Calendar({
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      className={cn("p-4", className)}
+      className={cn("p-6 bg-black text-white rounded-xl shadow-2xl", className)}
       classNames={{
-        months: "flex flex-col sm:flex-row space-y-4 sm:space-x-8 sm:space-y-0",
-        month: "space-y-4",
-        caption: "flex justify-center pt-1 relative items-center mb-2",
-        caption_label: "text-sm font-bold tracking-tight uppercase",
+        months: "flex flex-col md:flex-row space-y-8 md:space-x-12 md:space-y-0",
+        month: "space-y-6",
+        caption: "flex flex-col items-start gap-1 relative mb-4",
+        caption_label: "text-lg font-black tracking-tighter uppercase font-mono",
         caption_dropdowns: "flex justify-center gap-1",
-        nav: "space-x-1 flex items-center",
+        nav: "flex items-center gap-2 mb-4",
         nav_button: cn(
-          buttonVariants({ variant: "outline" }),
-          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 border-white/10 hover:border-primary/50 transition-all"
+          "h-8 w-8 bg-transparent p-0 text-white/40 hover:text-white transition-all transform hover:scale-110"
         ),
-        nav_button_previous: "absolute left-2",
-        nav_button_next: "absolute right-2",
-        table: "w-full border-collapse space-y-1",
-        head_row: "flex",
-        head_cell:
-          "text-muted-foreground rounded-md w-9 font-medium text-[0.7rem] uppercase tracking-widest",
-        row: "flex w-full mt-2",
-        cell: "h-9 w-9 text-center text-sm p-0 relative [&:has([aria-selected])]:bg-primary/10 first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20 transition-colors",
+        nav_button_previous: "absolute -left-10 top-20 z-10",
+        nav_button_next: "absolute -left-10 top-28 z-10",
+        table: "w-full border-collapse",
+        head_row: "flex mb-4",
+        head_cell: "text-white/30 rounded-md w-11 font-bold text-[0.7rem] uppercase tracking-widest text-center",
+        row: "flex w-full mt-1",
+        cell: "h-11 w-11 text-center text-sm p-0 relative transition-all duration-200",
         day: cn(
-          buttonVariants({ variant: "ghost" }),
-          "h-9 w-9 p-0 font-normal hover:bg-primary/20 hover:text-primary transition-all rounded-md"
+          "h-11 w-11 p-0 font-medium hover:text-primary transition-all rounded-none flex items-center justify-center relative group"
         ),
-        day_selected:
-          "bg-primary !text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground shadow-[0_0_15px_rgba(var(--primary),0.5)] z-10",
-        day_today: "border border-primary/50 text-primary font-bold",
-        day_outside: "text-muted-foreground/30 opacity-50",
-        day_disabled: "text-muted-foreground/30 opacity-50",
-        day_range_middle:
-          "aria-selected:bg-primary/10 aria-selected:text-primary",
+        day_selected: "bg-white !text-black font-black z-10 hover:bg-white hover:text-black",
+        day_today: "after:content-[''] after:absolute after:bottom-2 after:left-1/2 after:-translate-x-1/2 after:w-1 after:h-1 after:bg-primary after:rounded-full font-bold",
+        day_outside: "text-white/10 opacity-50",
+        day_disabled: "text-white/10 opacity-50",
+        day_range_middle: "bg-white/10 !text-white rounded-none",
+        day_range_start: "rounded-l-none bg-white !text-black font-black",
+        day_range_end: "rounded-r-none bg-white !text-black font-black",
         day_hidden: "invisible",
         ...classNames,
       }}
       components={{
         Chevron: ({ ...props }) => {
-          if (props.orientation === 'left') return <ChevronLeft className="h-4 w-4" />
-          return <ChevronRight className="h-4 w-4" />
+          if (props.orientation === 'left') return <ChevronLeft className="h-5 w-5" />
+          return <ChevronRight className="h-5 w-5" />
         }
       }}
       {...props}
