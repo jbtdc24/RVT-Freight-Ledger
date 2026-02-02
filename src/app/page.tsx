@@ -53,13 +53,30 @@ export default function DashboardPage() {
     [activeFreight]
   );
 
-  const chartData = [
-    { name: "Jan", revenue: 4500, expenses: 3200 },
-    { name: "Feb", revenue: 5200, expenses: 3800 },
-    { name: "Mar", revenue: 4800, expenses: 4100 },
-    { name: "Apr", revenue: 6100, expenses: 4500 },
-    { name: "May", revenue: totalGrossRevenue, expenses: totalExpenses },
-  ];
+  const chartData = useMemo(() => {
+    const monthOrder = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const now = new Date();
+
+    // Generate the last 5 months relative to now
+    const labels = [];
+    for (let i = 4; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      labels.push(format(d, 'MMM'));
+    }
+
+    return labels.map(month => {
+      // Filter freight for this month (across any year for simplicity in this demo, or filter by year for precision)
+      const monthFreight = activeFreight.filter(f => format(new Date(f.date), 'MMM') === month);
+
+      const revenue = monthFreight.reduce((sum, item) =>
+        sum + (item.ownerAmount ?? item.revenue) + (item.fuelSurcharge || 0) + (item.loading || 0) + (item.unloading || 0) + (item.accessorials || 0)
+        , 0);
+
+      const expenses = monthFreight.reduce((sum, item) => sum + item.totalExpenses, 0);
+
+      return { name: month, revenue, expenses };
+    });
+  }, [activeFreight]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-US", {
