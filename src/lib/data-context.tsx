@@ -32,9 +32,25 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             const savedAssets = localStorage.getItem('rvt_assets');
             const savedDrivers = localStorage.getItem('rvt_drivers');
 
-            if (savedFreight) setFreight(JSON.parse(savedFreight).map((f: any) => ({ ...f, date: new Date(f.date) })));
-            if (savedAssets) setAssets(JSON.parse(savedAssets));
-            if (savedDrivers) setDrivers(JSON.parse(savedDrivers));
+            if (savedFreight) {
+                const parsed = JSON.parse(savedFreight);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    setFreight(parsed.map((f: any) => ({
+                        ...f,
+                        date: new Date(f.date),
+                        ownerPercentage: f.ownerPercentage ?? 100,
+                        ownerAmount: f.ownerAmount ?? (f.lineHaul || 0)
+                    })));
+                }
+            }
+            if (savedAssets) {
+                const parsed = JSON.parse(savedAssets);
+                if (Array.isArray(parsed) && parsed.length > 0) setAssets(parsed);
+            }
+            if (savedDrivers) {
+                const parsed = JSON.parse(savedDrivers);
+                if (Array.isArray(parsed) && parsed.length > 0) setDrivers(parsed);
+            }
         } catch (e) {
             console.error("Failed to load data from localStorage", e);
         } finally {

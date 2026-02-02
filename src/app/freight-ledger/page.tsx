@@ -31,7 +31,7 @@ import { FilterBar, type FiltersState } from "./filter-bar";
 import { isBefore, isAfter, startOfDay, endOfDay, format } from 'date-fns';
 
 export default function FreightLedgerPage() {
-  const { freight, setFreight, drivers, deleteItem } = useData();
+  const { freight, setFreight, drivers, assets, deleteItem } = useData();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingFreight, setEditingFreight] = useState<Freight | null>(null);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
@@ -161,7 +161,7 @@ export default function FreightLedgerPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="max-h-[80vh] overflow-y-auto p-1">
-            <FreightForm onSubmit={handleSaveFreight} onDelete={handleDeleteFreight} initialData={editingFreight} drivers={drivers} />
+            <FreightForm onSubmit={handleSaveFreight} onDelete={handleDeleteFreight} initialData={editingFreight} drivers={drivers} assets={assets} />
           </div>
         </DialogContent>
       </Dialog>
@@ -214,14 +214,22 @@ export default function FreightLedgerPage() {
                           <h3 className="text-lg font-headline mb-4">Financials</h3>
                           <div className="grid grid-cols-2 gap-4">
                             <div><p className="text-sm text-muted-foreground">Line Haul</p><p>{formatCurrency(item.lineHaul)}</p></div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Our Share ({item.ownerPercentage}%)</p>
+                              <p className="font-bold text-primary">{formatCurrency(item.ownerAmount)}</p>
+                            </div>
                             <div><p className="text-sm text-muted-foreground">Fuel Surcharge</p><p>{formatCurrency(item.fuelSurcharge)}</p></div>
                             <div><p className="text-sm text-muted-foreground">Loading</p><p>{formatCurrency(item.loading)}</p></div>
                             <div><p className="text-sm text-muted-foreground">Unloading</p><p>{formatCurrency(item.unloading)}</p></div>
                             <div><p className="text-sm text-muted-foreground">Accessorials</p><p>{formatCurrency(item.accessorials)}</p></div>
                             <div className="col-span-2 border-t pt-4 mt-2">
-                              <div className="flex justify-between items-center font-bold">
-                                <span>Total Revenue:</span>
+                              <div className="flex justify-between items-center text-xs text-muted-foreground mb-1">
+                                <span>Gross Revenue (100%):</span>
                                 <span>{formatCurrency(item.revenue)}</span>
+                              </div>
+                              <div className="flex justify-between items-center font-bold">
+                                <span>Your Adjusted Revenue:</span>
+                                <span>{formatCurrency(item.ownerAmount + item.fuelSurcharge + item.loading + item.unloading + item.accessorials)}</span>
                               </div>
                               <div className="flex justify-between items-center font-bold text-destructive">
                                 <span>Total Expenses:</span>

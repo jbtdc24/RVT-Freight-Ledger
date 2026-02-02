@@ -4,11 +4,13 @@ import { useState, useMemo } from 'react';
 import { DollarSign, Wrench, Wallet } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import Link from 'next/link';
 import { PageHeader } from '@/components/page-header';
 import type { Freight } from '@/lib/types';
 import { useData } from "@/lib/data-context";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
+import { format } from "date-fns";
 
 const chartConfig = {
   revenue: {
@@ -26,8 +28,13 @@ export default function DashboardPage() {
 
   const activeFreight = useMemo(() => freight.filter(item => !item.isDeleted), [freight]);
 
-  const totalRevenue = useMemo(() =>
+  const totalGrossRevenue = useMemo(() =>
     activeFreight.reduce((sum, item) => sum + item.revenue, 0),
+    [activeFreight]
+  );
+
+  const totalOwnerRevenue = useMemo(() =>
+    activeFreight.reduce((sum, item) => sum + (item.ownerAmount ?? item.revenue) + (item.fuelSurcharge || 0) + (item.loading || 0) + (item.unloading || 0) + (item.accessorials || 0), 0),
     [activeFreight]
   );
 
@@ -36,19 +43,22 @@ export default function DashboardPage() {
     [activeFreight]
   );
 
+  const netProfit = useMemo(() =>
+    activeFreight.reduce((sum, item) => sum + (item.netProfit || 0), 0),
+    [activeFreight]
+  );
+
   const totalExpenseItems = useMemo(() =>
     activeFreight.reduce((sum, item) => sum + item.expenses.length, 0),
     [activeFreight]
   );
-
-  const netProfit = totalRevenue - totalExpenses;
 
   const chartData = [
     { name: "Jan", revenue: 4500, expenses: 3200 },
     { name: "Feb", revenue: 5200, expenses: 3800 },
     { name: "Mar", revenue: 4800, expenses: 4100 },
     { name: "Apr", revenue: 6100, expenses: 4500 },
-    { name: "May", revenue: totalRevenue, expenses: totalExpenses },
+    { name: "May", revenue: totalGrossRevenue, expenses: totalExpenses },
   ];
 
   const formatCurrency = (value: number) => {
@@ -68,15 +78,15 @@ export default function DashboardPage() {
             <DollarSign className="h-24 w-24 text-primary" />
           </div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Total Revenue</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Your Take-home</CardTitle>
             <div className="p-2 bg-primary/20 rounded-lg">
               <DollarSign className="h-4 w-4 text-primary" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold tracking-tight">{formatCurrency(totalRevenue)}</div>
+            <div className="text-3xl font-bold tracking-tight">{formatCurrency(totalOwnerRevenue)}</div>
             <div className="flex items-center gap-2 mt-1">
-              <span className="text-success text-xs font-medium">+8.5%</span>
+              <span className="text-success text-xs font-medium">Gross: {formatCurrency(totalGrossRevenue)}</span>
               <p className="text-xs text-muted-foreground italic truncate">from {activeFreight.length} loads</p>
             </div>
           </CardContent>
@@ -108,7 +118,7 @@ export default function DashboardPage() {
             <Wallet className="h-24 w-24 text-success" />
           </div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Net Profit</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Net Profit (After Split)</CardTitle>
             <div className="p-2 bg-success/20 rounded-lg">
               <Wallet className="h-4 w-4 text-success" />
             </div>
@@ -118,11 +128,10 @@ export default function DashboardPage() {
               {formatCurrency(netProfit)}
             </div>
             <div className="flex items-center gap-2 mt-1">
-              <span className="text-success text-xs font-medium">+15.2%</span>
-              <p className="text-xs text-muted-foreground italic">Your bottom line</p>
+              <p className="text-xs text-muted-foreground italic truncate">Total after all expenses</p>
             </div>
           </CardContent>
-          <div className="absolute bottom-0 left-0 h-1 bg-success w-full shadow-[0_0_10px_rgba(var(--success),0.5)]" />
+          <div className={`absolute bottom-0 left-0 h-1 w-full shadow-[0_0_10px_rgba(var(--success),0.5)] ${netProfit >= 0 ? 'bg-success' : 'bg-destructive'}`} />
         </Card>
       </div>
 
@@ -180,33 +189,34 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
-              {[
-                { id: '1', date: 'May 12, 2024', desc: 'Freight #3053 - Dallas to Miami', amount: 4200.00, status: 'Completed', type: 'Income' },
-                { id: '2', date: 'May 10, 2024', desc: 'Fuel Stop - Love\'s Dallas', amount: -450.25, status: 'Processed', type: 'Expense' },
-                { id: '3', date: 'May 08, 2024', desc: 'Freight #3052 - Chicago to Dallas', amount: 3800.00, status: 'Completed', type: 'Income' },
-              ].map((tx) => (
-                <div key={tx.id} className="flex items-center justify-between group cursor-pointer">
+              {activeFreight.slice(0, 3).map((item) => (
+                <div key={item.id} className="flex items-center justify-between group cursor-pointer">
                   <div className="flex items-center gap-4">
-                    <div className={`p-2 rounded-full ${tx.type === 'Income' ? 'bg-success/20 text-success' : 'bg-destructive/20 text-destructive'}`}>
-                      {tx.type === 'Income' ? <DollarSign className="h-4 w-4" /> : <Wrench className="h-4 w-4" />}
+                    <div className="p-2 rounded-full bg-success/20 text-success">
+                      <DollarSign className="h-4 w-4" />
                     </div>
                     <div className="flex flex-col">
-                      <span className="text-sm font-bold group-hover:text-primary transition-colors">{tx.desc}</span>
-                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{tx.date}</span>
+                      <span className="text-sm font-bold group-hover:text-primary transition-colors">Freight {item.freightId} - {item.origin} to {item.destination}</span>
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{format(item.date, 'MMM dd, yyyy')}</span>
                     </div>
                   </div>
                   <div className="flex flex-col items-end">
-                    <span className={`text-sm font-bold ${tx.type === 'Income' ? 'text-success' : ''}`}>
-                      {tx.type === 'Income' ? '+' : ''}{formatCurrency(tx.amount)}
+                    <span className="text-sm font-bold text-success">
+                      +{formatCurrency(item.revenue)}
                     </span>
-                    <span className="text-[10px] py-0.5 px-2 bg-muted rounded-full text-muted-foreground font-medium">{tx.status}</span>
+                    <span className="text-[10px] py-0.5 px-2 bg-muted rounded-full text-muted-foreground font-medium">Completed</span>
                   </div>
                 </div>
               ))}
+              {activeFreight.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">No recent transactions.</p>
+              )}
             </div>
-            <Button variant="ghost" className="w-full mt-6 text-xs text-muted-foreground hover:text-primary">
-              View All Transactions
-            </Button>
+            <Link href="/freight-ledger">
+              <Button variant="ghost" className="w-full mt-6 text-xs text-muted-foreground hover:text-primary">
+                View All Transactions
+              </Button>
+            </Link>
           </CardContent>
         </Card>
       </div>

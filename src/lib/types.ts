@@ -15,6 +15,8 @@ export type Freight = {
   weight: number;
   driverId?: string;
   driverName?: string;
+  assetId?: string;
+  assetName?: string;
 
   // Revenue
   lineHaul: number;
@@ -30,6 +32,8 @@ export type Freight = {
   revenue: number;
   totalExpenses: number;
   netProfit: number;
+  ownerPercentage: number;
+  ownerAmount: number;
 
   // Soft delete
   isDeleted?: boolean;

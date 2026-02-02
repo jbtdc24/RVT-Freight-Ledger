@@ -16,8 +16,22 @@ import {
 } from "@/components/ui/table";
 import { format } from "date-fns";
 
+import { initialFreight, initialAssets, initialDrivers } from "@/lib/data";
+
 export default function RecycleBinPage() {
-    const { freight, assets, drivers, restoreItem, permanentlyDeleteItem } = useData();
+    const { freight, assets, drivers, setFreight, setAssets, setDrivers, restoreItem, permanentlyDeleteItem } = useData();
+
+    const handleResetData = () => {
+        if (window.confirm("This will delete all current data and reset to demo records. Continue?")) {
+            localStorage.removeItem('rvt_freight');
+            localStorage.removeItem('rvt_assets');
+            localStorage.removeItem('rvt_drivers');
+            setFreight(initialFreight);
+            setAssets(initialAssets);
+            setDrivers(initialDrivers);
+            window.location.reload();
+        }
+    };
 
     const deletedFreight = freight.filter(f => f.isDeleted);
     const deletedAssets = assets.filter(a => a.isDeleted);
@@ -28,7 +42,10 @@ export default function RecycleBinPage() {
     return (
         <div className="space-y-8">
             <PageHeader title="Recycle Bin">
-                <p className="text-muted-foreground">Recover deleted items or remove them permanently.</p>
+                <Button variant="outline" size="sm" onClick={handleResetData} className="text-muted-foreground hover:text-destructive">
+                    <RefreshCcw className="mr-2 h-4 w-4" />
+                    Reset to Demo Data
+                </Button>
             </PageHeader>
 
             {/* Deleted Loads */}
