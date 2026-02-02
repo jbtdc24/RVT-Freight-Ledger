@@ -35,6 +35,7 @@ export default function DashboardPage() {
   const { freight } = useData();
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'year' | 'custom'>('year');
   const [customRange, setCustomRange] = useState<DateRange | undefined>(undefined);
+  const [activityFilter, setActivityFilter] = useState<'week' | 'month' | 'year' | 'all'>('all');
 
   const activeFreight = useMemo(() => freight.filter(item => !item.isDeleted), [freight]);
 
@@ -335,8 +336,22 @@ export default function DashboardPage() {
 
       <div className="grid gap-6">
         <Card className="glass-card border-none">
-          <CardHeader>
+          <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-4 gap-4">
             <CardTitle className="text-xl">Recent Activity</CardTitle>
+            <div className="flex bg-white/5 rounded-lg p-1 gap-1 self-end sm:self-auto">
+              {(['week', 'month', 'year', 'all'] as const).map((range) => (
+                <button
+                  key={range}
+                  onClick={() => setActivityFilter(range)}
+                  className={cn(
+                    "px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all",
+                    activityFilter === range ? "bg-primary text-black shadow-sm" : "text-white/40 hover:text-white hover:bg-white/5"
+                  )}
+                >
+                  {range}
+                </button>
+              ))}
+            </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
@@ -390,45 +405,61 @@ export default function DashboardPage() {
                   });
                 });
 
-                // Sort by date descending and take top 10 for a better "history" view
-                const recent = transactions
+                // Filter by date based on activityFilter
+                let cutoff = new Date(0); // Epoch default (all)
+                const now = new Date();
+                if (activityFilter === 'week') cutoff = subDays(now, 7);
+                if (activityFilter === 'month') cutoff = subDays(now, 30);
+                if (activityFilter === 'year') cutoff = subDays(now, 365);
+
+                const filtered = transactions.filter(t => t.date >= cutoff);
+
+                // Sort by date descending and take top 500
+                const recent = filtered
                   .sort((a, b) => b.date.getTime() - a.date.getTime())
-                  .slice(0, 8);
+                  .slice(0, 500);
 
                 if (recent.length === 0) {
-                  return <p className="text-sm text-muted-foreground text-center py-4">No recent activity.</p>;
+                  return <div className="flex flex-col items-center justify-center py-8 text-muted-foreground opacity-50 space-y-2">
+                    <p className="text-sm">No activity found in this range.</p>
+                  </div>;
                 }
 
-                return recent.map((item) => (
-                  <Link href={`${item.link}${item.loadId ? `?edit=${item.loadId}` : ''}`} key={item.id}>
-                    <div className="flex items-center justify-between group cursor-pointer hover:bg-white/5 p-2 rounded-xl transition-all active:scale-[0.98]">
-                      <div className="flex items-center gap-4">
-                        <div className={cn(
-                          "p-2 rounded-full",
-                          item.color === 'success' ? "bg-success/20 text-success" :
-                            item.color === 'destructive' ? "bg-destructive/20 text-destructive" :
-                              "bg-white/10 text-white/40"
-                        )}>
-                          {item.icon}
+                return (
+                  <div className="max-h-[500px] overflow-y-auto pr-2 space-y-2 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+                    {recent.map((item) => (
+                      <Link href={`${item.link}${item.loadId ? `?edit=${item.loadId}` : ''}`} key={item.id}>
+                        <div className="flex items-center justify-between group cursor-pointer hover:bg-white/5 p-2 rounded-xl transition-all active:scale-[0.98]">
+                          {/* Items Content */}
+                          <div className="flex items-center gap-4">
+                            <div className={cn(
+                              "p-2 rounded-full",
+                              item.color === 'success' ? "bg-success/20 text-success" :
+                                item.color === 'destructive' ? "bg-destructive/20 text-destructive" :
+                                  "bg-white/10 text-white/40"
+                            )}>
+                              {item.icon}
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-sm font-bold group-hover:text-primary transition-colors">{item.title}</span>
+                              <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{format(item.date, 'MMM dd, yyyy')}</span>
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end">
+                            <span className={cn(
+                              "text-sm font-bold",
+                              item.amount > 0 ? "text-success" :
+                                item.amount < 0 ? "text-destructive" : "text-white/20"
+                            )}>
+                              {item.amount !== 0 ? (item.amount > 0 ? '+' : '') + formatCurrency(item.amount) : '---'}
+                            </span>
+                            <span className="text-[10px] py-0.5 px-2 bg-white/5 rounded-full text-white/40 font-medium">{item.status}</span>
+                          </div>
                         </div>
-                        <div className="flex flex-col">
-                          <span className="text-sm font-bold group-hover:text-primary transition-colors">{item.title}</span>
-                          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{format(item.date, 'MMM dd, yyyy')}</span>
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-end">
-                        <span className={cn(
-                          "text-sm font-bold",
-                          item.amount > 0 ? "text-success" :
-                            item.amount < 0 ? "text-destructive" : "text-white/20"
-                        )}>
-                          {item.amount !== 0 ? (item.amount > 0 ? '+' : '') + formatCurrency(item.amount) : '---'}
-                        </span>
-                        <span className="text-[10px] py-0.5 px-2 bg-white/5 rounded-full text-white/40 font-medium">{item.status}</span>
-                      </div>
-                    </div>
-                  </Link>
-                ));
+                      </Link>
+                    ))}
+                  </div>
+                );
               })()}
             </div>
             <Link href="/freight-ledger">
