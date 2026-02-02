@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from 'react';
-import { DollarSign, Wrench, Wallet, Trash2 } from "lucide-react";
+import { DollarSign, Wrench, Wallet, Trash2, MessageSquare } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from 'next/link';
@@ -415,6 +415,26 @@ export default function DashboardPage() {
                   });
                 });
 
+                // 4. Add comments & updates
+                activeFreight.forEach(item => {
+                  if (item.comments) {
+                    item.comments.forEach(comment => {
+                      transactions.push({
+                        id: `com-${comment.id}`,
+                        loadId: item.id,
+                        type: 'update',
+                        title: `${comment.type === 'system' ? 'System' : 'Note'}: ${comment.text}`,
+                        date: new Date(comment.timestamp),
+                        amount: 0,
+                        status: comment.author,
+                        link: '/freight-ledger',
+                        icon: <MessageSquare className="h-4 w-4" />,
+                        color: 'info'
+                      });
+                    });
+                  }
+                });
+
                 // Filter by date based on activityFilter
                 let cutoff = new Date(0); // Epoch default (all)
                 const now = new Date();
@@ -446,13 +466,14 @@ export default function DashboardPage() {
                               "p-2 rounded-full",
                               item.color === 'success' ? "bg-success/20 text-success" :
                                 item.color === 'destructive' ? "bg-destructive/20 text-destructive" :
-                                  "bg-white/10 text-white/40"
+                                  item.color === 'info' ? "bg-blue-500/20 text-blue-400" :
+                                    "bg-white/10 text-white/40"
                             )}>
                               {item.icon}
                             </div>
-                            <div className="flex flex-col">
-                              <span className="text-sm font-bold group-hover:text-primary transition-colors">{item.title}</span>
-                              <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{format(item.date, 'MMM dd, yyyy')}</span>
+                            <div className="flex flex-col max-w-[200px] sm:max-w-[300px]">
+                              <span className="text-sm font-bold group-hover:text-primary transition-colors truncate" title={item.title}>{item.title}</span>
+                              <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{format(item.date, 'MMM dd, yyyy • HH:mm')}</span>
                             </div>
                           </div>
                           <div className="flex flex-col items-end">
