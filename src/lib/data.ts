@@ -34,61 +34,104 @@ export const initialDrivers: Driver[] = [
 const random = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
 const randomInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
 
-// Generate 200 freight items
-export const initialFreight: Freight[] = Array.from({ length: 200 }).map((_, i) => {
-  const origin = random(['Dallas, TX', 'Miami, FL', 'Atlanta, GA', 'Chicago, IL', 'Los Angeles, CA', 'New York, NY', 'Seattle, WA', 'Denver, CO']);
-  const destination = random(['Phoenix, AZ', 'Houston, TX', 'Detroit, MI', 'Boston, MA', 'San Francisco, CA', 'Nashville, TN']);
-  // Ensure origin != destination
-  const realDest = destination === origin ? 'Las Vegas, NV' : destination;
+// Generate 5 freight items (4 valid, 1 invalid)
+// MATH VERIFICATION:
+// Broker Revenue = LineHaul + Fuel + Accessorials
+// Owner Pay = (LineHaul * Split%) + Fuel + Accessorials
+// Net Profit = Owner Pay - Expenses
+export const initialFreight: Freight[] = [
+  ...Array.from({ length: 4 }).map((_, i) => {
+    const origin = random(['Dallas, TX', 'Miami, FL', 'Atlanta, GA', 'Chicago, IL']);
+    const destination = random(['Phoenix, AZ', 'Houston, TX', 'Detroit, MI']);
+    const dist = randomInt(400, 2500);
 
-  const dist = randomInt(400, 2500);
-  const lineHaul = dist * (randomInt(180, 350) / 100);
+    // 1. Establish Base Numbers
+    const lineHaul = dist * (randomInt(180, 350) / 100);
+    const fuelSurcharge = randomInt(100, 500);
+    const accessorials = 0; // Keeping simple for simulation
+    const loading = 0;
+    const unloading = 0;
 
-  // Random date within last 120 days
-  const date = new Date('2026-02-03');
-  date.setDate(date.getDate() - randomInt(0, 120));
+    // 2. Establish Expenses
+    const totalExp = randomInt(200, 600);
 
-  const expenses: LoadExpense[] = [];
-  if (Math.random() > 0.3) {
-    expenses.push({ id: `exp-${i}-1`, category: 'Fuel', description: 'Fuel', amount: randomInt(300, 800) });
-  }
-  if (Math.random() > 0.7) {
-    expenses.push({ id: `exp-${i}-2`, category: 'Repairs', description: 'Quick fix', amount: randomInt(50, 200) });
-  }
+    // 3. Establish Split
+    const ownerPercentage = 65; // 65% split
 
-  const totalExp = expenses.reduce((s, e) => s + e.amount, 0);
-  const surcharges = randomInt(100, 500);
-  const rev = lineHaul + surcharges;
-  const driver = random(initialDrivers);
-  const percent = 65;
-  const ownerAmt = lineHaul * (percent / 100);
+    // 4. Calculate Derived Values
+    const brokerRevenue = lineHaul + fuelSurcharge + accessorials + loading + unloading;
+    const ownerBase = lineHaul * (ownerPercentage / 100);
+    const ownerGross = ownerBase + fuelSurcharge + accessorials + loading + unloading;
+    const netProfit = ownerGross - totalExp;
 
-  return {
-    id: `frt-${i}`,
-    freightId: `#${3050 + i}`,
-    origin,
-    destination: realDest,
-    distance: dist,
-    date,
-    weight: randomInt(15000, 42000),
-    driverId: driver.id,
-    driverName: driver.name,
+    // Valid Load
+    return {
+      id: `frt-valid-${i}`,
+      freightId: `#${4000 + i}`,
+      origin,
+      destination,
+      distance: dist,
+      date: new Date(), // Today
+      weight: randomInt(15000, 42000),
+      driverId: initialDrivers[0].id,
+      driverName: initialDrivers[0].name,
+      assetId: 'ast-1',
+      assetName: 'Unit 101',
+
+      // Breakdown
+      lineHaul,
+      fuelSurcharge,
+      loading,
+      unloading,
+      accessorials,
+      ownerPercentage,
+      ownerAmount: ownerBase,
+
+      expenses: [{ id: `exp-${i}`, category: 'Fuel', description: 'Fuel', amount: totalExp }],
+      comments: [{ id: `com-${i}`, text: "System generated valid load.", author: "System", timestamp: new Date().toISOString(), type: 'system' }],
+
+      // Totals
+      revenue: brokerRevenue,       // What the broker pays (Total)
+      totalExpenses: totalExp,      // What we spent
+      netProfit: netProfit,         // What we kept
+    } as Freight;
+  }),
+
+  // 1 Invalid Load (Missing Driver & Comments)
+  {
+    id: `frt-invalid-1`,
+    freightId: `#9999`,
+    origin: "INVALID CITY",
+    destination: "NOWHERE",
+    distance: 1000,
+    date: new Date(),
+    weight: 10000,
+    driverId: undefined, // Missing
+    driverName: undefined, // Missing
     assetId: 'ast-1',
     assetName: 'Unit 101',
-    lineHaul,
-    fuelSurcharge: surcharges,
+
+    // Math Check:
+    // LH: 5000
+    // Split: 65% -> 3250
+    // Exp: 0
+    // Profit: 3250
+    lineHaul: 5000,
+    fuelSurcharge: 0,
     loading: 0,
     unloading: 0,
     accessorials: 0,
-    expenses,
-    comments: [], // Initialize with empty comments
-    revenue: rev,
-    totalExpenses: totalExp,
-    ownerPercentage: percent,
-    ownerAmount: ownerAmt,
-    netProfit: (ownerAmt + surcharges) - totalExp,
-  };
-});
+    ownerPercentage: 65,
+    ownerAmount: 3250,
+
+    expenses: [],
+    comments: [], // Missing
+
+    revenue: 5000,
+    totalExpenses: 0,
+    netProfit: 3250,
+  } as Freight
+];
 
 export const initialAssets: Asset[] = [
   { id: 'ast-1', type: 'Truck', identifier: 'Unit 101 - VNL 760', description: '2022 Volvo VNL 760' },

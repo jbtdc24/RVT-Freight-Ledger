@@ -72,8 +72,8 @@ export function FreightForm({ onSubmit, onDelete, initialData, drivers, assets }
   const form = useForm<FreightFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: initialData ? {
-      ...initialData,
-      date: new Date(initialData.date),
+      ...JSON.parse(JSON.stringify(initialData)),
+      date: new Date(initialData.date), // Ensure this is a Date object, not a string from JSON.stringify
       expenses: initialData.expenses || [],
       ownerPercentage: initialData.ownerPercentage ?? 100,
       comments: initialData.comments || [],
@@ -252,9 +252,21 @@ export function FreightForm({ onSubmit, onDelete, initialData, drivers, assets }
     const currentCommentCount = values.comments?.length || 0;
     const hasAddedComment = currentCommentCount > initialCommentCount;
 
+    // Enforce Comment Requirement
     if (initialData && hasChanges && !hasAddedComment && !newComment.trim()) {
-      alert("You must add a comment explaining your changes before saving.");
-      return; // Block submission
+      form.setError("comments", { type: "manual", message: "You must add a comment explaining your changes before saving." });
+      // Scroll to comments
+      const commentSection = document.getElementById("comment-section");
+      if (commentSection) commentSection.scrollIntoView({ behavior: "smooth" });
+      return;
+    }
+
+    if (!initialData && !newComment.trim()) {
+      form.setError("comments", { type: "manual", message: "You must add an initial comment/note when creating a new load." });
+      // Scroll to comments
+      const commentSection = document.getElementById("comment-section");
+      if (commentSection) commentSection.scrollIntoView({ behavior: "smooth" });
+      return;
     }
 
     // Capture the pending comment if user typed but didn't click Add
@@ -601,9 +613,12 @@ export function FreightForm({ onSubmit, onDelete, initialData, drivers, assets }
           </CardContent>
         </Card>
 
-        <Card>
+        <Card id="comment-section" className={form.formState.errors.comments ? "border-destructive" : ""}>
           <CardHeader>
             <CardTitle className="text-base">Comments & Signature Log</CardTitle>
+            {form.formState.errors.comments && (
+              <p className="text-sm font-medium text-destructive mt-1">{form.formState.errors.comments.message}</p>
+            )}
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="flex gap-2">

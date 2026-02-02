@@ -32,7 +32,7 @@ import { Badge } from "@/components/ui/badge";
 import { FilterBar, type FiltersState } from "./filter-bar";
 import { isBefore, isAfter, startOfDay, endOfDay, format } from 'date-fns';
 
-const ITEMS_PER_PAGE = 20;
+const ITEMS_PER_PAGE = 12;
 
 export default function FreightLedgerPage() {
   const { freight, setFreight, drivers, assets, deleteItem } = useData();
@@ -59,10 +59,18 @@ export default function FreightLedgerPage() {
     if (editId) {
       const itemToEdit = freight.find(f => f.id === editId);
       if (itemToEdit) {
+        // Only open if we aren't already editing it (prevents loop if logic matches)
+        // Actually, setEditingFreight is idempotent, but we need to ensure we don't clear it immediately.
         handleOpenDialog(itemToEdit);
       }
     }
   }, [editId, freight]);
+
+  const clearEditParam = () => {
+    const params = new URLSearchParams(searchParams);
+    params.delete('edit');
+    window.history.replaceState(null, '', `?${params.toString()}`);
+  }
 
   // Reset to page 1 when filters change
   useEffect(() => {
@@ -86,6 +94,7 @@ export default function FreightLedgerPage() {
     }
     setIsDialogOpen(false);
     setEditingFreight(null);
+    clearEditParam();
   };
 
   const handleDeleteFreight = (id: string) => {
@@ -97,7 +106,13 @@ export default function FreightLedgerPage() {
   const formatCurrency = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
 
   const handleRowClick = (item: Freight) => {
-    setViewingFreight(item);
+    const isInvalid = !item.driverName || !item.comments || item.comments.length === 0;
+    if (isInvalid) {
+      // Direct user to fix the issue
+      handleOpenDialog(item);
+    } else {
+      setViewingFreight(item);
+    }
   }
 
   const filteredFreight = useMemo(() => {
@@ -158,6 +173,17 @@ export default function FreightLedgerPage() {
       }
 
       return true;
+    }).sort((a, b) => {
+      // Logic for "Invalid" loads: Missing Driver OR Missing Comments
+      const isInvalidA = !a.driverName || !a.comments || a.comments.length === 0;
+      const isInvalidB = !b.driverName || !b.comments || b.comments.length === 0;
+
+      // Prioritize invalid loads
+      if (isInvalidA && !isInvalidB) return -1;
+      if (!isInvalidA && isInvalidB) return 1;
+
+      // Secondary sort: Date descending (newest first)
+      return new Date(b.date).getTime() - new Date(a.date).getTime();
     });
   }, [freight, filters]);
 
@@ -182,6 +208,7 @@ export default function FreightLedgerPage() {
       <Dialog open={isDialogOpen} onOpenChange={(open) => {
         if (!open) {
           setEditingFreight(null);
+          clearEditParam();
         }
         setIsDialogOpen(open);
       }}>
@@ -396,13 +423,23 @@ export default function FreightLedgerPage() {
           <TableBody>
             {paginatedFreight.map((item) => {
               const rpm = item.distance > 0 ? item.revenue / item.distance : 0;
+              const isInvalid = !item.driverName || !item.comments || item.comments.length === 0;
+
               return (
                 <Fragment key={item.id}>
-                  <TableRow onClick={() => handleRowClick(item)} className="cursor-pointer hover:bg-muted/50 transition-colors">
+                  <TableRow
+                    onClick={() => handleRowClick(item)}
+                    className={cn(
+                      "cursor-pointer hover:bg-muted/50 transition-colors group",
+                      isInvalid && "bg-destructive/10 hover:bg-destructive/20 border-l-4 border-l-destructive"
+                    )}
+                  >
                     <TableCell>
-                      {/* Placeholder for alignment, no arrow needed since it's a popup now - or maybe keep an icon to imply action? */}
-                      {/* Using Eye icon or similar could be good, but users said "without clicking yet" implies row click usually works */}
-                      {/* Let's remove the chevron since rows don't expand anymore */}
+                      {isInvalid && (
+                        <span className="text-[10px] font-bold text-destructive uppercase tracking-wider bg-destructive/10 border border-destructive/20 px-1 py-0.5 rounded">
+                          Invalid
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell className="hidden sm:table-cell">{format(item.date, 'MM/dd/yyyy')}</TableCell>
                     <TableCell className="font-medium">{item.freightId}</TableCell>

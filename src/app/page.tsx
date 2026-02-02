@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from 'react';
-import { DollarSign, Wrench, Wallet, Trash2, MessageSquare } from "lucide-react";
+import { DollarSign, Wrench, Wallet, Trash2, MessageSquare, AlertTriangle, ArrowRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from 'next/link';
@@ -15,6 +15,9 @@ import { format, subDays, subWeeks, subMonths, startOfWeek, endOfWeek, startOfMo
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { type DateRange } from "react-day-picker";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 
 const chartConfig = {
   revenue: {
@@ -36,8 +39,10 @@ export default function DashboardPage() {
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'year' | 'custom'>('week');
   const [customRange, setCustomRange] = useState<DateRange | undefined>(undefined);
   const [activityFilter, setActivityFilter] = useState<'week' | 'month' | 'year' | 'all'>('week');
+  const [showInvalidLoads, setShowInvalidLoads] = useState(false);
 
   const activeFreight = useMemo(() => freight.filter(item => !item.isDeleted), [freight]);
+  const validFreight = useMemo(() => activeFreight.filter(f => f.driverName && f.comments && f.comments.length > 0), [activeFreight]);
 
   const filteredFreight = useMemo(() => {
     let start: Date, end: Date;
@@ -60,6 +65,9 @@ export default function DashboardPage() {
     }
 
     return activeFreight.filter(f => {
+      // Exclude invalid loads from calculation
+      if (!f.driverName || !f.comments || f.comments.length === 0) return false;
+
       const d = new Date(f.date);
       return isWithinInterval(d, { start, end });
     });
@@ -144,7 +152,7 @@ export default function DashboardPage() {
     }
 
     return labels.map(item => {
-      const monthFreight = activeFreight.filter(f => {
+      const monthFreight = validFreight.filter(f => {
         const d = new Date(f.date);
         return d >= item.range[0] && d <= item.range[1];
       });
@@ -155,7 +163,7 @@ export default function DashboardPage() {
 
       return { name: item.label, date: item.fullDate, revenue, expenses, profit };
     });
-  }, [activeFreight, timeRange, customRange]);
+  }, [validFreight, timeRange, customRange]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -164,6 +172,8 @@ export default function DashboardPage() {
       maximumFractionDigits: 0,
     }).format(value);
   }
+
+  const invalidLoads = useMemo(() => activeFreight.filter(f => !f.driverName || !f.comments || f.comments.length === 0), [activeFreight]);
 
   return (
     <>
@@ -186,6 +196,59 @@ export default function DashboardPage() {
           </Tabs>
         </div>
       </PageHeader>
+
+      {invalidLoads.length > 0 && (
+        <div className="mb-6">
+          <Alert variant="destructive" className="border-destructive/50 bg-destructive/10 cursor-pointer hover:bg-destructive/20 transition-colors" onClick={() => setShowInvalidLoads(true)}>
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Action Required: {invalidLoads.length} Invalid Load{invalidLoads.length > 1 ? 's' : ''} Detected</AlertTitle>
+            <AlertDescription className="text-xs opacity-90">
+              Some loads are missing required information (Driver or Comments) and are excluded from financial stats. Click here to review and fix them.
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
+
+      {/* INVALID LOADS DIALOG */}
+      <Dialog open={showInvalidLoads} onOpenChange={setShowInvalidLoads}>
+        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Invalid Loads ({invalidLoads.length})
+            </DialogTitle>
+            <DialogDescription>
+              The following loads are incomplete. Click on any item to open it in the editor and fix the missing details.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto pr-2 space-y-2 mt-4">
+            {invalidLoads.map(load => (
+              <Link href={`/freight-ledger?edit=${load.id}`} key={load.id} onClick={() => setShowInvalidLoads(false)}>
+                <div className="p-4 rounded-lg bg-muted/50 border border-destructive/20 hover:bg-destructive/5 hover:border-destructive/50 transition-all cursor-pointer group mb-2">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-bold text-sm flex items-center gap-2">
+                        {load.freightId}
+                        <Badge variant="outline" className="text-[10px] font-mono">{format(new Date(load.date), 'MM/dd/yyyy')}</Badge>
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {load.origin} <ArrowRight className="inline h-3 w-3" /> {load.destination}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-bold">{formatCurrency(load.revenue)}</p>
+                      <p className="text-[10px] text-destructive font-semibold">
+                        {(!load.driverName) ? 'Missing Driver' : (!load.comments || load.comments.length === 0) ? 'Missing Comments' : 'Incomplete'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <Card className="glass-card overflow-hidden relative group">
           <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
@@ -307,8 +370,24 @@ export default function DashboardPage() {
                   cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 2 }}
                   labelFormatter={(label, payload) => payload[0]?.payload?.date || label}
                   content={<ChartTooltipContent
-                    formatter={(value: any) => formatCurrency(value as number)}
                     indicator="dot"
+                    labelFormatter={(label) => label}
+                    formatter={(value, name) => {
+                      // Map the internal dataKey (revenue/expenses/profit) to readable labels
+                      let label = name;
+                      if (name === 'revenue') label = 'Revenue';
+                      if (name === 'expenses') label = 'Expenses';
+                      if (name === 'profit') label = 'Net Profit';
+
+                      return (
+                        <div className="flex min-w-[130px] items-center text-xs text-muted-foreground">
+                          {label}
+                          <div className="ml-auto flex items-baseline gap-0.5 font-mono font-medium tabular-nums text-foreground">
+                            {formatCurrency(value as number)}
+                          </div>
+                        </div>
+                      )
+                    }}
                   />}
                 />
                 <Area
