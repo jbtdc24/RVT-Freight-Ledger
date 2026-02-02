@@ -9,6 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { useData } from '@/lib/data-context';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { format } from 'date-fns';
 
 export default function PayrollPage() {
     const { drivers, freight } = useData();
@@ -123,7 +124,7 @@ export default function PayrollPage() {
                                             />
                                         </TableCell>
                                         <TableCell>
-                                            <label htmlFor={`load-${load.id}`} className="block">{load.date.toLocaleDateString()}</label>
+                                            <label htmlFor={`load-${load.id}`} className="block">{format(load.date, 'MM/dd/yyyy')}</label>
                                         </TableCell>
                                         <TableCell>
                                             <label htmlFor={`load-${load.id}`} className="block font-medium">{load.freightId}</label>

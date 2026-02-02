@@ -28,7 +28,7 @@ import { FreightForm } from "./freight-form";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { FilterBar, type FiltersState } from "./filter-bar";
-import { isBefore, isAfter, startOfDay, endOfDay } from 'date-fns';
+import { isBefore, isAfter, startOfDay, endOfDay, format } from 'date-fns';
 
 export default function FreightLedgerPage() {
   const { freight, setFreight, drivers } = useData();
@@ -193,7 +193,7 @@ export default function FreightLedgerPage() {
                   <TableCell>
                     <ChevronDown className={cn("h-4 w-4 transition-transform", expandedRow === item.id && "rotate-180")} />
                   </TableCell>
-                  <TableCell className="hidden sm:table-cell">{item.date.toLocaleDateString()}</TableCell>
+                  <TableCell className="hidden sm:table-cell">{format(item.date, 'MM/dd/yyyy')}</TableCell>
                   <TableCell className="font-medium">{item.freightId}</TableCell>
                   <TableCell>{item.driverName}</TableCell>
                   <TableCell className="flex items-center gap-2">
