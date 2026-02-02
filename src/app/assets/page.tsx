@@ -28,40 +28,38 @@ import { AssetForm } from "./assets-form";
 import { Badge } from "@/components/ui/badge";
 
 export default function AssetsPage() {
-  const { assets, setAssets } = useData();
+  const { assets, setAssets, deleteItem } = useData();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
 
-  const handleDeleteAsset = (id: string) => {
-    setAssets(prev => prev.map(a =>
-      a.id === id ? { ...a, isDeleted: true, deletedAt: new Date().toISOString() } : a
-    ));
-    setIsDialogOpen(false);
-    setEditingAsset(null);
+  const handleOpenDialog = (asset?: Asset) => {
+    setEditingAsset(asset || null);
+    setIsDialogOpen(true);
   };
 
-  const handleSaveAsset = (assetData: Omit<Asset, 'id'> & { id?: string }) => {
-    if (assetData.id) {
-      setAssets(prev => prev.map(a => a.id === assetData.id ? ({ ...a, ...assetData } as Asset) : a));
+  const handleSaveAsset = (values: any) => {
+    if (editingAsset) {
+      setAssets(prev => prev.map(a => a.id === editingAsset.id ? { ...a, ...values } : a));
     } else {
-      const newAsset = { ...assetData, id: `ast-${Date.now()}` };
+      const newAsset = { ...values, id: Math.random().toString(36).substr(2, 9) };
       setAssets(prev => [newAsset, ...prev]);
     }
     setIsDialogOpen(false);
     setEditingAsset(null);
   };
 
-  const handleOpenDialog = (asset: Asset | null) => {
-    setEditingAsset(asset);
-    setIsDialogOpen(true);
-  }
+  const handleDeleteAsset = (id: string) => {
+    deleteItem('asset', id);
+    setIsDialogOpen(false);
+    setEditingAsset(null);
+  };
 
   const activeAssets = assets.filter(a => !a.isDeleted);
 
   return (
     <>
       <PageHeader title="Asset Management">
-        <Button onClick={() => handleOpenDialog(null)}>
+        <Button onClick={() => handleOpenDialog()}>
           <PlusCircle className="mr-2 h-4 w-4" />
           Manual Entry
         </Button>

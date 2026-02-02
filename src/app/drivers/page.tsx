@@ -27,33 +27,31 @@ import { DriverForm } from "./drivers-form";
 import { Badge } from "@/components/ui/badge";
 
 export default function DriversPage() {
-  const { drivers, setDrivers } = useData();
+  const { drivers, setDrivers, deleteItem } = useData();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
 
-  const handleDeleteDriver = (id: string) => {
-    setDrivers(prev => prev.map(d =>
-      d.id === id ? { ...d, isDeleted: true, deletedAt: new Date().toISOString() } : d
-    ));
-    setIsDialogOpen(false);
-    setEditingDriver(null);
+  const handleOpenDialog = (driver?: Driver) => {
+    setEditingDriver(driver || null);
+    setIsDialogOpen(true);
   };
 
-  const handleSaveDriver = (driverData: Omit<Driver, 'id'> & { id?: string }) => {
-    if (driverData.id) {
-      setDrivers(prev => prev.map(d => d.id === driverData.id ? ({ ...d, ...driverData } as Driver) : d));
+  const handleSaveDriver = (values: any) => {
+    if (editingDriver) {
+      setDrivers(prev => prev.map(d => d.id === editingDriver.id ? { ...d, ...values } : d));
     } else {
-      const newDriver = { ...driverData, id: `drv-${Date.now()}` };
+      const newDriver = { ...values, id: Math.random().toString(36).substr(2, 9) };
       setDrivers(prev => [newDriver, ...prev]);
     }
     setIsDialogOpen(false);
     setEditingDriver(null);
   };
 
-  const handleOpenDialog = (driver: Driver | null) => {
-    setEditingDriver(driver);
-    setIsDialogOpen(true);
-  }
+  const handleDeleteDriver = (id: string) => {
+    deleteItem('driver', id);
+    setIsDialogOpen(false);
+    setEditingDriver(null);
+  };
 
   const activeDrivers = drivers.filter(d => !d.isDeleted);
 
@@ -67,7 +65,7 @@ export default function DriversPage() {
   return (
     <>
       <PageHeader title="Drivers">
-        <Button onClick={() => handleOpenDialog(null)}>
+        <Button onClick={() => handleOpenDialog()}>
           <PlusCircle className="mr-2 h-4 w-4" />
           Add Driver
         </Button>

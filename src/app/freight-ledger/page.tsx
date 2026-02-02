@@ -31,7 +31,7 @@ import { FilterBar, type FiltersState } from "./filter-bar";
 import { isBefore, isAfter, startOfDay, endOfDay, format } from 'date-fns';
 
 export default function FreightLedgerPage() {
-  const { freight, setFreight, drivers } = useData();
+  const { freight, setFreight, drivers, deleteItem } = useData();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingFreight, setEditingFreight] = useState<Freight | null>(null);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
@@ -44,28 +44,29 @@ export default function FreightLedgerPage() {
     dateRange: undefined,
   });
 
-  const handleDeleteFreight = (id: string) => {
-    setFreight(prev => prev.map(f =>
-      f.id === id ? { ...f, isDeleted: true, deletedAt: new Date().toISOString() } : f
-    ));
-    setIsDialogOpen(false);
-    setEditingFreight(null);
+  const handleOpenDialog = (freight?: Freight) => {
+    setEditingFreight(freight || null);
+    setIsDialogOpen(true);
   };
 
-  const handleSaveFreight = (freightData: Omit<Freight, 'id'> & { id?: string }) => {
-    if (freightData.id) {
-      setFreight(prev => prev.map(f => f.id === freightData.id ? ({ ...f, ...freightData } as Freight) : f));
+  const handleSaveFreight = (values: Omit<Freight, "id"> & { id?: string }) => {
+    if (values.id) {
+      setFreight(prev => prev.map(f => f.id === values.id ? { ...f, ...values } : f));
     } else {
-      const newFreight = { ...freightData, id: `frt-${Date.now()}` };
+      const newFreight: Freight = {
+        ...values,
+        id: Math.random().toString(36).substr(2, 9),
+      } as Freight;
       setFreight(prev => [newFreight, ...prev]);
     }
     setIsDialogOpen(false);
     setEditingFreight(null);
   };
 
-  const handleOpenDialog = (freightItem: Freight | null) => {
-    setEditingFreight(freightItem);
-    setIsDialogOpen(true);
+  const handleDeleteFreight = (id: string) => {
+    deleteItem('freight', id);
+    setIsDialogOpen(false);
+    setEditingFreight(null);
   };
 
   const formatCurrency = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
@@ -138,7 +139,7 @@ export default function FreightLedgerPage() {
   return (
     <>
       <PageHeader title="Freight Ledger">
-        <Button onClick={() => handleOpenDialog(null)}>
+        <Button onClick={() => handleOpenDialog()}>
           <PlusCircle className="mr-2 h-4 w-4" />
           Manual Entry
         </Button>

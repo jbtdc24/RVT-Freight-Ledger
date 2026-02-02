@@ -8,6 +8,9 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { RvtLogo } from "@/components/icons";
 import { ThemeToggle } from "@/components/theme-toggle";
 
+import { useData } from "@/lib/data-context";
+import { Loader2 } from "lucide-react";
+
 const navItems = [
   { href: "/", label: "Dashboard", icon: Gauge },
   { href: "/freight-ledger", label: "Freight Ledger", icon: Truck },
@@ -19,6 +22,21 @@ const navItems = [
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { isLoaded } = useData();
+
+  if (!isLoaded) {
+    return (
+      <div className="flex min-h-screen w-full items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative">
+            <RvtLogo className="h-12 w-12 text-primary animate-pulse" />
+            <Loader2 className="h-20 w-20 text-primary/20 animate-spin absolute top-1/2 left-1/2 -mt-10 -ml-10" />
+          </div>
+          <span className="text-sm font-medium text-muted-foreground animate-pulse uppercase tracking-widest">Loading Ledger...</span>
+        </div>
+      </div>
+    );
+  }
 
   const navLinks = (
     <nav className="grid gap-2 px-4 py-4">
@@ -42,7 +60,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <div className="flex min-h-screen w-full bg-background overflow-hidden">
+    <div className="flex min-h-screen w-full bg-background">
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex flex-col w-[260px] glass border-r-0">
         <div className="flex h-20 items-center px-8">
