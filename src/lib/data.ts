@@ -1,4 +1,4 @@
-import type { Freight, LoadExpense, Asset, Driver } from "./types";
+import type { Freight, LoadExpense, Asset, Driver, LoadComment } from "./types";
 
 const freight1Expenses: LoadExpense[] = [
   { id: 'exp-1-1', category: 'Fuel', description: 'Fuel stop 1', amount: 450.25 },
@@ -81,6 +81,7 @@ export const initialFreight: Freight[] = Array.from({ length: 200 }).map((_, i) 
     unloading: 0,
     accessorials: 0,
     expenses,
+    comments: [], // Initialize with empty comments
     revenue: rev,
     totalExpenses: totalExp,
     ownerPercentage: percent,

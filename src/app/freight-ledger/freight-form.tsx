@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useFieldArray } from "react-hook-form";
 import { z } from "zod";
@@ -28,6 +29,14 @@ const expenseSchema = z.object({
   amount: z.coerce.number().positive("Amount must be a positive number."),
 });
 
+const commentSchema = z.object({
+  id: z.string(),
+  text: z.string(),
+  author: z.string(),
+  timestamp: z.string(),
+  type: z.enum(['manual', 'system']),
+});
+
 const formSchema = z.object({
   date: z.date({ required_error: "A date is required." }),
   freightId: z.string().min(2, "Freight ID must be at least 2 characters."),
@@ -44,6 +53,7 @@ const formSchema = z.object({
   accessorials: z.coerce.number().min(0, "Accessorials cannot be negative."),
   ownerPercentage: z.coerce.number().min(0).max(100).default(100),
   expenses: z.array(expenseSchema).optional(),
+  comments: z.array(commentSchema).optional(),
 });
 
 type FreightFormValues = z.infer<typeof formSchema>;
@@ -57,6 +67,8 @@ type FreightFormProps = {
 };
 
 export function FreightForm({ onSubmit, onDelete, initialData, drivers, assets }: FreightFormProps) {
+  const [newComment, setNewComment] = useState("");
+
   const form = useForm<FreightFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: initialData ? {
@@ -64,6 +76,7 @@ export function FreightForm({ onSubmit, onDelete, initialData, drivers, assets }
       date: new Date(initialData.date),
       expenses: initialData.expenses || [],
       ownerPercentage: initialData.ownerPercentage ?? 100,
+      comments: initialData.comments || [],
     } : {
       freightId: "",
       date: new Date(),
@@ -80,6 +93,7 @@ export function FreightForm({ onSubmit, onDelete, initialData, drivers, assets }
       accessorials: 0,
       ownerPercentage: 100,
       expenses: [],
+      comments: [],
     },
   });
 
@@ -88,6 +102,24 @@ export function FreightForm({ onSubmit, onDelete, initialData, drivers, assets }
     name: "expenses",
   });
 
+  // Need to use watch/setValue for comments since it's not a simple input field
+  const comments = form.watch("comments") || [];
+
+  const addComment = () => {
+    if (!newComment.trim()) return;
+
+    const comment: z.infer<typeof commentSchema> = {
+      id: Math.random().toString(36).substr(2, 9),
+      text: newComment,
+      author: "User", // Hardcoded for now
+      timestamp: new Date().toISOString(),
+      type: 'manual'
+    };
+
+    form.setValue("comments", [comment, ...comments]);
+    setNewComment("");
+  };
+
   function handleFormSubmit(values: FreightFormValues) {
     const ownerAmount = (values.lineHaul || 0) * (values.ownerPercentage / 100);
     const revenue = ownerAmount + (values.fuelSurcharge || 0) + (values.accessorials || 0) + (values.loading || 0) + (values.unloading || 0);
@@ -95,11 +127,164 @@ export function FreightForm({ onSubmit, onDelete, initialData, drivers, assets }
     const netProfit = revenue - totalExpenses;
 
     const processedExpenses = (values.expenses || []).map(exp => ({ ...exp, id: exp.id || `exp-${Date.now()}-${Math.random()}` }));
-    const selectedDriver = drivers.find(d => d.id === values.driverId);
+
+    // Calculate Diff (only if editing)
+    let changeLog = "Load created.";
+    let hasChanges = false;
+
+    if (initialData) {
+      const changes: string[] = [];
+      const formatValue = (field: keyof FreightFormValues, val: any) => {
+        if (val === undefined || val === null) return 'N/A';
+        if (val instanceof Date) return val.toLocaleDateString();
+
+        const currencyFields = ['lineHaul', 'fuelSurcharge', 'loading', 'unloading', 'accessorials'];
+        if (currencyFields.includes(field)) return `$${Number(val).toFixed(2)}`;
+
+        if (field === 'weight') return `${val} lbs`;
+        if (field === 'distance') return `${val} mi`;
+        if (field === 'ownerPercentage') return `${val}%`;
+
+        return val;
+      };
+
+      const compare = (field: keyof FreightFormValues, label: string) => {
+        const val1 = initialData[field as keyof Freight];
+        const val2 = values[field];
+
+        if (val1 instanceof Date && val2 instanceof Date) {
+          if (val1.getTime() !== val2.getTime()) {
+            changes.push(`${label} changed (${formatValue(field, val1)} -> ${formatValue(field, val2)})`);
+          }
+        } else if (val1 !== val2) {
+          // Handle 0 vs undefined/null equality usually treated as change? 
+          // Let's be strict: if initial is 0 and new is 0, no change.
+          // If initial is undefined(0) and new is 0, no change.
+          const v1 = val1 ?? 0;
+          const v2 = val2 ?? 0;
+
+          // For strings/numbers
+          if (v1 != v2) {
+            changes.push(`${label} changed (${formatValue(field, val1)} -> ${formatValue(field, val2)})`);
+          }
+        }
+      };
+
+      if (initialData.freightId !== values.freightId) changes.push(`ID changed (${initialData.freightId} -> ${values.freightId})`);
+
+      // Date
+      const d1 = new Date(initialData.date);
+      const d2 = values.date;
+      if (d1.getTime() !== d2.getTime()) changes.push(`Date changed (${d1.toLocaleDateString()} -> ${d2.toLocaleDateString()})`);
+
+      compare('origin', 'Origin');
+      compare('destination', 'Destination');
+      compare('distance', 'Distance');
+      compare('weight', 'Weight');
+
+      // Driver/Asset Lookups
+      if (initialData.driverId !== values.driverId) {
+        const oldD = drivers.find(d => d.id === initialData.driverId)?.name || "None";
+        const newD = drivers.find(d => d.id === values.driverId)?.name || "None";
+        changes.push(`Driver changed (${oldD} -> ${newD})`);
+      }
+      if (initialData.assetId !== values.assetId) {
+        const oldA = assets.find(a => a.id === initialData.assetId)?.identifier || "None";
+        const newA = assets.find(a => a.id === values.assetId)?.identifier || "None";
+        changes.push(`Truck changed (${oldA} -> ${newA})`);
+      }
+
+      compare('lineHaul', 'Line Haul');
+      compare('ownerPercentage', 'Split');
+      compare('fuelSurcharge', 'Fuel Surcharge');
+      compare('accessorials', 'Accessorials');
+      compare('loading', 'Loading');
+      compare('unloading', 'Unloading');
+
+      if (changes.length > 0) {
+        hasChanges = true;
+        changeLog = "Updates: " + changes.join(", ");
+      }
+
+      // Deep check expenses
+      const oldExpenses = initialData.expenses || [];
+      const newExpenses = processedExpenses;
+      const expenseChanges: string[] = [];
+
+      // Check for removed
+      oldExpenses.forEach(oldExp => {
+        if (!newExpenses.find(ne => ne.id === oldExp.id)) {
+          expenseChanges.push(`Removed ${oldExp.category} ($${oldExp.amount})`);
+        }
+      });
+
+      // Check for added or modified
+      newExpenses.forEach(newExp => {
+        const oldExp = oldExpenses.find(oe => oe.id === newExp.id);
+        if (!oldExp) {
+          expenseChanges.push(`Added ${newExp.category} ($${newExp.amount})`);
+        } else {
+          // Modified?
+          if (oldExp.amount !== newExp.amount) {
+            expenseChanges.push(`${newExp.category} adjusted ($${oldExp.amount} -> $${newExp.amount})`);
+          } else if (oldExp.category !== newExp.category) {
+            expenseChanges.push(`Expense category changed (${oldExp.category} -> ${newExp.category})`);
+          } else if (oldExp.description !== newExp.description) {
+            expenseChanges.push(`${newExp.category} desc updated`);
+          }
+        }
+      });
+
+      if (expenseChanges.length > 0) {
+        hasChanges = true;
+        if (changeLog === "Load updated." || changeLog === "Load created.") {
+          changeLog = "Expenses: " + expenseChanges.join(", ");
+        } else {
+          changeLog += "; Expenses: " + expenseChanges.join(", ");
+        }
+      }
+    }
+
+    // Enforce Comment on Update
+    // Check if a manual comment was added in this session OR is currently in the input
+    // We can infer "added in this session" by checking if values.comments has more items than initialData.comments
+    const initialCommentCount = initialData?.comments?.length || 0;
+    const currentCommentCount = values.comments?.length || 0;
+    const hasAddedComment = currentCommentCount > initialCommentCount;
+
+    if (initialData && hasChanges && !hasAddedComment && !newComment.trim()) {
+      alert("You must add a comment explaining your changes before saving.");
+      return; // Block submission
+    }
+
+    // Capture the pending comment if user typed but didn't click Add
+    let finalComments = [...(values.comments || [])];
+    if (newComment.trim()) {
+      const manualComment: z.infer<typeof commentSchema> = {
+        id: Math.random().toString(36).substr(2, 9),
+        text: newComment,
+        author: "User",
+        timestamp: new Date().toISOString(),
+        type: 'manual'
+      };
+      finalComments.unshift(manualComment); // Add to top
+      setNewComment("");
+    }
+
+    // Add system log
+    const systemLog: z.infer<typeof commentSchema> = {
+      id: Math.random().toString(36).substr(2, 9),
+      text: changeLog,
+      author: "System",
+      timestamp: new Date().toISOString(),
+      type: 'system'
+    };
+    finalComments.unshift(systemLog);
 
     onSubmit({
       ...values,
       expenses: processedExpenses,
+      comments: finalComments,
       revenue: (values.lineHaul || 0) + (values.fuelSurcharge || 0) + (values.accessorials || 0) + (values.loading || 0) + (values.unloading || 0), // Full gross revenue
       totalExpenses,
       netProfit, // Adjusted net profit (your take-home)
@@ -416,6 +601,37 @@ export function FreightForm({ onSubmit, onDelete, initialData, drivers, assets }
           </CardContent>
         </Card>
 
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Comments & Signature Log</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <Input
+                  placeholder="Add a comment or note..."
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addComment(); } }}
+                />
+              </div>
+              <Button type="button" variant="secondary" onClick={addComment}>Ad Note</Button>
+            </div>
+
+            <div className="space-y-4 max-h-[200px] overflow-y-auto pr-2">
+              {comments.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">No activity logged.</p>}
+              {comments.map((comment) => (
+                <div key={comment.id} className="flex flex-col gap-1 p-3 rounded-lg bg-white/5 border border-white/5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-primary">{comment.author}</span>
+                    <span className="text-[10px] text-muted-foreground">{new Date(comment.timestamp).toLocaleString()}</span>
+                  </div>
+                  <p className="text-sm text-white/80">{comment.text}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
         <div className="flex gap-4">
           {initialData && onDelete && (

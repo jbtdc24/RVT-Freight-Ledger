@@ -5,6 +5,14 @@ export type LoadExpense = {
   amount: number;
 };
 
+export type LoadComment = {
+  id: string;
+  text: string;
+  author: string; // e.g., "System", "John Doe"
+  timestamp: string; // ISO string
+  type: 'manual' | 'system';
+};
+
 export type Freight = {
   id: string;
   freightId: string;
@@ -27,6 +35,9 @@ export type Freight = {
 
   // Expenses
   expenses: LoadExpense[];
+
+  // Activity Log / Comments
+  comments?: LoadComment[];
 
   // Calculated values
   revenue: number;
