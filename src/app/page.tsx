@@ -33,9 +33,9 @@ const chartConfig = {
 
 export default function DashboardPage() {
   const { freight } = useData();
-  const [timeRange, setTimeRange] = useState<'week' | 'month' | 'year' | 'custom'>('year');
+  const [timeRange, setTimeRange] = useState<'week' | 'month' | 'year' | 'custom'>('week');
   const [customRange, setCustomRange] = useState<DateRange | undefined>(undefined);
-  const [activityFilter, setActivityFilter] = useState<'week' | 'month' | 'year' | 'all'>('all');
+  const [activityFilter, setActivityFilter] = useState<'week' | 'month' | 'year' | 'all'>('week');
 
   const activeFreight = useMemo(() => freight.filter(item => !item.isDeleted), [freight]);
 

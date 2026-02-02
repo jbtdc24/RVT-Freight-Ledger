@@ -38,6 +38,7 @@ export type Freight = {
 
   // Activity Log / Comments
   comments?: LoadComment[];
+  signature?: string; // base64 or URL
 
   // Calculated values
   revenue: number;

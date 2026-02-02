@@ -14,7 +14,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import type { Freight, Driver } from "@/lib/types";
+import type { Freight, Driver, Asset } from "@/lib/types";
 import { PlusCircle, Trash2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,7 +40,7 @@ const commentSchema = z.object({
 const formSchema = z.object({
   date: z.date({ required_error: "A date is required." }),
   freightId: z.string().min(2, "Freight ID must be at least 2 characters."),
-  driverId: z.string().optional(),
+  driverId: z.string({ required_error: "Driver is required." }).min(1, "Driver is required."),
   assetId: z.string().optional(),
   origin: z.string().min(2, "Origin is required."),
   destination: z.string().min(2, "Destination is required."),
