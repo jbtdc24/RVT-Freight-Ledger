@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from 'react';
-import { DollarSign, Wrench, Wallet, Trash2 } from "lucide-react";
+import { DollarSign, Wrench, Wallet, Trash2, MessageSquare, AlertTriangle, ArrowRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from 'next/link';
@@ -15,6 +15,9 @@ import { format, subDays, subWeeks, subMonths, startOfWeek, endOfWeek, startOfMo
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { type DateRange } from "react-day-picker";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 
 const chartConfig = {
   revenue: {
@@ -33,10 +36,13 @@ const chartConfig = {
 
 export default function DashboardPage() {
   const { freight } = useData();
-  const [timeRange, setTimeRange] = useState<'week' | 'month' | 'year' | 'custom'>('year');
+  const [timeRange, setTimeRange] = useState<'week' | 'month' | 'year' | 'custom'>('week');
   const [customRange, setCustomRange] = useState<DateRange | undefined>(undefined);
+  const [activityFilter, setActivityFilter] = useState<'week' | 'month' | 'year' | 'all'>('week');
+  const [showInvalidLoads, setShowInvalidLoads] = useState(false);
 
   const activeFreight = useMemo(() => freight.filter(item => !item.isDeleted), [freight]);
+  const validFreight = useMemo(() => activeFreight.filter(f => f.driverName && f.comments && f.comments.length > 0), [activeFreight]);
 
   const filteredFreight = useMemo(() => {
     let start: Date, end: Date;
@@ -59,10 +65,19 @@ export default function DashboardPage() {
     }
 
     return activeFreight.filter(f => {
+      // Exclude invalid loads from calculation
+      if (!f.driverName || !f.comments || f.comments.length === 0) return false;
+
       const d = new Date(f.date);
       return isWithinInterval(d, { start, end });
     });
   }, [activeFreight, timeRange, customRange]);
+
+  /* --- Helper for Consistent Math --- */
+  const calculateOwnerRevenue = (item: Freight) => {
+    // ownerAmount now includes surcharges as per the updated data rules
+    return item.ownerAmount ?? 0;
+  };
 
   const totalGrossRevenue = useMemo(() =>
     filteredFreight.reduce((sum, item) => sum + item.revenue, 0),
@@ -70,7 +85,7 @@ export default function DashboardPage() {
   );
 
   const totalOwnerRevenue = useMemo(() =>
-    filteredFreight.reduce((sum, item) => sum + (item.ownerAmount ?? item.revenue) + (item.fuelSurcharge || 0) + (item.loading || 0) + (item.unloading || 0) + (item.accessorials || 0), 0),
+    filteredFreight.reduce((sum, item) => sum + calculateOwnerRevenue(item), 0),
     [filteredFreight]
   );
 
@@ -79,8 +94,10 @@ export default function DashboardPage() {
     [filteredFreight]
   );
 
+  // We recalculate netProfit from the consistent revenue/expenses to ensure (Rev - Exp = Profit) is always visually true,
+  // rather than relying on the item.netProfit field which might drift if data source logic changes.
   const netProfit = useMemo(() =>
-    filteredFreight.reduce((sum, item) => sum + (item.netProfit || 0), 0),
+    filteredFreight.reduce((sum, item) => sum + (calculateOwnerRevenue(item) - item.totalExpenses), 0),
     [filteredFreight]
   );
 
@@ -130,21 +147,18 @@ export default function DashboardPage() {
     }
 
     return labels.map(item => {
-      const monthFreight = activeFreight.filter(f => {
+      const monthFreight = validFreight.filter(f => {
         const d = new Date(f.date);
         return d >= item.range[0] && d <= item.range[1];
       });
 
-      const revenue = monthFreight.reduce((sum, f) =>
-        sum + (f.ownerAmount ?? f.revenue) + (f.fuelSurcharge || 0) + (f.loading || 0) + (f.unloading || 0) + (f.accessorials || 0)
-        , 0);
-
+      const revenue = monthFreight.reduce((sum, f) => sum + calculateOwnerRevenue(f), 0);
       const expenses = monthFreight.reduce((sum, f) => sum + f.totalExpenses, 0);
       const profit = revenue - expenses;
 
       return { name: item.label, date: item.fullDate, revenue, expenses, profit };
     });
-  }, [activeFreight, timeRange, customRange]);
+  }, [validFreight, timeRange, customRange]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -153,6 +167,8 @@ export default function DashboardPage() {
       maximumFractionDigits: 0,
     }).format(value);
   }
+
+  const invalidLoads = useMemo(() => activeFreight.filter(f => !f.driverName || !f.comments || f.comments.length === 0), [activeFreight]);
 
   return (
     <>
@@ -175,6 +191,59 @@ export default function DashboardPage() {
           </Tabs>
         </div>
       </PageHeader>
+
+      {invalidLoads.length > 0 && (
+        <div className="mb-6">
+          <Alert variant="destructive" className="border-destructive/50 bg-destructive/10 cursor-pointer hover:bg-destructive/20 transition-colors" onClick={() => setShowInvalidLoads(true)}>
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Action Required: {invalidLoads.length} Invalid Load{invalidLoads.length > 1 ? 's' : ''} Detected</AlertTitle>
+            <AlertDescription className="text-xs opacity-90">
+              Some loads are missing required information (Driver or Comments) and are excluded from financial stats. Click here to review and fix them.
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
+
+      {/* INVALID LOADS DIALOG */}
+      <Dialog open={showInvalidLoads} onOpenChange={setShowInvalidLoads}>
+        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Invalid Loads ({invalidLoads.length})
+            </DialogTitle>
+            <DialogDescription>
+              The following loads are incomplete. Click on any item to open it in the editor and fix the missing details.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto pr-2 space-y-2 mt-4">
+            {invalidLoads.map(load => (
+              <Link href={`/freight-ledger?edit=${load.id}`} key={load.id} onClick={() => setShowInvalidLoads(false)}>
+                <div className="p-4 rounded-lg bg-muted/50 border border-destructive/20 hover:bg-destructive/5 hover:border-destructive/50 transition-all cursor-pointer group mb-2">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-bold text-sm flex items-center gap-2">
+                        {load.freightId}
+                        <Badge variant="outline" className="text-[10px] font-mono">{format(new Date(load.date), 'MM/dd/yyyy')}</Badge>
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {load.origin} <ArrowRight className="inline h-3 w-3" /> {load.destination}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-bold">{formatCurrency(load.revenue)}</p>
+                      <p className="text-[10px] text-destructive font-semibold">
+                        {(!load.driverName) ? 'Missing Driver' : (!load.comments || load.comments.length === 0) ? 'Missing Comments' : 'Incomplete'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <Card className="glass-card overflow-hidden relative group">
           <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
@@ -296,8 +365,24 @@ export default function DashboardPage() {
                   cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 2 }}
                   labelFormatter={(label, payload) => payload[0]?.payload?.date || label}
                   content={<ChartTooltipContent
-                    formatter={(value: any) => formatCurrency(value as number)}
                     indicator="dot"
+                    labelFormatter={(label) => label}
+                    formatter={(value, name) => {
+                      // Map the internal dataKey (revenue/expenses/profit) to readable labels
+                      let label = name;
+                      if (name === 'revenue') label = 'Revenue';
+                      if (name === 'expenses') label = 'Expenses';
+                      if (name === 'profit') label = 'Net Profit';
+
+                      return (
+                        <div className="flex min-w-[130px] items-center text-xs text-muted-foreground">
+                          {label}
+                          <div className="ml-auto flex items-baseline gap-0.5 font-mono font-medium tabular-nums text-foreground">
+                            {formatCurrency(value as number)}
+                          </div>
+                        </div>
+                      )
+                    }}
                   />}
                 />
                 <Area
@@ -335,8 +420,22 @@ export default function DashboardPage() {
 
       <div className="grid gap-6">
         <Card className="glass-card border-none">
-          <CardHeader>
+          <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-4 gap-4">
             <CardTitle className="text-xl">Recent Activity</CardTitle>
+            <div className="flex bg-white/5 rounded-lg p-1 gap-1 self-end sm:self-auto">
+              {(['week', 'month', 'year', 'all'] as const).map((range) => (
+                <button
+                  key={range}
+                  onClick={() => setActivityFilter(range)}
+                  className={cn(
+                    "px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all",
+                    activityFilter === range ? "bg-primary text-black shadow-sm" : "text-white/40 hover:text-white hover:bg-white/5"
+                  )}
+                >
+                  {range}
+                </button>
+              ))}
+            </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
@@ -390,45 +489,82 @@ export default function DashboardPage() {
                   });
                 });
 
-                // Sort by date descending and take top 10 for a better "history" view
-                const recent = transactions
+                // 4. Add comments & updates
+                activeFreight.forEach(item => {
+                  if (item.comments) {
+                    item.comments.forEach(comment => {
+                      transactions.push({
+                        id: `com-${comment.id}`,
+                        loadId: item.id,
+                        type: 'update',
+                        title: `${comment.type === 'system' ? 'System' : 'Note'}: ${comment.text}`,
+                        date: new Date(comment.timestamp),
+                        amount: 0,
+                        status: comment.author,
+                        link: '/freight-ledger',
+                        icon: <MessageSquare className="h-4 w-4" />,
+                        color: 'info'
+                      });
+                    });
+                  }
+                });
+
+                // Filter by date based on activityFilter
+                let cutoff = new Date(0); // Epoch default (all)
+                const now = new Date();
+                if (activityFilter === 'week') cutoff = subDays(now, 7);
+                if (activityFilter === 'month') cutoff = subDays(now, 30);
+                if (activityFilter === 'year') cutoff = subDays(now, 365);
+
+                const filtered = transactions.filter(t => t.date >= cutoff);
+
+                // Sort by date descending and take top 500
+                const recent = filtered
                   .sort((a, b) => b.date.getTime() - a.date.getTime())
-                  .slice(0, 8);
+                  .slice(0, 500);
 
                 if (recent.length === 0) {
-                  return <p className="text-sm text-muted-foreground text-center py-4">No recent activity.</p>;
+                  return <div className="flex flex-col items-center justify-center py-8 text-muted-foreground opacity-50 space-y-2">
+                    <p className="text-sm">No activity found in this range.</p>
+                  </div>;
                 }
 
-                return recent.map((item) => (
-                  <Link href={`${item.link}${item.loadId ? `?edit=${item.loadId}` : ''}`} key={item.id}>
-                    <div className="flex items-center justify-between group cursor-pointer hover:bg-white/5 p-2 rounded-xl transition-all active:scale-[0.98]">
-                      <div className="flex items-center gap-4">
-                        <div className={cn(
-                          "p-2 rounded-full",
-                          item.color === 'success' ? "bg-success/20 text-success" :
-                            item.color === 'destructive' ? "bg-destructive/20 text-destructive" :
-                              "bg-white/10 text-white/40"
-                        )}>
-                          {item.icon}
+                return (
+                  <div className="max-h-[500px] overflow-y-auto pr-2 space-y-2 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+                    {recent.map((item) => (
+                      <Link href={`${item.link}${item.loadId ? `?edit=${item.loadId}` : ''}`} key={item.id}>
+                        <div className="flex items-center justify-between group cursor-pointer hover:bg-white/5 p-2 rounded-xl transition-all active:scale-[0.98]">
+                          {/* Items Content */}
+                          <div className="flex items-center gap-4">
+                            <div className={cn(
+                              "p-2 rounded-full",
+                              item.color === 'success' ? "bg-success/20 text-success" :
+                                item.color === 'destructive' ? "bg-destructive/20 text-destructive" :
+                                  item.color === 'info' ? "bg-blue-500/20 text-blue-400" :
+                                    "bg-white/10 text-white/40"
+                            )}>
+                              {item.icon}
+                            </div>
+                            <div className="flex flex-col max-w-[200px] sm:max-w-[300px]">
+                              <span className="text-sm font-bold group-hover:text-primary transition-colors truncate" title={item.title}>{item.title}</span>
+                              <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{format(item.date, 'MMM dd, yyyy • HH:mm')}</span>
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end">
+                            <span className={cn(
+                              "text-sm font-bold",
+                              item.amount > 0 ? "text-success" :
+                                item.amount < 0 ? "text-destructive" : "text-white/20"
+                            )}>
+                              {item.amount !== 0 ? (item.amount > 0 ? '+' : '') + formatCurrency(item.amount) : '---'}
+                            </span>
+                            <span className="text-[10px] py-0.5 px-2 bg-white/5 rounded-full text-white/40 font-medium">{item.status}</span>
+                          </div>
                         </div>
-                        <div className="flex flex-col">
-                          <span className="text-sm font-bold group-hover:text-primary transition-colors">{item.title}</span>
-                          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{format(item.date, 'MMM dd, yyyy')}</span>
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-end">
-                        <span className={cn(
-                          "text-sm font-bold",
-                          item.amount > 0 ? "text-success" :
-                            item.amount < 0 ? "text-destructive" : "text-white/20"
-                        )}>
-                          {item.amount !== 0 ? (item.amount > 0 ? '+' : '') + formatCurrency(item.amount) : '---'}
-                        </span>
-                        <span className="text-[10px] py-0.5 px-2 bg-white/5 rounded-full text-white/40 font-medium">{item.status}</span>
-                      </div>
-                    </div>
-                  </Link>
-                ));
+                      </Link>
+                    ))}
+                  </div>
+                );
               })()}
             </div>
             <Link href="/freight-ledger">

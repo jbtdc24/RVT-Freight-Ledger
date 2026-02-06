@@ -23,9 +23,9 @@ export default function RecycleBinPage() {
 
     const handleResetData = () => {
         if (window.confirm("This will delete all current data and reset to demo records. Continue?")) {
-            localStorage.removeItem('rvt_freight');
-            localStorage.removeItem('rvt_assets');
-            localStorage.removeItem('rvt_drivers');
+            localStorage.removeItem('rvt_freight_v5');
+            localStorage.removeItem('rvt_assets_v5');
+            localStorage.removeItem('rvt_drivers_v5');
             setFreight(initialFreight);
             setAssets(initialAssets);
             setDrivers(initialDrivers);
