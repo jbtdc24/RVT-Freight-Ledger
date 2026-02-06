@@ -34,24 +34,28 @@ export const initialDrivers: Driver[] = [
 const random = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
 const randomInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
 
-// Generate 4 freight items (3 valid, 1 invalid)
+// Generate 50 freight items (49 valid, 1 invalid)
 // MATH VERIFICATION RULES:
 // 1. Revenue (Broker Pay) = Line Haul + Fuel Surcharge + Accessorials + Loading + Unloading
 // 2. Owner Amount (Our Share) = (Line Haul * Owner %) + Fuel Surcharge + Accessorials + Loading + Unloading
 // 3. Total Expenses = Sum of all individual expense items
 // 4. Net Profit = Owner Amount - Total Expenses
 export const initialFreight: Freight[] = [
-  ...Array.from({ length: 3 }).map((_, i) => {
-    const origin = random(['Dallas, TX', 'Miami, FL', 'Atlanta, GA', 'Chicago, IL']);
-    const destination = random(['Phoenix, AZ', 'Houston, TX', 'Detroit, MI']);
+  ...Array.from({ length: 49 }).map((_, i) => {
+    const origin = random(['Dallas, TX', 'Miami, FL', 'Atlanta, GA', 'Chicago, IL', 'Los Angeles, CA', 'Seattle, WA', 'Denver, CO', 'New York, NY']);
+    const destination = random(['Phoenix, AZ', 'Houston, TX', 'Detroit, MI', 'Portland, OR', 'San Francisco, CA', 'Nashville, TN', 'Charlotte, NC']);
     const dist = randomInt(400, 2500);
+
+    // Random date in last 90 days
+    const date = new Date();
+    date.setDate(date.getDate() - randomInt(0, 90));
 
     // --- 1. Define Base Component Values ---
     const lineHaul = dist * (randomInt(180, 350) / 100);
     const fuelSurcharge = randomInt(100, 500);
-    const accessorials = 0;
-    const loading = 0;
-    const unloading = 0;
+    const accessorials = randomInt(0, 1) > 0.8 ? randomInt(50, 200) : 0;
+    const loading = randomInt(0, 1) > 0.9 ? 50 : 0;
+    const unloading = randomInt(0, 1) > 0.9 ? 50 : 0;
     const ownerPercentage = 65; // We keep 65% of Line Haul
 
     // --- 2. Calculate Revenue (What Broker Pays) ---
@@ -65,11 +69,15 @@ export const initialFreight: Freight[] = [
     const ownerAmount = ownerBase + fuelSurcharge + accessorials + loading + unloading;
 
     // --- 4. Define and Calculate Expenses ---
-    const expenseAmount = randomInt(200, 600);
+    const expenseAmount = randomInt(200, 800);
     const expenses: LoadExpense[] = [
       { id: `exp-${i}`, category: 'Fuel', description: 'Fuel', amount: expenseAmount }
     ];
-    const totalExpenses = expenseAmount;
+    if (randomInt(0, 1) > 0.7) {
+      const repairAmount = randomInt(50, 300);
+      expenses.push({ id: `exp-${i}-rep`, category: 'Repairs', description: 'Misc Repair', amount: repairAmount });
+    }
+    const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
 
     // --- 5. Calculate Net Profit ---
     // Net Profit = Owner Amount - Total Expenses
@@ -82,10 +90,10 @@ export const initialFreight: Freight[] = [
       origin,
       destination,
       distance: dist,
-      date: new Date(), // Today
+      date,
       weight: randomInt(15000, 42000),
-      driverId: initialDrivers[0].id,
-      driverName: initialDrivers[0].name,
+      driverId: initialDrivers[i % initialDrivers.length].id,
+      driverName: initialDrivers[i % initialDrivers.length].name,
       assetId: 'ast-1',
       assetName: 'Unit 101',
 
@@ -104,6 +112,47 @@ export const initialFreight: Freight[] = [
       netProfit,      // Calculated above
 
       comments: [{ id: `com-${i}`, text: "System generated valid load.", author: "System", timestamp: new Date().toISOString(), type: 'system' }],
+
+      // Extended Details
+      agencyName: "Rob Johnston - TPN",
+      postingCode: "TPO",
+      contactName: "Jenn Peterson",
+      contactPhone: "(480) 466-9679",
+      contactEmail: "tpodispatch@landstarmail.com",
+      operatingEntity: "Landstar Ranger Inc",
+
+      freightBillNumber: `${1419800 + i}`,
+      customerReferenceNumber: `S0281${60 + i}`,
+
+      trailerNumber: `${672600 + i}`,
+      equipmentType: "VANL",
+      hazardousMaterial: false,
+
+      pickup: {
+        companyName: "Christie Lites Las Vegas",
+        address: "4325 Corporate Center Drive",
+        cityStateZip: "North Las Vegas, NV 89030",
+        contactName: "Dispatch",
+        contactPhone: "555-0101",
+        appointmentTime: "14:00 - 16:00",
+        appointmentNumber: `APT-${100 + i}`,
+        notes: "Driver must check in at guard shack."
+      },
+      drop: {
+        companyName: "Seattle Convention Center",
+        address: "1715 Boren Ave",
+        cityStateZip: "Seattle, WA 98118",
+        contactName: "Receiving",
+        contactPhone: "555-0102",
+        appointmentTime: "08:00 - 12:00",
+        appointmentNumber: `DEL-${200 + i}`,
+        notes: "Unload at dock 4."
+      },
+
+      commodity: "CONSUMER GOODS OR APPLIANCES",
+      pieces: randomInt(10, 50),
+      dimensions: "40x48x96",
+      bcoSpecialInstructions: "Driver must call for dispatch instructions upon empty."
     } as Freight;
   }),
 
