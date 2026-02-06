@@ -75,13 +75,8 @@ export default function DashboardPage() {
 
   /* --- Helper for Consistent Math --- */
   const calculateOwnerRevenue = (item: Freight) => {
-    // If ownerAmount exists, use it + surcharges.
-    // If it doesn't exist (legacy/manual?), assume Revenue is the owner's part? 
-    // Data model says revenue = lineHaul + surcharges.
-    // Safest bet for 'Your Take-home' is strictly ownerAmount + surcharges.
-    const base = item.ownerAmount ?? 0;
-    const surcharges = (item.fuelSurcharge || 0) + (item.loading || 0) + (item.unloading || 0) + (item.accessorials || 0);
-    return base + surcharges;
+    // ownerAmount now includes surcharges as per the updated data rules
+    return item.ownerAmount ?? 0;
   };
 
   const totalGrossRevenue = useMemo(() =>

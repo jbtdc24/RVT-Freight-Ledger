@@ -19,6 +19,7 @@ import { startOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYe
 export type FiltersState = {
   freightId: string;
   route: string;
+  textSearch: string;
   revenue: { min: string; max: string };
   expenses: { min: string; max: string };
   netProfit: { min: string; max: string };
@@ -32,18 +33,20 @@ type FilterBarProps = {
 export function FilterBar({ onFilterChange }: FilterBarProps) {
   const [freightId, setFreightId] = useState("");
   const [route, setRoute] = useState("");
+  const [textSearch, setTextSearch] = useState("");
   const [revenue, setRevenue] = useState({ min: "", max: "" });
   const [expenses, setExpenses] = useState({ min: "", max: "" });
   const [netProfit, setNetProfit] = useState({ min: "", max: "" });
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
   useEffect(() => {
-    onFilterChange({ freightId, route, revenue, expenses, netProfit, dateRange });
-  }, [freightId, route, revenue, expenses, netProfit, dateRange, onFilterChange]);
+    onFilterChange({ freightId, route, textSearch, revenue, expenses, netProfit, dateRange });
+  }, [freightId, route, textSearch, revenue, expenses, netProfit, dateRange, onFilterChange]);
 
   const clearFilters = () => {
     setFreightId("");
     setRoute("");
+    setTextSearch("");
     setRevenue({ min: "", max: "" });
     setExpenses({ min: "", max: "" });
     setNetProfit({ min: "", max: "" });
@@ -92,6 +95,16 @@ export function FilterBar({ onFilterChange }: FilterBarProps) {
                   />
                 </div>
                 <div>
+                  <Label htmlFor="text-search">Global Search</Label>
+                  <Input
+                    id="text-search"
+                    placeholder="Search Agency, Driver, Items..."
+                    value={textSearch}
+                    onChange={(e) => setTextSearch(e.target.value)}
+                    className="mt-2"
+                  />
+                </div>
+                <div>
                   <Label htmlFor="route-search">Route</Label>
                   <Input
                     id="route-search"
@@ -101,14 +114,16 @@ export function FilterBar({ onFilterChange }: FilterBarProps) {
                     className="mt-2"
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 col-span-1 md:col-span-2 lg:col-span-3">
                   <Label>Date Range</Label>
-                  <DateRangePicker date={dateRange} onDateChange={setDateRange} />
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Button variant="outline" size="sm" onClick={() => setPresetDateRange('today')}>Today</Button>
-                    <Button variant="outline" size="sm" onClick={() => setPresetDateRange('this-week')}>This Week</Button>
-                    <Button variant="outline" size="sm" onClick={() => setPresetDateRange('this-month')}>This Month</Button>
-                    <Button variant="outline" size="sm" onClick={() => setPresetDateRange('this-year')}>This Year</Button>
+                  <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+                    <DateRangePicker date={dateRange} onDateChange={setDateRange} />
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Button variant="outline" size="sm" onClick={() => setPresetDateRange('today')}>Today</Button>
+                      <Button variant="outline" size="sm" onClick={() => setPresetDateRange('this-week')}>This Week</Button>
+                      <Button variant="outline" size="sm" onClick={() => setPresetDateRange('this-month')}>This Month</Button>
+                      <Button variant="outline" size="sm" onClick={() => setPresetDateRange('this-year')}>This Year</Button>
+                    </div>
                   </div>
                 </div>
               </div>

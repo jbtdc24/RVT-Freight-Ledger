@@ -3,7 +3,7 @@
 "use client";
 
 import { useState, Fragment, useMemo, useEffect } from "react";
-import { PlusCircle, Pencil, Wallet, ArrowRight, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, MessageSquare, PenTool, X } from "lucide-react";
+import { PlusCircle, Pencil, Wallet, ArrowRight, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, MessageSquare, PenTool, X, MapPin } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
@@ -46,6 +46,7 @@ export default function FreightLedgerPage() {
   const [filters, setFilters] = useState<FiltersState>({
     freightId: '',
     route: '',
+    textSearch: '',
     revenue: { min: '', max: '' },
     expenses: { min: '', max: '' },
     netProfit: { min: '', max: '' },
@@ -119,7 +120,7 @@ export default function FreightLedgerPage() {
     return freight.filter(item => {
       if (item.isDeleted) return false;
 
-      const { freightId, route, revenue, expenses, netProfit, dateRange } = filters;
+      const { freightId, route, textSearch, revenue, expenses, netProfit, dateRange } = filters;
 
       if (freightId && !item.freightId.toLowerCase().includes(freightId.toLowerCase())) {
         return false;
@@ -130,6 +131,19 @@ export default function FreightLedgerPage() {
         if (!routeStr.includes(route.toLowerCase())) {
           return false;
         }
+      }
+
+      if (textSearch) {
+        const searchStr = textSearch.toLowerCase();
+        const matches =
+          (item.driverName && item.driverName.toLowerCase().includes(searchStr)) ||
+          (item.agencyName && item.agencyName.toLowerCase().includes(searchStr)) ||
+          (item.contactName && item.contactName.toLowerCase().includes(searchStr)) ||
+          (item.commodity && item.commodity.toLowerCase().includes(searchStr)) ||
+          (item.assetName && item.assetName.toLowerCase().includes(searchStr)) ||
+          (item.freightBillNumber && item.freightBillNumber.toLowerCase().includes(searchStr));
+
+        if (!matches) return false;
       }
 
       if (dateRange?.from) {
@@ -232,7 +246,8 @@ export default function FreightLedgerPage() {
             <div className="flex items-center justify-between pr-8">
               <DialogTitle className="text-xl flex items-center gap-2">
                 Load #{viewingFreight?.freightId}
-                <Badge variant="outline" className="font-mono">{viewingFreight && format(viewingFreight.date, 'MM/dd/yyyy')}</Badge>
+                <Badge variant="outline" className="font-mono">{viewingFreight && format(new Date(viewingFreight.date), 'MM/dd/yyyy')}</Badge>
+                {viewingFreight?.postingCode && <Badge variant="secondary">{viewingFreight.postingCode}</Badge>}
               </DialogTitle>
             </div>
             <DialogDescription>
@@ -242,8 +257,70 @@ export default function FreightLedgerPage() {
 
           {viewingFreight && (
             <div className="flex-1 overflow-y-auto pr-2">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-1">
-                {/* LEFT COLUMN: Financials & Basic Info */}
+              {/* PRIMARY INFO GRID */}
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 p-1 mb-6">
+
+                {/* COL 1: ROUTE & CARGO */}
+                <div className="space-y-6">
+                  {/* Route Details */}
+                  <div className="bg-muted/30 p-4 rounded-xl border space-y-4">
+                    <h3 className="font-headline text-lg flex items-center gap-2"><MapPin className="h-4 w-4" /> Route Details</h3>
+
+                    {/* PICKUP */}
+                    <div className="pl-3 border-l-2 border-primary/50 relative">
+                      <div className="absolute -left-[5px] top-0 h-2 w-2 rounded-full bg-primary" />
+                      <p className="text-xs font-bold text-primary uppercase tracking-wider mb-1">Pickup (Stop 1)</p>
+                      <p className="font-semibold">{viewingFreight.pickup?.companyName || viewingFreight.origin}</p>
+                      {viewingFreight.pickup?.address && <p className="text-sm text-muted-foreground">{viewingFreight.pickup.address}, {viewingFreight.pickup.cityStateZip}</p>}
+                      <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
+                        {viewingFreight.pickup?.appointmentTime && <span><span className="font-semibold text-foreground">Time:</span> {viewingFreight.pickup.appointmentTime}</span>}
+                        {viewingFreight.pickup?.appointmentNumber && <span><span className="font-semibold text-foreground">Appt #:</span> {viewingFreight.pickup.appointmentNumber}</span>}
+                      </div>
+                      {viewingFreight.pickup?.notes && <p className="text-xs italic mt-1 text-muted-foreground">"{viewingFreight.pickup.notes}"</p>}
+                    </div>
+
+                    {/* DROP */}
+                    <div className="pl-3 border-l-2 border-orange-500/50 relative">
+                      <div className="absolute -left-[5px] top-0 h-2 w-2 rounded-full bg-orange-500" />
+                      <p className="text-xs font-bold text-orange-500 uppercase tracking-wider mb-1">Drop (Stop 2)</p>
+                      <p className="font-semibold">{viewingFreight.drop?.companyName || viewingFreight.destination}</p>
+                      {viewingFreight.drop?.address && <p className="text-sm text-muted-foreground">{viewingFreight.drop.address}, {viewingFreight.drop.cityStateZip}</p>}
+                      <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
+                        {viewingFreight.drop?.appointmentTime && <span><span className="font-semibold text-foreground">Time:</span> {viewingFreight.drop.appointmentTime}</span>}
+                        {viewingFreight.drop?.appointmentNumber && <span><span className="font-semibold text-foreground">Appt #:</span> {viewingFreight.drop.appointmentNumber}</span>}
+                      </div>
+                      {viewingFreight.drop?.notes && <p className="text-xs italic mt-1 text-muted-foreground">"{viewingFreight.drop.notes}"</p>}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 pt-2 border-t text-sm">
+                      <div><p className="text-muted-foreground text-xs">Distance</p><p className="font-medium">{viewingFreight.distance.toLocaleString()} mi</p></div>
+                      <div><p className="text-muted-foreground text-xs">Weight</p><p className="font-medium">{viewingFreight.weight.toLocaleString()} lbs</p></div>
+                      {viewingFreight.driverName && <div><p className="text-muted-foreground text-xs">Driver</p><p className="font-medium">{viewingFreight.driverName}</p></div>}
+                      {viewingFreight.assetName && <div><p className="text-muted-foreground text-xs">Truck</p><p className="font-medium">{viewingFreight.assetName}</p></div>}
+                    </div>
+                  </div>
+
+                  {/* Cargo & Equip */}
+                  <div className="bg-muted/30 p-4 rounded-xl border space-y-3 text-sm">
+                    <h3 className="font-headline text-lg flex items-center gap-2"><Wallet className="h-4 w-4" /> Cargo & Eqpt</h3>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="col-span-2">
+                        <p className="text-xs text-muted-foreground">Commodity</p>
+                        <p className="font-medium">{viewingFreight.commodity || 'N/A'}</p>
+                      </div>
+                      <div><p className="text-xs text-muted-foreground">Trailer #</p><p className="font-medium">{viewingFreight.trailerNumber || 'N/A'}</p></div>
+                      <div><p className="text-xs text-muted-foreground">Type</p><p className="font-medium">{viewingFreight.equipmentType || 'N/A'}</p></div>
+                      <div><p className="text-xs text-muted-foreground">Pieces</p><p className="font-medium">{viewingFreight.pieces || '-'}</p></div>
+                      <div><p className="text-xs text-muted-foreground">Dims</p><p className="font-medium">{viewingFreight.dimensions || '-'}</p></div>
+                      <div><p className="text-xs text-muted-foreground">NMFC</p><p className="font-medium">{viewingFreight.nmfcCode || '-'}</p></div>
+                      <div><p className="text-xs text-muted-foreground">Class</p><p className="font-medium">{viewingFreight.freightClass || '-'}</p></div>
+                      {viewingFreight.temperatureControl && <div className="col-span-2"><p className="text-xs text-muted-foreground">Temp Control</p><p className="font-medium">{viewingFreight.temperatureControl}</p></div>}
+                      {viewingFreight.hazardousMaterial && <div className="col-span-2 text-destructive font-bold flex items-center gap-2">⚠️ HAZARDOUS MATERIAL</div>}
+                    </div>
+                  </div>
+                </div>
+
+                {/* COL 2: FINANCIALS & ID */}
                 <div className="space-y-6">
                   {/* Financial Breakdown */}
                   <div className="bg-muted/30 p-4 rounded-xl border space-y-4">
@@ -253,24 +330,24 @@ export default function FreightLedgerPage() {
                     <div className="grid grid-cols-2 gap-y-4 gap-x-8 text-sm">
                       <div><p className="text-muted-foreground">Line Haul</p><p className="font-medium text-base">{formatCurrency(viewingFreight.lineHaul)}</p></div>
                       <div>
-                        <p className="text-muted-foreground">Our Share ({viewingFreight.ownerPercentage}%)</p>
-                        <p className="font-bold text-primary text-base">{formatCurrency(viewingFreight.ownerAmount)}</p>
+                        <p className="text-muted-foreground">Our Share of LH ({viewingFreight.ownerPercentage}%)</p>
+                        <p className="font-bold text-primary text-base">{formatCurrency(viewingFreight.lineHaul * (viewingFreight.ownerPercentage / 100))}</p>
                       </div>
 
-                      {viewingFreight.fuelSurcharge > 0 && <div><p className="text-muted-foreground">Fuel Surcharge</p><p className="font-medium">{formatCurrency(viewingFreight.fuelSurcharge)}</p></div>}
-                      {viewingFreight.loading > 0 && <div><p className="text-muted-foreground">Loading</p><p className="font-medium">{formatCurrency(viewingFreight.loading)}</p></div>}
-                      {viewingFreight.unloading > 0 && <div><p className="text-muted-foreground">Unloading</p><p className="font-medium">{formatCurrency(viewingFreight.unloading)}</p></div>}
-                      {viewingFreight.accessorials > 0 && <div><p className="text-muted-foreground">Accessorials</p><p className="font-medium">{formatCurrency(viewingFreight.accessorials)}</p></div>}
+                      {viewingFreight.fuelSurcharge > 0 && <div><p className="text-muted-foreground">Fuel Surcharge (100%)</p><p className="font-medium">{formatCurrency(viewingFreight.fuelSurcharge)}</p></div>}
+                      {viewingFreight.loading > 0 && <div><p className="text-muted-foreground">Loading (100%)</p><p className="font-medium">{formatCurrency(viewingFreight.loading)}</p></div>}
+                      {viewingFreight.unloading > 0 && <div><p className="text-muted-foreground">Unloading (100%)</p><p className="font-medium">{formatCurrency(viewingFreight.unloading)}</p></div>}
+                      {viewingFreight.accessorials > 0 && <div><p className="text-muted-foreground">Accessorials (100%)</p><p className="font-medium">{formatCurrency(viewingFreight.accessorials)}</p></div>}
                     </div>
 
                     <div className="border-t pt-4 space-y-2">
                       <div className="flex justify-between items-center text-xs text-muted-foreground">
-                        <span>Gross Revenue (100%):</span>
+                        <span>Gross Revenue (Broker Pay):</span>
                         <span>{formatCurrency(viewingFreight.revenue)}</span>
                       </div>
                       <div className="flex justify-between items-center font-bold text-sm">
-                        <span>Your Adjusted Revenue:</span>
-                        <span>{formatCurrency(viewingFreight.ownerAmount + viewingFreight.fuelSurcharge + viewingFreight.loading + viewingFreight.unloading + viewingFreight.accessorials)}</span>
+                        <span>Your Total Share:</span>
+                        <span>{formatCurrency(viewingFreight.ownerAmount)}</span>
                       </div>
                       <div className="flex justify-between items-center font-bold text-destructive text-sm">
                         <span>Total Expenses:</span>
@@ -283,28 +360,25 @@ export default function FreightLedgerPage() {
                     </div>
                   </div>
 
-                  {/* Load Stats */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-muted/30 p-3 rounded-lg border">
-                      <p className="text-xs text-muted-foreground uppercase tracking-wider">Driver</p>
-                      <p className="font-semibold truncate">{viewingFreight.driverName || 'N/A'}</p>
-                    </div>
-                    <div className="bg-muted/30 p-3 rounded-lg border">
-                      <p className="text-xs text-muted-foreground uppercase tracking-wider">Distance</p>
-                      <p className="font-semibold">{viewingFreight.distance.toLocaleString()} mi</p>
-                    </div>
-                    <div className="bg-muted/30 p-3 rounded-lg border">
-                      <p className="text-xs text-muted-foreground uppercase tracking-wider">Weight</p>
-                      <p className="font-semibold">{viewingFreight.weight.toLocaleString()} lbs</p>
-                    </div>
-                    <div className="bg-muted/30 p-3 rounded-lg border">
-                      <p className="text-xs text-muted-foreground uppercase tracking-wider">RPM</p>
-                      <p className="font-semibold">{formatCurrency(viewingFreight.distance > 0 ? viewingFreight.revenue / viewingFreight.distance : 0)}</p>
+                  {/* ID & Agency */}
+                  <div className="bg-muted/30 p-4 rounded-xl border space-y-3 text-sm">
+                    <h3 className="font-headline text-lg flex items-center gap-2"><PenTool className="h-4 w-4" /> Reference & Contact</h3>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div><p className="text-xs text-muted-foreground">Freight Bill #</p><p className="font-medium font-mono">{viewingFreight.freightBillNumber || 'N/A'}</p></div>
+                      <div><p className="text-xs text-muted-foreground">Cust Ref #</p><p className="font-medium font-mono">{viewingFreight.customerReferenceNumber || 'N/A'}</p></div>
+                      <div className="col-span-2 pt-2 border-t mt-2">
+                        <p className="text-xs text-muted-foreground">Agency</p>
+                        <p className="font-medium">{viewingFreight.agencyName || 'N/A'}</p>
+                      </div>
+                      <div><p className="text-xs text-muted-foreground">Contact</p><p className="font-medium truncate">{viewingFreight.contactName || 'N/A'}</p></div>
+                      <div><p className="text-xs text-muted-foreground">Phone</p><p className="font-medium">{viewingFreight.contactPhone || 'N/A'}</p></div>
+                      <div><p className="text-xs text-muted-foreground">Fax</p><p className="font-medium">{viewingFreight.contactFax || 'N/A'}</p></div>
+                      <div className="col-span-2"><p className="text-xs text-muted-foreground">Email</p><p className="font-medium truncate">{viewingFreight.contactEmail || 'N/A'}</p></div>
                     </div>
                   </div>
                 </div>
 
-                {/* RIGHT COLUMN: Expenses, Comments, Signature */}
+                {/* COL 3: LOGS & EXPENSES */}
                 <div className="space-y-6">
                   {/* Expenses */}
                   <div>
@@ -326,7 +400,7 @@ export default function FreightLedgerPage() {
                           ))}
                         </div>
                       ) : (
-                        <div className="p-8 text-center text-muted-foreground text-sm">No expenses logged for this load.</div>
+                        <div className="p-8 text-center text-muted-foreground text-sm">No expenses logged.</div>
                       )}
                     </div>
                   </div>
@@ -339,7 +413,7 @@ export default function FreightLedgerPage() {
                     <div className="bg-muted/30 rounded-xl border overflow-hidden max-h-[200px] overflow-y-auto">
                       {viewingFreight.comments && viewingFreight.comments.length > 0 ? (
                         <div className="divide-y">
-                          {viewingFreight.comments.map(comment => (
+                          {viewingFreight.comments.filter(c => c.type !== 'system').map(comment => (
                             <div key={comment.id} className="p-3 text-sm">
                               <div className="flex justify-between items-start mb-1">
                                 <span className="font-bold text-xs">{comment.author}</span>
@@ -348,6 +422,7 @@ export default function FreightLedgerPage() {
                               <p className="text-muted-foreground">{comment.text}</p>
                             </div>
                           ))}
+                          {viewingFreight.comments.filter(c => c.type !== 'system').length === 0 && <div className="p-4 text-center text-xs text-muted-foreground">No manual notes.</div>}
                         </div>
                       ) : (
                         <div className="p-8 text-center text-muted-foreground text-sm">No comments.</div>
@@ -355,29 +430,13 @@ export default function FreightLedgerPage() {
                     </div>
                   </div>
 
-                  {/* System Audit */}
-                  <div>
-                    <h3 className="font-headline text-lg mb-3 flex items-center gap-2">
-                      <PenTool className="h-4 w-4" /> System Audit
-                    </h3>
-                    <div className="bg-muted/30 rounded-xl border p-4 flex flex-col gap-2 max-h-[150px] overflow-y-auto">
-                      {viewingFreight.comments && viewingFreight.comments.filter(c => c.type === 'system').length > 0 ? (
-                        viewingFreight.comments.filter(c => c.type === 'system').map(log => (
-                          <div key={log.id} className="text-sm border-l-2 border-primary/50 pl-3">
-                            <div className="flex justify-between items-center text-xs text-muted-foreground mb-1">
-                              <span className="font-semibold text-primary">{log.author}</span>
-                              <span>{new Date(log.timestamp).toLocaleString()}</span>
-                            </div>
-                            <p className="text-muted-foreground">{log.text}</p>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="flex flex-col items-center justify-center h-20 text-muted-foreground">
-                          <span className="text-sm italic">No system logs available.</span>
-                        </div>
-                      )}
+                  {/* Instructions Block */}
+                  {viewingFreight.bcoSpecialInstructions && (
+                    <div className="bg-yellow-500/10 border border-yellow-500/20 p-3 rounded-lg">
+                      <p className="text-xs font-bold text-yellow-500 uppercase tracking-wider mb-1">Special Instructions</p>
+                      <p className="text-sm">{viewingFreight.bcoSpecialInstructions}</p>
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
 
@@ -442,10 +501,18 @@ export default function FreightLedgerPage() {
                       )}
                     </TableCell>
                     <TableCell className="hidden sm:table-cell">{format(item.date, 'MM/dd/yyyy')}</TableCell>
-                    <TableCell className="font-medium">{item.freightId}</TableCell>
-                    <TableCell>{item.driverName}</TableCell>
-                    <TableCell className="flex items-center gap-2 max-w-[300px] truncate">
-                      <span className="truncate">{item.origin}</span> <ArrowRight className="h-3 w-3 text-muted-foreground flex-shrink-0" /> <span className="truncate">{item.destination}</span>
+                    <TableCell className="font-medium">
+                      {item.freightId}
+                      {item.agencyName && <div className="text-[10px] text-muted-foreground font-normal truncate max-w-[100px]" title={item.agencyName}>{item.agencyName}</div>}
+                    </TableCell>
+                    <TableCell>
+                      <div>{item.driverName}</div>
+                      <div className="text-xs text-muted-foreground">{item.assetName}</div>
+                    </TableCell>
+                    <TableCell className="max-w-[300px]">
+                      <div className="flex items-center gap-2 truncate">
+                        <span className="truncate" title={item.origin}>{item.origin}</span> <ArrowRight className="h-3 w-3 text-muted-foreground flex-shrink-0" /> <span className="truncate" title={item.destination}>{item.destination}</span>
+                      </div>
                     </TableCell>
                     <TableCell className="text-right font-medium text-muted-foreground">
                       {formatCurrency(rpm)}

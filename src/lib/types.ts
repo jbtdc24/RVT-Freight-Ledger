@@ -14,10 +14,43 @@ export type LoadComment = {
 };
 
 export type Freight = {
+  // Header Info
+  agencyName?: string;
+  postingCode?: string;
+  contactName?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  contactFax?: string;
+  operatingEntity?: string;
+
+  // Identifiers
+  freightBillNumber?: string;
+  customerReferenceNumber?: string;
+
+  // Equipment
+  trailerNumber?: string;
+  equipmentType?: string;
+  hazardousMaterial?: boolean;
+
+  // Route Details
+  pickup?: StopDetail;
+  drop?: StopDetail;
+
+  // Cargo
+  commodity?: string;
+  pieces?: number;
+  dimensions?: string;
+  nmfcCode?: string;
+  freightClass?: string;
+  temperatureControl?: string; // e.g. "Temp", "Reefer Settings"
+
+  // Instructions
+  bcoSpecialInstructions?: string;
+
   id: string;
-  freightId: string;
-  origin: string;
-  destination: string;
+  freightId: string; // Load #
+  origin: string; // Kept for summary/table view
+  destination: string; // Kept for summary/table view
   distance: number;
   date: Date;
   weight: number;
@@ -50,6 +83,17 @@ export type Freight = {
   // Soft delete
   isDeleted?: boolean;
   deletedAt?: string;
+};
+
+export type StopDetail = {
+  companyName: string;
+  address: string;
+  cityStateZip: string;
+  contactName?: string;
+  contactPhone?: string;
+  appointmentTime?: string;
+  appointmentNumber?: string;
+  notes?: string;
 };
 
 export type Asset = {
