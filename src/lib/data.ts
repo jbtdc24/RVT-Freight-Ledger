@@ -199,3 +199,186 @@ export const initialAssets: Asset[] = [
   { id: 'ast-2', type: 'Truck', identifier: 'Unit 102 - Cascadia', description: '2023 Freightliner Cascadia' },
   { id: 'ast-3', type: 'Business Car', identifier: 'Ford Explorer', description: '2021 Ford Explorer for office use' },
 ];
+
+// Dummy Business Expenses (Standalone)
+export const initialExpenses: any[] = [
+  // Truck Expenses
+  {
+    id: 'exp-truck-1',
+    category: 'Fuel',
+    description: 'Deadhead Fuel to Las Vegas',
+    amount: 350.50,
+    date: new Date(new Date().setDate(new Date().getDate() - 2)).toISOString(),
+    assetId: 'ast-1',
+    assetName: 'Unit 101 - VNL 760',
+    comments: [{ id: 'cmt-1', text: 'System generated.', author: 'System', timestamp: new Date().toISOString(), type: 'system' }]
+  },
+  {
+    id: 'exp-truck-2',
+    category: 'Maintenance',
+    description: 'Oil Change',
+    amount: 450.00,
+    date: new Date(new Date().setDate(new Date().getDate() - 15)).toISOString(),
+    assetId: 'ast-2',
+    assetName: 'Unit 102 - Cascadia',
+    comments: [{ id: 'cmt-2', text: 'System generated.', author: 'System', timestamp: new Date().toISOString(), type: 'system' }]
+  },
+  {
+    id: 'exp-truck-3',
+    category: 'Repairs',
+    description: 'Brake Pad Replacement',
+    amount: 850.25,
+    date: new Date(new Date().setDate(new Date().getDate() - 25)).toISOString(),
+    assetId: 'ast-1',
+    assetName: 'Unit 101 - VNL 760',
+    comments: [{ id: 'cmt-3', text: 'System generated.', author: 'System', timestamp: new Date().toISOString(), type: 'system' }]
+  },
+  {
+    id: 'exp-truck-4',
+    category: 'Tolls',
+    description: 'PrePass Monthly Fee',
+    amount: 125.00,
+    date: new Date(new Date().setDate(new Date().getDate() - 1)).toISOString(),
+    assetId: 'ast-1',
+    assetName: 'Unit 101 - VNL 760',
+    comments: [{ id: 'cmt-4', text: 'System generated.', author: 'System', timestamp: new Date().toISOString(), type: 'system' }]
+  },
+  // Office Expenses
+  {
+    id: 'exp-office-1',
+    category: 'Other',
+    description: 'Office Rent - February',
+    amount: 1200.00,
+    date: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString(),
+    comments: [{ id: 'cmt-5', text: 'System generated.', author: 'System', timestamp: new Date().toISOString(), type: 'system' }]
+  },
+  {
+    id: 'exp-office-2',
+    category: 'Other',
+    description: 'Software Subscriptions (DAT/Samsara)',
+    amount: 299.00,
+    date: new Date(new Date().setDate(new Date().getDate() - 5)).toISOString(),
+    comments: [{ id: 'cmt-6', text: 'System generated.', author: 'System', timestamp: new Date().toISOString(), type: 'system' }]
+  },
+  {
+    id: 'exp-office-3',
+    category: 'Other',
+    description: 'Internet & Phone',
+    amount: 185.00,
+    date: new Date(new Date().setDate(new Date().getDate() - 12)).toISOString(),
+    comments: [{ id: 'cmt-7', text: 'System generated.', author: 'System', timestamp: new Date().toISOString(), type: 'system' }]
+  },
+  // Driver Expenses
+  {
+    id: 'exp-driver-1',
+    category: 'Other',
+    description: 'Safety Bonus',
+    amount: 500.00,
+    date: new Date(new Date().setDate(new Date().getDate() - 10)).toISOString(),
+    driverId: 'drv-1',
+    driverName: 'John Doe',
+    comments: [{ id: 'cmt-8', text: 'System generated.', author: 'System', timestamp: new Date().toISOString(), type: 'system' }]
+  },
+  {
+    id: 'exp-driver-2',
+    category: 'Other',
+    description: 'Hotel Reimbursement',
+    amount: 145.00,
+    date: new Date(new Date().setDate(new Date().getDate() - 3)).toISOString(),
+    driverId: 'drv-2',
+    driverName: 'Jane Smith',
+    comments: [{ id: 'cmt-9', text: 'System generated.', author: 'System', timestamp: new Date().toISOString(), type: 'system' }]
+  },
+  {
+    id: 'exp-truck-5',
+    category: 'Fuel',
+    description: 'Fuel for Unit 101',
+    amount: 520.00,
+    date: new Date(new Date().setDate(new Date().getDate() - 1)).toISOString(),
+    assetId: 'ast-1',
+    assetName: 'Unit 101 - VNL 760',
+    comments: [{ id: 'cmt-10', text: 'Regular fuel.', author: 'System', timestamp: new Date().toISOString(), type: 'system' }]
+  },
+  {
+    id: 'exp-office-4',
+    category: 'Other',
+    description: 'Office Supplies (Paper, Pens)',
+    amount: 45.30,
+    date: new Date(new Date().setDate(new Date().getDate() - 4)).toISOString(),
+    comments: [{ id: 'cmt-11', text: 'System generated.', author: 'System', timestamp: new Date().toISOString(), type: 'system' }]
+  },
+  {
+    id: 'exp-truck-6',
+    category: 'Maintenance',
+    description: 'Wiper Blade Replacement',
+    amount: 65.00,
+    date: new Date(new Date().setDate(new Date().getDate() - 6)).toISOString(),
+    assetId: 'ast-2',
+    assetName: 'Unit 102 - Cascadia',
+    comments: [{ id: 'cmt-12', text: 'System generated.', author: 'System', timestamp: new Date().toISOString(), type: 'system' }]
+  },
+  {
+    id: 'exp-truck-7',
+    category: 'Fuel',
+    description: 'Fuel for Unit 102',
+    amount: 480.00,
+    date: new Date(new Date().setDate(new Date().getDate() - 7)).toISOString(),
+    assetId: 'ast-2',
+    assetName: 'Unit 102 - Cascadia',
+    comments: [{ id: 'cmt-13', text: 'Fuel.', author: 'System', timestamp: new Date().toISOString(), type: 'system' }]
+  },
+  {
+    id: 'exp-driver-3',
+    category: 'Other',
+    description: 'DOT Medical Card Reimbursement',
+    amount: 120.00,
+    date: new Date(new Date().setDate(new Date().getDate() - 8)).toISOString(),
+    driverId: 'drv-1',
+    driverName: 'John Doe',
+    comments: [{ id: 'cmt-14', text: 'System generated.', author: 'System', timestamp: new Date().toISOString(), type: 'system' }]
+  },
+  {
+    id: 'exp-office-5',
+    category: 'Other',
+    description: 'Electric Bill',
+    amount: 215.40,
+    date: new Date(new Date().setDate(new Date().getDate() - 9)).toISOString(),
+    comments: [{ id: 'cmt-15', text: 'Utility.', author: 'System', timestamp: new Date().toISOString(), type: 'system' }]
+  },
+  {
+    id: 'exp-office-6',
+    category: 'Other',
+    description: 'Accounting Software Subscription',
+    amount: 150.00,
+    date: new Date(new Date().setDate(new Date().getDate() - 11)).toISOString(),
+    comments: [{ id: 'cmt-16', text: 'Software.', author: 'System', timestamp: new Date().toISOString(), type: 'system' }]
+  },
+  {
+    id: 'exp-truck-8',
+    category: 'Scale Ticket',
+    description: 'CAT Scale - Weighing',
+    amount: 12.50,
+    date: new Date(new Date().setDate(new Date().getDate() - 12)).toISOString(),
+    assetId: 'ast-1',
+    assetName: 'Unit 101 - VNL 760',
+    comments: [{ id: 'cmt-17', text: 'Scale Fee.', author: 'System', timestamp: new Date().toISOString(), type: 'system' }]
+  },
+  {
+    id: 'exp-truck-9',
+    category: 'Repairs',
+    description: 'Light Bulb (Tail Light)',
+    amount: 25.00,
+    date: new Date(new Date().setDate(new Date().getDate() - 13)).toISOString(),
+    assetId: 'ast-1',
+    assetName: 'Unit 101 - VNL 760',
+    comments: [{ id: 'cmt-18', text: 'Repair.', author: 'System', timestamp: new Date().toISOString(), type: 'system' }]
+  },
+  {
+    id: 'exp-office-7',
+    category: 'Other',
+    description: 'Insurance Premium - Q1',
+    amount: 3500.00,
+    date: new Date(new Date().setDate(new Date().getDate() - 20)).toISOString(),
+    comments: [{ id: 'cmt-19', text: 'Insurance.', author: 'System', timestamp: new Date().toISOString(), type: 'system' }]
+  }
+];

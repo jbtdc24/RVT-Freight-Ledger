@@ -195,16 +195,25 @@ export default function DashboardPage() {
     }
 
     return labels.map(item => {
-      const monthFreight = validFreight.filter(f => {
+      const intervalFreight = validFreight.filter(f => {
         const d = new Date(f.date);
         return d >= item.range[0] && d <= item.range[1];
       });
 
-      const revenue = monthFreight.reduce((sum, f) => sum + calculateOwnerRevenue(f), 0);
-      const expenses = monthFreight.reduce((sum, f) => sum + f.totalExpenses, 0);
-      const profit = revenue - expenses;
+      const intervalExpenses = expenses.filter(e => {
+        if (e.isDeleted) return false;
+        const d = new Date(e.date);
+        return d >= item.range[0] && d <= item.range[1];
+      });
 
-      return { name: item.label, date: item.fullDate, revenue, expenses, profit };
+      const revenue = intervalFreight.reduce((sum, f) => sum + calculateOwnerRevenue(f), 0);
+      const freightExpenses = intervalFreight.reduce((sum, f) => sum + f.totalExpenses, 0);
+      const standaloneExpenses = intervalExpenses.reduce((sum, e) => sum + e.amount, 0);
+
+      const totalExp = freightExpenses + standaloneExpenses;
+      const profit = revenue - totalExp;
+
+      return { name: item.label, date: item.fullDate, revenue, expenses: totalExp, profit };
     });
   }, [validFreight, timeRange, customRange]);
 

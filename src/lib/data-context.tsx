@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Freight, Asset, Driver, StandaloneExpense } from './types';
-import { initialFreight, initialAssets, initialDrivers } from './data';
+import { initialFreight, initialAssets, initialDrivers, initialExpenses } from './data';
 
 type DataContextType = {
     freight: Freight[];
@@ -25,7 +25,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const [freight, setFreight] = useState<Freight[]>(initialFreight);
     const [assets, setAssets] = useState<Asset[]>(initialAssets);
     const [drivers, setDrivers] = useState<Driver[]>(initialDrivers);
-    const [expenses, setExpenses] = useState<StandaloneExpense[]>([]);
+    const [expenses, setExpenses] = useState<StandaloneExpense[]>(initialExpenses);
     const [isLoaded, setIsLoaded] = useState(false);
 
     // Initial load - runs only once
