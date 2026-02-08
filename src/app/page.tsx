@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from 'react';
-import { DollarSign, Wrench, Wallet, Trash2, MessageSquare, AlertTriangle, ArrowRight } from "lucide-react";
+import { DollarSign, Wrench, Wallet, Trash2, MessageSquare, AlertTriangle, ArrowRight, Clock, XCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from 'next/link';
@@ -42,7 +42,7 @@ export default function DashboardPage() {
   const [showInvalidLoads, setShowInvalidLoads] = useState(false);
 
   const activeFreight = useMemo(() => freight.filter(item => !item.isDeleted), [freight]);
-  const validFreight = useMemo(() => activeFreight.filter(f => f.driverName && f.comments && f.comments.length > 0), [activeFreight]);
+  const validFreight = useMemo(() => activeFreight.filter(f => f.driverName && f.comments && f.comments.length > 0 && f.status !== 'Cancelled'), [activeFreight]);
 
   const filteredFreight = useMemo(() => {
     let start: Date, end: Date;
@@ -69,9 +69,15 @@ export default function DashboardPage() {
       if (!f.driverName || !f.comments || f.comments.length === 0) return false;
 
       const d = new Date(f.date);
+      // We want to count cancelled loads in the "Cancelled" card potentially, but excluded from general profit math.
+      // So filteredFreight should probably include everything in date range, then we filter inside the useMemos.
       return isWithinInterval(d, { start, end });
     });
   }, [activeFreight, timeRange, customRange]);
+
+  const deliveredFreight = useMemo(() => filteredFreight.filter(f => f.status === 'Delivered'), [filteredFreight]);
+  const pendingFreight = useMemo(() => filteredFreight.filter(f => f.status !== 'Delivered' && f.status !== 'Cancelled'), [filteredFreight]);
+  const cancelledFreight = useMemo(() => filteredFreight.filter(f => f.status === 'Cancelled'), [filteredFreight]);
 
   /* --- Helper for Consistent Math --- */
   const calculateOwnerRevenue = (item: Freight) => {
@@ -80,30 +86,35 @@ export default function DashboardPage() {
   };
 
   const totalGrossRevenue = useMemo(() =>
-    filteredFreight.reduce((sum, item) => sum + item.revenue, 0),
-    [filteredFreight]
+    deliveredFreight.reduce((sum, item) => sum + item.revenue, 0),
+    [deliveredFreight]
   );
 
   const totalOwnerRevenue = useMemo(() =>
-    filteredFreight.reduce((sum, item) => sum + calculateOwnerRevenue(item), 0),
-    [filteredFreight]
+    deliveredFreight.reduce((sum, item) => sum + calculateOwnerRevenue(item), 0),
+    [deliveredFreight]
+  );
+
+  const totalPendingBalance = useMemo(() =>
+    pendingFreight.reduce((sum, item) => sum + calculateOwnerRevenue(item), 0),
+    [pendingFreight]
   );
 
   const totalExpenses = useMemo(() =>
-    filteredFreight.reduce((sum, item) => sum + item.totalExpenses, 0),
-    [filteredFreight]
+    deliveredFreight.reduce((sum, item) => sum + item.totalExpenses, 0),
+    [deliveredFreight]
   );
 
   // We recalculate netProfit from the consistent revenue/expenses to ensure (Rev - Exp = Profit) is always visually true,
   // rather than relying on the item.netProfit field which might drift if data source logic changes.
   const netProfit = useMemo(() =>
-    filteredFreight.reduce((sum, item) => sum + (calculateOwnerRevenue(item) - item.totalExpenses), 0),
-    [filteredFreight]
+    deliveredFreight.reduce((sum, item) => sum + (calculateOwnerRevenue(item) - item.totalExpenses), 0),
+    [deliveredFreight]
   );
 
   const totalExpenseItems = useMemo(() =>
-    filteredFreight.reduce((sum, item) => sum + item.expenses.length, 0),
-    [filteredFreight]
+    deliveredFreight.reduce((sum, item) => sum + item.expenses.length, 0),
+    [deliveredFreight]
   );
 
   const chartData = useMemo(() => {
@@ -244,7 +255,7 @@ export default function DashboardPage() {
         </DialogContent>
       </Dialog>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
         <Card className="glass-card overflow-hidden relative group">
           <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
             <DollarSign className="h-24 w-24 text-primary" />
@@ -259,10 +270,52 @@ export default function DashboardPage() {
             <div className={`text-3xl font-bold tracking-tight ${totalOwnerRevenue >= 0 ? 'text-white' : 'text-destructive'}`}>{formatCurrency(totalOwnerRevenue)}</div>
             <div className="flex items-center gap-2 mt-1">
               <span className="text-success text-xs font-medium">Gross: {formatCurrency(totalGrossRevenue)}</span>
-              <p className="text-xs text-muted-foreground italic truncate">from {filteredFreight.length} loads</p>
+              <p className="text-xs text-muted-foreground italic truncate">from {deliveredFreight.length} loads</p>
             </div>
           </CardContent>
           <div className="absolute bottom-0 left-0 h-1 bg-primary w-full shadow-[0_0_10px_rgba(var(--primary),0.5)]" />
+        </Card>
+
+        {/* PENDING REVENUE CARD */}
+        <Card className="glass-card overflow-hidden relative group">
+          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+            <Clock className="h-24 w-24 text-blue-500" />
+          </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Pending Balance</CardTitle>
+            <div className="p-2 bg-blue-500/20 rounded-lg">
+              <Clock className="h-4 w-4 text-blue-500" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className={`text-3xl font-bold tracking-tight text-blue-400`}>{formatCurrency(totalPendingBalance)}</div>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-blue-500 text-xs font-medium">In Route / Pickup</span>
+              <p className="text-xs text-muted-foreground italic truncate">{pendingFreight.length} loads pending</p>
+            </div>
+          </CardContent>
+          <div className="absolute bottom-0 left-0 h-1 bg-blue-500 w-full shadow-[0_0_10px_rgba(59,130,246,0.5)]" />
+        </Card>
+
+        {/* CANCELLED LOADS CARD */}
+        <Card className="glass-card overflow-hidden relative group">
+          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+            <XCircle className="h-24 w-24 text-muted-foreground" />
+          </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Cancelled</CardTitle>
+            <div className="p-2 bg-muted/20 rounded-lg">
+              <XCircle className="h-4 w-4 text-muted-foreground" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold tracking-tight text-muted-foreground">{cancelledFreight.length}</div>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-destructive text-xs font-medium">Voided</span>
+              <p className="text-xs text-muted-foreground italic truncate">Excluded from totals</p>
+            </div>
+          </CardContent>
+          <div className="absolute bottom-0 left-0 h-1 bg-muted-foreground w-full shadow-[0_0_10px_rgba(100,100,100,0.5)]" />
         </Card>
 
         <Card className="glass-card overflow-hidden relative group">
@@ -450,8 +503,8 @@ export default function DashboardPage() {
                     type: 'revenue',
                     title: `Freight #${item.freightId} - ${item.origin} to ${item.destination}`,
                     date: new Date(item.date),
-                    amount: item.revenue,
-                    status: 'Completed',
+                    amount: item.status === 'Cancelled' ? 0 : item.revenue,
+                    status: item.status,
                     link: '/freight-ledger',
                     icon: <DollarSign className="h-4 w-4" />,
                     color: 'success'
@@ -466,7 +519,7 @@ export default function DashboardPage() {
                       title: `${exp.category}: ${exp.description} (Load #${item.freightId})`,
                       date: new Date(item.date),
                       amount: -exp.amount,
-                      status: 'Paid',
+                      status: item.status === 'Cancelled' ? 'Void' : 'Paid',
                       link: '/freight-ledger',
                       icon: <Wrench className="h-4 w-4" />,
                       color: 'destructive'

@@ -27,6 +27,7 @@ import { Card } from "@/components/ui/card";
 import { useData } from "@/lib/data-context";
 import type { Freight, Driver } from "@/lib/types";
 import { FreightForm } from "./freight-form";
+import { StatusDialog } from "@/components/status-dialog";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { FilterBar, type FiltersState } from "./filter-bar";
@@ -41,6 +42,7 @@ export default function FreightLedgerPage() {
 
   // New state for viewing freight details (View Mode)
   const [viewingFreight, setViewingFreight] = useState<Freight | null>(null);
+  const [statusFreight, setStatusFreight] = useState<Freight | null>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [filters, setFilters] = useState<FiltersState>({
@@ -102,6 +104,39 @@ export default function FreightLedgerPage() {
     deleteItem('freight', id);
     setIsDialogOpen(false);
     setEditingFreight(null);
+  };
+
+  const handleUpdateStatus = (id: string, newStatus: Freight['status'], comment: string) => {
+    setFreight(prev => prev.map(f => {
+      if (f.id === id) {
+        // Create change comment
+        const statusComment = {
+          id: Math.random().toString(36).substr(2, 9),
+          text: `Status changed: ${f.status} -> ${newStatus}`,
+          author: "System",
+          timestamp: new Date().toISOString(),
+          type: 'system' as const
+        };
+
+        // Create user note comment
+        const userComment = {
+          id: Math.random().toString(36).substr(2, 9),
+          text: comment,
+          author: "User",
+          timestamp: new Date().toISOString(),
+          type: 'manual' as const
+        };
+
+        const currentComments = f.comments || [];
+
+        return {
+          ...f,
+          status: newStatus,
+          comments: [userComment, statusComment, ...currentComments]
+        };
+      }
+      return f;
+    }));
   };
 
   const formatCurrency = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
@@ -239,6 +274,13 @@ export default function FreightLedgerPage() {
         </DialogContent>
       </Dialog>
 
+      <StatusDialog
+        isOpen={!!statusFreight}
+        onClose={() => setStatusFreight(null)}
+        freight={statusFreight}
+        onUpdateStatus={handleUpdateStatus}
+      />
+
       {/* VIEW DETAILS DIALOG */}
       <Dialog open={!!viewingFreight} onOpenChange={(open) => !open && setViewingFreight(null)}>
         <DialogContent className="max-w-[98vw] md:max-w-7xl lg:max-w-[95vw] overflow-hidden flex flex-col max-h-[90vh]">
@@ -248,6 +290,7 @@ export default function FreightLedgerPage() {
                 Load #{viewingFreight?.freightId}
                 <Badge variant="outline" className="font-mono">{viewingFreight && format(new Date(viewingFreight.date), 'MM/dd/yyyy')}</Badge>
                 {viewingFreight?.postingCode && <Badge variant="secondary">{viewingFreight.postingCode}</Badge>}
+                <Badge variant={viewingFreight?.status === 'Delivered' ? 'default' : viewingFreight?.status === 'Cancelled' ? 'destructive' : 'outline'}>{viewingFreight?.status}</Badge>
               </DialogTitle>
             </div>
             <DialogDescription>
@@ -469,6 +512,7 @@ export default function FreightLedgerPage() {
               <TableHead className="w-[40px]"></TableHead>
               <TableHead className="hidden sm:table-cell">Date</TableHead>
               <TableHead>Freight ID</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead>Driver</TableHead>
               <TableHead>Route</TableHead>
               <TableHead className="text-right">RPM</TableHead>
@@ -504,6 +548,23 @@ export default function FreightLedgerPage() {
                     <TableCell className="font-medium">
                       {item.freightId}
                       {item.agencyName && <div className="text-[10px] text-muted-foreground font-normal truncate max-w-[100px]" title={item.agencyName}>{item.agencyName}</div>}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={cn(
+                        "text-[10px] uppercase tracking-wider font-bold",
+                        item.status === 'Delivered' && "bg-success/10 text-success border-success/20",
+                        item.status === 'Cancelled' && "bg-destructive/10 text-destructive border-destructive/20",
+                        (item.status === 'In Route' || item.status === 'For Pickup') && "bg-blue-500/10 text-blue-500 border-blue-500/20",
+                        item.status === 'Draft' && "text-muted-foreground"
+                      )}>
+                        {item.status}
+                      </Badge>
+                      <Button variant="ghost" size="sm" className="h-5 text-[10px] ml-1 px-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => {
+                        e.stopPropagation();
+                        setStatusFreight(item);
+                      }}>
+                        <Pencil className="h-3 w-3" />
+                      </Button>
                     </TableCell>
                     <TableCell>
                       <div>{item.driverName}</div>

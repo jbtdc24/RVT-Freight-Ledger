@@ -66,6 +66,9 @@ const formSchema = z.object({
   freightBillNumber: z.string().optional(),
   customerReferenceNumber: z.string().optional(),
 
+  // Status
+  status: z.enum(['Draft', 'For Pickup', 'In Route', 'Delivered', 'Cancelled']).default('Draft'),
+
   // General
   date: z.date({ required_error: "A date is required." }),
   driverId: z.string({ required_error: "Driver is required." }).min(1, "Driver is required."),
@@ -146,6 +149,7 @@ export function FreightForm({ onSubmit, onDelete, initialData, drivers, assets }
       ownerPercentage: 100,
       expenses: [],
       comments: [],
+      status: 'Draft',
     },
   });
 
@@ -185,7 +189,12 @@ export function FreightForm({ onSubmit, onDelete, initialData, drivers, assets }
     // (Diff logic simplified for brevity but functional logic remains same as strict requirement)
     // For now, simpler checking since we added SO many fields.
     if (initialData) {
-      hasChanges = true; // Assume changes on save for this scale of edit form
+      if (initialData.status !== values.status) {
+        changeLog = `Status changed: ${initialData.status} -> ${values.status}`;
+        hasChanges = true;
+      } else {
+        hasChanges = true; // Assume other changes
+      }
     }
 
     // Pending comment check
@@ -305,6 +314,26 @@ export function FreightForm({ onSubmit, onDelete, initialData, drivers, assets }
                 <CardContent className="space-y-4">
                   <FormField control={form.control} name="date" render={({ field }) => (
                     <FormItem><FormLabel>Date</FormLabel><FormControl><DatePicker date={field.value} onDateChange={field.onChange} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={form.control} name="status" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Status</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="Draft">Draft</SelectItem>
+                          <SelectItem value="For Pickup">For Pickup</SelectItem>
+                          <SelectItem value="In Route">In Route</SelectItem>
+                          <SelectItem value="Delivered">Delivered</SelectItem>
+                          <SelectItem value="Cancelled">Cancelled</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
                   )} />
                   <FormField control={form.control} name="driverId" render={({ field }) => (
                     <FormItem>

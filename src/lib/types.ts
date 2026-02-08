@@ -83,6 +83,9 @@ export type Freight = {
   // Soft delete
   isDeleted?: boolean;
   deletedAt?: string;
+
+  // Status
+  status: 'Draft' | 'For Pickup' | 'In Route' | 'Delivered' | 'Cancelled';
 };
 
 export type StopDetail = {

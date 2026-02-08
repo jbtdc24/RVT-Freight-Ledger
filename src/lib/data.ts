@@ -152,7 +152,8 @@ export const initialFreight: Freight[] = [
       commodity: "CONSUMER GOODS OR APPLIANCES",
       pieces: randomInt(10, 50),
       dimensions: "40x48x96",
-      bcoSpecialInstructions: "Driver must call for dispatch instructions upon empty."
+      bcoSpecialInstructions: "Driver must call for dispatch instructions upon empty.",
+      status: i < 5 ? 'In Route' : 'Delivered'
     } as Freight;
   }),
 
@@ -189,6 +190,7 @@ export const initialFreight: Freight[] = [
     revenue: 5000,
     totalExpenses: 0,
     netProfit: 3250,
+    status: 'Delivered'
   } as Freight
 ];
 
