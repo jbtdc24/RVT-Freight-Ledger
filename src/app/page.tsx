@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { PageHeader } from '@/components/page-header';
 import type { Freight } from '@/lib/types';
 import { useData } from "@/lib/data-context";
+import { appConfig } from "@/lib/config";
 import { useActivity } from "@/hooks/use-activity";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Area, AreaChart, ResponsiveContainer, XAxis, YAxis, CartesianGrid } from "recharts";
@@ -229,7 +230,7 @@ export default function DashboardPage() {
 
   return (
     <>
-      <PageHeader title="Welcome back, Alex">
+      <PageHeader title={`Welcome back, ${appConfig.ownerName}`}>
         <div className="flex flex-col sm:flex-row items-center gap-4">
           {timeRange === 'custom' && (
             <DateRangePicker
