@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Building2, Truck, Users, Plus, Search, Calendar as CalendarIcon, DollarSign, BarChart3, ChevronLeft, ChevronRight, PieChart as PieChartIcon, BarChart2, Clock } from "lucide-react";
+import { Building2, Truck, Users, Plus, Search, Calendar as CalendarIcon, DollarSign, BarChart3, ChevronLeft, ChevronRight, PieChart as PieChartIcon, BarChart2, Clock, Edit2, Trash2 } from "lucide-react";
 import { format, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { StandaloneExpense, ExpenseCategory } from "@/lib/types";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
@@ -33,7 +33,8 @@ const chartConfig = {
 };
 
 export default function BusinessExpensesPage() {
-    const { expenses, setExpenses, assets, drivers } = useData();
+    const { expenses, setExpenses, assets, drivers, deleteItem } = useData();
+    const [editingId, setEditingId] = useState<string | null>(null);
 
     const [activeTab, setActiveTab] = useState("truck");
     const [searchTerm, setSearchTerm] = useState("");
@@ -51,7 +52,8 @@ export default function BusinessExpensesPage() {
         category: "Other" as ExpenseCategory,
         date: format(new Date(), "yyyy-MM-dd"),
         assetId: "",
-        driverId: ""
+        driverId: "",
+        id: ""
     });
 
     // Filter Logic
@@ -154,29 +156,46 @@ export default function BusinessExpensesPage() {
         if (activeTab === 'truck' && !newExpense.assetId) return; // Must select asset
         if (activeTab === 'driver' && !newExpense.driverId) return; // Must select driver
 
-        const expense: StandaloneExpense = {
-            id: Math.random().toString(36).substr(2, 9),
-            category: newExpense.category,
-            description: newExpense.description || (activeTab === 'truck' ? 'Truck Expense' : activeTab === 'driver' ? 'Driver Expense' : 'Office Expense'),
-            amount: amount,
-            date: new Date(newExpense.date).toISOString(),
-            assetId: activeTab === 'truck' ? newExpense.assetId : undefined,
-            assetName: activeTab === 'truck' ? assets.find(a => a.id === newExpense.assetId)?.identifier : undefined,
-            driverId: activeTab === 'driver' ? newExpense.driverId : undefined,
-            driverName: activeTab === 'driver' ? drivers.find(d => d.id === newExpense.driverId)?.name : undefined,
-            comments: [
-                {
-                    id: Math.random().toString(36).substr(2, 9),
-                    text: "Expense created via Business Expenses tab.",
-                    author: "System",
-                    timestamp: new Date().toISOString(),
-                    type: 'system'
-                }
-            ]
-        };
+        if (editingId) {
+            // UPDATE
+            setExpenses(prev => prev.map(e => e.id === editingId ? {
+                ...e,
+                category: newExpense.category,
+                description: newExpense.description,
+                amount: amount,
+                date: new Date(newExpense.date).toISOString(),
+                assetId: activeTab === 'truck' ? newExpense.assetId : undefined,
+                assetName: activeTab === 'truck' ? assets.find(a => a.id === newExpense.assetId)?.identifier : undefined,
+                driverId: activeTab === 'driver' ? newExpense.driverId : undefined,
+                driverName: activeTab === 'driver' ? drivers.find(d => d.id === newExpense.driverId)?.name : undefined,
+            } : e));
+        } else {
+            // CREATE
+            const expense: StandaloneExpense = {
+                id: Math.random().toString(36).substr(2, 9),
+                category: newExpense.category,
+                description: newExpense.description || (activeTab === 'truck' ? 'Truck Expense' : activeTab === 'driver' ? 'Driver Expense' : 'Office Expense'),
+                amount: amount,
+                date: new Date(newExpense.date).toISOString(),
+                assetId: activeTab === 'truck' ? newExpense.assetId : undefined,
+                assetName: activeTab === 'truck' ? assets.find(a => a.id === newExpense.assetId)?.identifier : undefined,
+                driverId: activeTab === 'driver' ? newExpense.driverId : undefined,
+                driverName: activeTab === 'driver' ? drivers.find(d => d.id === newExpense.driverId)?.name : undefined,
+                comments: [
+                    {
+                        id: Math.random().toString(36).substr(2, 9),
+                        text: "Expense created via Business Expenses tab.",
+                        author: "System",
+                        timestamp: new Date().toISOString(),
+                        type: 'system'
+                    }
+                ]
+            };
+            setExpenses(prev => [...prev, expense]);
+        }
 
-        setExpenses(prev => [...prev, expense]);
         setIsDialogOpen(false);
+        setEditingId(null);
 
         // Reset form
         setNewExpense({
@@ -185,19 +204,36 @@ export default function BusinessExpensesPage() {
             category: "Other",
             date: format(new Date(), "yyyy-MM-dd"),
             assetId: "",
-            driverId: ""
+            driverId: "",
+            id: ""
         });
     };
 
+    const handleEdit = (expense: StandaloneExpense) => {
+        setEditingId(expense.id);
+        setNewExpense({
+            amount: expense.amount.toString(),
+            description: expense.description,
+            category: expense.category,
+            date: format(new Date(expense.date), "yyyy-MM-dd"),
+            assetId: expense.assetId || "",
+            driverId: expense.driverId || "",
+            id: expense.id
+        });
+        setIsDialogOpen(true);
+    };
+
     const openDialog = () => {
-        setNewExpense(prev => ({
-            ...prev,
+        setEditingId(null);
+        setNewExpense({
             amount: "",
             description: "",
             category: activeTab === 'truck' ? 'Fuel' : 'Other', // meaningful default
+            date: format(new Date(), "yyyy-MM-dd"),
             assetId: "",
-            driverId: ""
-        }));
+            driverId: "",
+            id: ""
+        });
         setIsDialogOpen(true);
     };
 
@@ -317,6 +353,7 @@ export default function BusinessExpensesPage() {
                                         {activeTab === 'truck' && <TableHead>Asset</TableHead>}
                                         {activeTab === 'driver' && <TableHead>Driver</TableHead>}
                                         <TableHead className="text-right">Amount</TableHead>
+                                        <TableHead className="text-right">Actions</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -346,6 +383,30 @@ export default function BusinessExpensesPage() {
                                                 )}
                                                 <TableCell className="text-right font-mono text-destructive font-bold">
                                                     -{formatCurrency(expense.amount)}
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    <div className="flex justify-end gap-2 text-muted-foreground">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-7 w-7 hover:text-primary transition-colors"
+                                                            onClick={() => handleEdit(expense)}
+                                                        >
+                                                            <Edit2 className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-7 w-7 hover:text-destructive transition-colors"
+                                                            onClick={() => {
+                                                                if (window.confirm("Move this business overhead expense to the Recycle Bin?")) {
+                                                                    deleteItem('expense', expense.id);
+                                                                }
+                                                            }}
+                                                        >
+                                                            <Trash2 className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                    </div>
                                                 </TableCell>
                                             </TableRow>
                                         ))

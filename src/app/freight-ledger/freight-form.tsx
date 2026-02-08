@@ -604,7 +604,21 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
               <CardContent className="space-y-6">
                 {fields.map((field, index) => {
                   const isDeleted = form.watch(`expenses.${index}.isDeleted`);
-                  if (isDeleted) return null;
+
+                  if (isDeleted) {
+                    return (
+                      <div key={field.id} className="hidden">
+                        <input type="hidden" {...form.register(`expenses.${index}.id`)} />
+                        <input type="hidden" {...form.register(`expenses.${index}.category`)} />
+                        <input type="hidden" {...form.register(`expenses.${index}.description`)} />
+                        <input type="hidden" {...form.register(`expenses.${index}.amount`)} />
+                        <input type="hidden" {...form.register(`expenses.${index}.isDeleted`)} />
+                        <input type="hidden" {...form.register(`expenses.${index}.deletedAt`)} />
+                        <input type="hidden" {...form.register(`expenses.${index}.loadId`)} />
+                        <input type="hidden" {...form.register(`expenses.${index}.loadNumber`)} />
+                      </div>
+                    );
+                  }
 
                   return (
                     <div key={field.id} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-4 items-start p-2 border rounded-md">
@@ -625,14 +639,16 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
                         variant="ghost"
                         size="icon"
                         onClick={() => {
-                          const expenseId = form.getValues(`expenses.${index}.id`);
-                          if (expenseId) {
-                            form.setValue(`expenses.${index}.isDeleted`, true);
-                            form.setValue(`expenses.${index}.deletedAt`, new Date().toISOString());
-                            form.setValue(`expenses.${index}.loadId`, initialData?.id);
-                            form.setValue(`expenses.${index}.loadNumber`, initialData?.freightId || "");
-                          } else {
-                            remove(index);
+                          if (window.confirm("Delete this expense line? It will be moved to the Recycle Bin.")) {
+                            const expenseId = form.getValues(`expenses.${index}.id`);
+                            if (expenseId) {
+                              form.setValue(`expenses.${index}.isDeleted`, true);
+                              form.setValue(`expenses.${index}.deletedAt`, new Date().toISOString());
+                              form.setValue(`expenses.${index}.loadId`, initialData?.id);
+                              form.setValue(`expenses.${index}.loadNumber`, initialData?.freightId || "");
+                            } else {
+                              remove(index);
+                            }
                           }
                         }}
                         className="mt-1"
@@ -642,7 +658,7 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
                     </div>
                   );
                 })}
-                <Button type="button" variant="outline" size="sm" onClick={() => append({ category: "Other", description: "", amount: 0 })}>
+                <Button type="button" variant="outline" size="sm" onClick={() => append({ category: "Other", description: "", amount: 0, isDeleted: false })}>
                   <PlusCircle className="mr-2 h-4 w-4" /> Add Expense
                 </Button>
               </CardContent>

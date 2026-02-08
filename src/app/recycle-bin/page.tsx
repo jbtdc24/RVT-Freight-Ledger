@@ -16,24 +16,26 @@ import {
 } from "@/components/ui/table";
 import { format } from "date-fns";
 
-import { initialFreight, initialAssets, initialDrivers } from "@/lib/data";
+import { initialFreight, initialAssets, initialDrivers, initialExpenses } from "@/lib/data";
 
 export default function RecycleBinPage() {
     const {
         freight, assets, drivers, expenses,
-        setFreight, setAssets, setDrivers,
+        setFreight, setAssets, setDrivers, setExpenses,
         restoreItem, permanentlyDeleteItem,
         restoreLoadExpense, permanentlyDeleteLoadExpense
     } = useData();
 
     const handleResetData = () => {
         if (window.confirm("This will delete all current data and reset to demo records. Continue?")) {
-            localStorage.removeItem('rvt_freight_v5');
-            localStorage.removeItem('rvt_assets_v5');
-            localStorage.removeItem('rvt_drivers_v5');
+            localStorage.removeItem('rvt_freight_v7');
+            localStorage.removeItem('rvt_assets_v7');
+            localStorage.removeItem('rvt_drivers_v7');
+            localStorage.removeItem('rvt_expenses_v4');
             setFreight(initialFreight);
             setAssets(initialAssets);
             setDrivers(initialDrivers);
+            setExpenses(initialExpenses);
             window.location.reload();
         }
     };
@@ -42,11 +44,13 @@ export default function RecycleBinPage() {
     const deletedAssets = assets.filter(a => a.isDeleted);
     const deletedDrivers = drivers.filter(d => d.isDeleted);
     const deletedBusinessExpenses = (expenses || []).filter(e => e.isDeleted);
-    const deletedLoadExpenses = freight.flatMap(f =>
-        (f.expenses || [])
-            .filter(e => e.isDeleted)
-            .map(e => ({ ...e, parentLoadId: f.id, parentLoadNumber: f.freightId }))
-    );
+    const deletedLoadExpenses = freight
+        .filter(f => !f.isDeleted)
+        .flatMap(f =>
+            (f.expenses || [])
+                .filter(e => e.isDeleted)
+                .map(e => ({ ...e, parentLoadId: f.id, parentLoadNumber: f.freightId }))
+        );
 
     const formatCurrency = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
 
@@ -96,7 +100,11 @@ export default function RecycleBinPage() {
                                                 <RefreshCcw className="mr-2 h-4 w-4" />
                                                 Restore
                                             </Button>
-                                            <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => permanentlyDeleteItem('freight', item.id)}>
+                                            <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => {
+                                                if (window.confirm("PERMANENTLY erase this Load? This cannot be undone.")) {
+                                                    permanentlyDeleteItem('freight', item.id);
+                                                }
+                                            }}>
                                                 <Trash2 className="h-4 w-4" />
                                             </Button>
                                         </TableCell>
@@ -145,7 +153,11 @@ export default function RecycleBinPage() {
                                                 <RefreshCcw className="mr-2 h-4 w-4" />
                                                 Restore
                                             </Button>
-                                            <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => permanentlyDeleteItem('asset', item.id)}>
+                                            <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => {
+                                                if (window.confirm("PERMANENTLY erase this Asset? This cannot be undone.")) {
+                                                    permanentlyDeleteItem('asset', item.id);
+                                                }
+                                            }}>
                                                 <Trash2 className="h-4 w-4" />
                                             </Button>
                                         </TableCell>
@@ -194,7 +206,11 @@ export default function RecycleBinPage() {
                                                 <RefreshCcw className="mr-2 h-4 w-4" />
                                                 Restore
                                             </Button>
-                                            <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => permanentlyDeleteItem('driver', item.id)}>
+                                            <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => {
+                                                if (window.confirm("PERMANENTLY erase this Driver? This cannot be undone.")) {
+                                                    permanentlyDeleteItem('driver', item.id);
+                                                }
+                                            }}>
                                                 <Trash2 className="h-4 w-4" />
                                             </Button>
                                         </TableCell>
@@ -243,7 +259,11 @@ export default function RecycleBinPage() {
                                                 <RefreshCcw className="mr-2 h-4 w-4" />
                                                 Restore
                                             </Button>
-                                            <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => permanentlyDeleteItem('expense', item.id)}>
+                                            <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => {
+                                                if (window.confirm("PERMANENTLY erase this Business Expense? This cannot be undone.")) {
+                                                    permanentlyDeleteItem('expense', item.id);
+                                                }
+                                            }}>
                                                 <Trash2 className="h-4 w-4" />
                                             </Button>
                                         </TableCell>
@@ -295,7 +315,11 @@ export default function RecycleBinPage() {
                                                 <RefreshCcw className="mr-2 h-4 w-4" />
                                                 Restore
                                             </Button>
-                                            <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => permanentlyDeleteLoadExpense(item.parentLoadId, item.id)}>
+                                            <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => {
+                                                if (window.confirm("PERMANENTLY erase this Load Expense? This cannot be undone.")) {
+                                                    permanentlyDeleteLoadExpense(item.parentLoadId, item.id);
+                                                }
+                                            }}>
                                                 <Trash2 className="h-4 w-4" />
                                             </Button>
                                         </TableCell>
