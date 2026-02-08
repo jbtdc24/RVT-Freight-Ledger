@@ -23,7 +23,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-const expenseCategories = ["Maintenance", "Fuel", "Repairs", "Other"] as const;
+
+const expenseCategories = ["Maintenance", "Fuel", "Repairs", "Tolls", "Scale Ticket", "Other"] as const;
 
 const expenseSchema = z.object({
   id: z.string().optional(),
@@ -213,7 +214,7 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
       type: 'manual'
     };
 
-    form.setValue("comments", [comment, ...comments]);
+    form.setValue("comments", [comment, ...comments], { shouldDirty: true });
     setNewComment("");
   };
 
@@ -236,18 +237,23 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
       }
     }
 
-    // Pending comment check
+    // Pending comment check - detect if user has added a comment via:
+    // 1. Clicking "Add Note" button (which adds to values.comments)
+    // 2. Typing in the input field (newComment has text)
     const initialCommentCount = initialData?.comments?.length || 0;
     const currentCommentCount = values.comments?.length || 0;
-    const hasAddedComment = (currentCommentCount > initialCommentCount) || (newComment.trim().length > 0);
+    const hasNewCommentInArray = currentCommentCount > initialCommentCount;
+    const hasNewCommentInInput = newComment.trim().length > 0;
+    const hasAnyNewComment = hasNewCommentInArray || hasNewCommentInInput;
 
-    // Enforce Comment Requirement
-    if (initialData && !hasAddedComment && !newComment.trim()) {
+    // Enforce Comment Requirement for EDITS
+    if (initialData && !hasAnyNewComment) {
       form.setError("comments", { type: "manual", message: "PLEASE ADD A NOTE explaining changes." });
       setActiveTab("logs");
       return;
     }
-    if (!initialData && !newComment.trim()) {
+    // Enforce initial note for NEW loads
+    if (!initialData && !hasNewCommentInInput) {
       form.setError("comments", { type: "manual", message: "Please add an initial note." });
       setActiveTab("logs");
       return;
@@ -290,9 +296,37 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
     onSubmit(submissionData);
   }
 
+  // Handler for form validation errors
+  const handleFormError = (errors: any) => {
+    console.error("Form validation errors:", errors);
+    // Find the first error and switch to that tab
+    const errorKeys = Object.keys(errors);
+    if (errorKeys.length > 0) {
+      const firstError = errorKeys[0];
+      // Map field to tab
+      const detailFields = ['agencyName', 'postingCode', 'contactName', 'contactPhone', 'contactEmail', 'contactFax', 'operatingEntity', 'freightId', 'freightBillNumber', 'customerReferenceNumber', 'status', 'date', 'driverId', 'assetId'];
+      const routeFields = ['origin', 'destination', 'distance', 'pickup', 'drop', 'weight', 'commodity', 'pieces', 'dimensions', 'nmfcCode', 'freightClass', 'temperatureControl', 'trailerNumber', 'equipmentType', 'hazardousMaterial', 'bcoSpecialInstructions'];
+      const financialFields = ['lineHaul', 'fuelSurcharge', 'loading', 'unloading', 'accessorials', 'ownerPercentage', 'expenses'];
+
+      if (detailFields.includes(firstError)) {
+        setActiveTab('details');
+      } else if (routeFields.includes(firstError)) {
+        setActiveTab('route');
+      } else if (financialFields.includes(firstError)) {
+        setActiveTab('financials');
+      } else {
+        setActiveTab('logs');
+      }
+
+      // Show alert with error summary
+      const errorMessages = errorKeys.map(key => `${key}: ${errors[key]?.message || 'Invalid'}`).join('\n');
+      alert(`Please fix the following errors:\n\n${errorMessages}`);
+    }
+  };
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(handleFormSubmit, handleFormError)} className="space-y-6">
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-4">

@@ -148,7 +148,20 @@ export default function ExpensesPage() {
 
   const handleSaveExpense = () => {
     const amount = parseFloat(newExpense.amount);
-    if (!amount || !newExpense.description) return;
+    if (!amount || amount <= 0) {
+      alert("Please enter a valid amount.");
+      return;
+    }
+    if (!newExpense.description.trim()) {
+      alert("Please enter a description.");
+      return;
+    }
+
+    // If linking to freight, a load must be selected
+    if (newExpense.linkType === 'freight' && !newExpense.linkId) {
+      alert("Please select a load to link this expense to.");
+      return;
+    }
 
     if (newExpense.linkType === 'freight' && newExpense.linkId) {
       // Add to existing Freight
