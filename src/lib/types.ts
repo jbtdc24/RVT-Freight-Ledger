@@ -6,6 +6,10 @@ export type LoadExpense = {
   description: string;
   amount: number;
   date?: string; // ISO string
+  isDeleted?: boolean;
+  deletedAt?: string;
+  loadId?: string; // Back-reference
+  loadNumber?: string; // For display in Recycle Bin
 };
 
 export type StandaloneExpense = {

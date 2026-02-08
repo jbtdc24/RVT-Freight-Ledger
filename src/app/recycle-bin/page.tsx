@@ -4,7 +4,7 @@ import { useData } from "@/lib/data-context";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { RefreshCcw, Trash2, Truck, Users, Box } from "lucide-react";
+import { RefreshCcw, Trash2, Truck, Users, Box, DollarSign, FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
     Table,
@@ -19,7 +19,12 @@ import { format } from "date-fns";
 import { initialFreight, initialAssets, initialDrivers } from "@/lib/data";
 
 export default function RecycleBinPage() {
-    const { freight, assets, drivers, setFreight, setAssets, setDrivers, restoreItem, permanentlyDeleteItem } = useData();
+    const {
+        freight, assets, drivers, expenses,
+        setFreight, setAssets, setDrivers,
+        restoreItem, permanentlyDeleteItem,
+        restoreLoadExpense, permanentlyDeleteLoadExpense
+    } = useData();
 
     const handleResetData = () => {
         if (window.confirm("This will delete all current data and reset to demo records. Continue?")) {
@@ -36,6 +41,12 @@ export default function RecycleBinPage() {
     const deletedFreight = freight.filter(f => f.isDeleted);
     const deletedAssets = assets.filter(a => a.isDeleted);
     const deletedDrivers = drivers.filter(d => d.isDeleted);
+    const deletedBusinessExpenses = (expenses || []).filter(e => e.isDeleted);
+    const deletedLoadExpenses = freight.flatMap(f =>
+        (f.expenses || [])
+            .filter(e => e.isDeleted)
+            .map(e => ({ ...e, parentLoadId: f.id, parentLoadNumber: f.freightId }))
+    );
 
     const formatCurrency = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
 
@@ -184,6 +195,107 @@ export default function RecycleBinPage() {
                                                 Restore
                                             </Button>
                                             <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => permanentlyDeleteItem('driver', item.id)}>
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    )}
+                </CardContent>
+            </Card>
+
+            {/* Deleted Business Expenses */}
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <DollarSign className="h-5 w-5 text-primary" />
+                        <CardTitle>Deleted Business Expenses</CardTitle>
+                    </div>
+                    <Badge variant="outline">{deletedBusinessExpenses.length} items</Badge>
+                </CardHeader>
+                <CardContent>
+                    {deletedBusinessExpenses.length === 0 ? (
+                        <p className="text-sm text-muted-foreground py-4 text-center">No deleted business expenses.</p>
+                    ) : (
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Category</TableHead>
+                                    <TableHead>Deleted At</TableHead>
+                                    <TableHead>Description</TableHead>
+                                    <TableHead className="text-right">Amount</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {deletedBusinessExpenses.map((item) => (
+                                    <TableRow key={item.id}>
+                                        <TableCell className="font-medium text-xs">{item.category}</TableCell>
+                                        <TableCell className="text-xs text-muted-foreground">
+                                            {item.deletedAt ? format(new Date(item.deletedAt), 'MMM d, p') : 'N/A'}
+                                        </TableCell>
+                                        <TableCell className="text-sm">{item.description}</TableCell>
+                                        <TableCell className="text-right font-medium text-destructive">-{formatCurrency(item.amount)}</TableCell>
+                                        <TableCell className="text-right space-x-2">
+                                            <Button variant="outline" size="sm" onClick={() => restoreItem('expense', item.id)}>
+                                                <RefreshCcw className="mr-2 h-4 w-4" />
+                                                Restore
+                                            </Button>
+                                            <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => permanentlyDeleteItem('expense', item.id)}>
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    )}
+                </CardContent>
+            </Card>
+
+            {/* Deleted Load Expenses */}
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <FileText className="h-5 w-5 text-primary" />
+                        <CardTitle>Deleted Load Expenses</CardTitle>
+                    </div>
+                    <Badge variant="outline">{deletedLoadExpenses.length} items</Badge>
+                </CardHeader>
+                <CardContent>
+                    {deletedLoadExpenses.length === 0 ? (
+                        <p className="text-sm text-muted-foreground py-4 text-center">No deleted load expenses.</p>
+                    ) : (
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Load #</TableHead>
+                                    <TableHead>Deleted At</TableHead>
+                                    <TableHead>Category / Desc</TableHead>
+                                    <TableHead className="text-right">Amount</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {deletedLoadExpenses.map((item) => (
+                                    <TableRow key={item.id}>
+                                        <TableCell className="font-bold text-xs text-primary">{item.parentLoadNumber}</TableCell>
+                                        <TableCell className="text-xs text-muted-foreground">
+                                            {item.deletedAt ? format(new Date(item.deletedAt), 'MMM d, p') : 'N/A'}
+                                        </TableCell>
+                                        <TableCell className="text-sm">
+                                            <span className="font-medium text-xs uppercase text-muted-foreground mr-2">{item.category}:</span>
+                                            {item.description}
+                                        </TableCell>
+                                        <TableCell className="text-right font-medium text-destructive">-{formatCurrency(item.amount)}</TableCell>
+                                        <TableCell className="text-right space-x-2">
+                                            <Button variant="outline" size="sm" onClick={() => restoreLoadExpense(item.parentLoadId, item.id)}>
+                                                <RefreshCcw className="mr-2 h-4 w-4" />
+                                                Restore
+                                            </Button>
+                                            <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => permanentlyDeleteLoadExpense(item.parentLoadId, item.id)}>
                                                 <Trash2 className="h-4 w-4" />
                                             </Button>
                                         </TableCell>

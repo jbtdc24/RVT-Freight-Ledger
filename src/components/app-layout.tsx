@@ -17,7 +17,7 @@ const navItems = [
   { href: "/assets", label: "Assets", icon: Warehouse },
   { href: "/drivers", label: "Drivers", icon: Users },
   { href: "/expenses", label: "Load Expenses", icon: FileText },
-  { href: "/business-expenses", label: "Business Expenses", icon: Building2 },
+  { href: "/business-expenses", label: "Bussiness expenses", icon: Building2 },
   { href: "/payroll", label: "Payroll", icon: Calculator },
   { href: "/recycle-bin", label: "Recycle Bin", icon: Trash2 },
 ];

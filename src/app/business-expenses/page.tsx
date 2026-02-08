@@ -11,13 +11,14 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Building2, Truck, Users, Plus, Search, Calendar as CalendarIcon, DollarSign, BarChart3, ChevronLeft, ChevronRight } from "lucide-react";
+import { Building2, Truck, Users, Plus, Search, Calendar as CalendarIcon, DollarSign, BarChart3, ChevronLeft, ChevronRight, PieChart as PieChartIcon, BarChart2, Clock } from "lucide-react";
 import { format, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { StandaloneExpense, ExpenseCategory } from "@/lib/types";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { type DateRange } from "react-day-picker";
+import { cn } from "@/lib/utils";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, CartesianGrid } from "recharts";
+import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Pie, PieChart, Cell } from "recharts";
 
 const expenseCategories: ExpenseCategory[] = ['Maintenance', 'Fuel', 'Repairs', 'Tolls', 'Scale Ticket', 'Other'];
 
@@ -26,6 +27,9 @@ const chartConfig = {
         label: "Amount",
         color: "hsl(var(--destructive))",
     },
+    truck: { label: "Truck", color: "#ef4444" },
+    office: { label: "Office", color: "#3b82f6" },
+    driver: { label: "Driver", color: "#10b981" },
 };
 
 export default function BusinessExpensesPage() {
@@ -38,7 +42,7 @@ export default function BusinessExpensesPage() {
 
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 8;
+    const itemsPerPage = 5;
 
     // New Expense State
     const [newExpense, setNewExpense] = useState({
@@ -88,24 +92,58 @@ export default function BusinessExpensesPage() {
         setCurrentPage(1);
     }, [activeTab, searchTerm, dateRange]);
 
-    // Chart Data
-    const chartData = useMemo(() => {
-        // Group by category or asset/driver depending on tab? 
-        // Let's group by Month for trend or by Category for distribution.
-        // Let's do Category for now as it matches "Breakdown".
-        const data: Record<string, number> = {};
+    // --- Clean Summary Logic (Standalone Only) ---
+    const summaryData = useMemo(() => {
+        let total = 0;
+        let count = 0;
+        let truckSub = 0;
+        let officeSub = 0;
+        let driverSub = 0;
+        const categories: Record<string, number> = {};
 
+        expenses.forEach(e => {
+            if (e.isDeleted) return;
+            if (dateRange?.from) {
+                const d = new Date(e.date);
+                const start = startOfDay(dateRange.from);
+                const end = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
+                if (!isWithinInterval(d, { start, end })) return;
+            }
+
+            total += e.amount;
+            count += 1;
+            categories[e.category] = (categories[e.category] || 0) + e.amount;
+
+            if (e.assetId) truckSub += e.amount;
+            else if (e.driverId) driverSub += e.amount;
+            else officeSub += e.amount;
+        });
+
+        const topCatEntry = Object.entries(categories).sort((a, b) => b[1] - a[1])[0];
+
+        return {
+            total,
+            count,
+            truckSub,
+            officeSub,
+            driverSub,
+            topCategory: topCatEntry ? topCatEntry[0] : "N/A",
+            topCategoryAmount: topCatEntry ? topCatEntry[1] : 0
+        };
+    }, [expenses, dateRange]);
+
+    const chartData = useMemo(() => {
+        const data: Record<string, number> = {};
         filteredExpenses.forEach(e => {
             const key = activeTab === 'truck' && e.assetName ? e.assetName :
                 activeTab === 'driver' && e.driverName ? e.driverName :
                     e.category;
             data[key] = (data[key] || 0) + e.amount;
         });
-
         return Object.entries(data).map(([name, amount]) => ({
             name,
             amount
-        })).sort((a, b) => b.amount - a.amount).slice(0, 10); // Show top 10
+        })).sort((a, b) => b.amount - a.amount).slice(0, 5);
     }, [filteredExpenses, activeTab]);
 
     const handleSave = () => {
@@ -174,18 +212,18 @@ export default function BusinessExpensesPage() {
             <div className="flex flex-col gap-6">
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-                        <TabsList className="grid w-full max-w-[500px] grid-cols-3">
+                        <TabsList className="grid w-full max-w-[650px] grid-cols-3">
                             <TabsTrigger value="truck" className="flex items-center gap-2">
                                 <Truck className="h-4 w-4" />
-                                Trucks
+                                Truck expenses ( by assets )
                             </TabsTrigger>
                             <TabsTrigger value="office" className="flex items-center gap-2">
                                 <Building2 className="h-4 w-4" />
-                                Office
+                                Office expenses
                             </TabsTrigger>
                             <TabsTrigger value="driver" className="flex items-center gap-2">
                                 <Users className="h-4 w-4" />
-                                Drivers
+                                Drivers expenses ( by Driver )
                             </TabsTrigger>
                         </TabsList>
                         <div className="flex flex-wrap items-center gap-2">
@@ -208,58 +246,59 @@ export default function BusinessExpensesPage() {
                         </div>
                     </div>
 
-                    <div className="grid gap-6 md:grid-cols-3 mb-6">
-                        <Card className="glass-card md:col-span-2">
-                            <CardHeader>
-                                <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                                    <BarChart3 className="h-4 w-4" />
-                                    Expense Breakdown ({activeTab})
-                                </CardTitle>
+                    <div className="grid gap-6 md:grid-cols-3 mb-8">
+                        {/* TOTAL OVERHEAD */}
+                        <Card className="glass-card flex flex-col justify-center border-l-4 border-l-destructive">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Total Business Overhead</CardTitle>
                             </CardHeader>
-                            <CardContent className="h-[250px]">
-                                <ChartContainer config={chartConfig} className="h-full w-full">
-                                    <BarChart data={chartData} layout="vertical" margin={{ top: 0, right: 30, left: 30, bottom: 0 }}>
-                                        <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke="currentColor" opacity={0.1} />
-                                        <XAxis type="number" hide />
-                                        <YAxis
-                                            dataKey="name"
-                                            type="category"
-                                            tickLine={false}
-                                            axisLine={false}
-                                            width={100}
-                                            fontSize={11}
-                                            stroke="currentColor"
-                                            opacity={0.7}
-                                        />
-                                        <ChartTooltip
-                                            cursor={{ fill: 'currentColor', opacity: 0.1 }}
-                                            content={<ChartTooltipContent indicator="line" />}
-                                        />
-                                        <Bar
-                                            dataKey="amount"
-                                            layout="vertical"
-                                            fill="var(--color-amount)"
-                                            radius={[0, 4, 4, 0]}
-                                            barSize={20}
-                                        />
-                                    </BarChart>
-                                </ChartContainer>
+                            <CardContent>
+                                <div className="text-3xl font-bold tracking-tight text-destructive">{formatCurrency(summaryData.total)}</div>
+                                <p className="text-[10px] text-muted-foreground mt-1">Across {summaryData.count} standalone entries</p>
                             </CardContent>
                         </Card>
 
-                        <Card className="glass-card flex flex-col justify-center items-center">
+                        {/* BREAKDOWN CARD */}
+                        <Card className="glass-card flex flex-col justify-center">
                             <CardHeader className="pb-2">
-                                <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Total {activeTab} Expenses</CardTitle>
+                                <CardTitle className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Type Breakdown</CardTitle>
                             </CardHeader>
-                            <CardContent className="text-center">
-                                <div className="text-4xl font-bold text-destructive mb-2">
-                                    {formatCurrency(filteredExpenses.reduce((sum, e) => sum + e.amount, 0))}
+                            <CardContent className="space-y-1">
+                                <div className="flex justify-between text-[11px]">
+                                    <span className="text-muted-foreground">Trucks</span>
+                                    <span className="font-bold">{formatCurrency(summaryData.truckSub)}</span>
                                 </div>
-                                <p className="text-sm text-muted-foreground italic">Total across all pages</p>
+                                <div className="flex justify-between text-[11px]">
+                                    <span className="text-muted-foreground">Drivers</span>
+                                    <span className="font-bold">{formatCurrency(summaryData.driverSub)}</span>
+                                </div>
+                                <div className="flex justify-between text-[11px]">
+                                    <span className="text-muted-foreground">Office</span>
+                                    <span className="font-bold">{formatCurrency(summaryData.officeSub)}</span>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* TOP CATEGORY CARD */}
+                        <Card className="glass-card flex flex-col justify-center border-r-4 border-r-orange-500">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Highest Category</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold tracking-tight text-orange-500">{summaryData.topCategory}</div>
+                                <p className="text-[10px] text-muted-foreground mt-1">{formatCurrency(summaryData.topCategoryAmount)} spent</p>
                             </CardContent>
                         </Card>
                     </div>
 
+                    <div className="bg-muted/30 rounded-xl p-4 mb-6 flex justify-between items-center border border-white/5">
+                        <div>
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">{activeTab} expenses subtotal</p>
+                            <div className="text-2xl font-bold text-destructive">
+                                {formatCurrency(filteredExpenses.reduce((sum, e) => sum + e.amount, 0))}
+                            </div>
+                        </div>
+                    </div>
                     <div className="flex justify-between items-center mb-4">
                         <p className="text-sm text-muted-foreground">
                             Showing {paginatedExpenses.length} of {filteredExpenses.length} entries
@@ -281,14 +320,14 @@ export default function BusinessExpensesPage() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {filteredExpenses.length === 0 ? (
+                                    {paginatedExpenses.length === 0 ? (
                                         <TableRow>
                                             <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
                                                 No expenses found matching your criteria.
                                             </TableCell>
                                         </TableRow>
                                     ) : (
-                                        filteredExpenses.map((expense) => (
+                                        paginatedExpenses.map((expense) => (
                                             <TableRow key={expense.id} className="hover:bg-muted/50 border-white/5">
                                                 <TableCell className="font-mono text-xs text-muted-foreground">
                                                     {format(new Date(expense.date), "MMM d, yyyy")}

@@ -27,7 +27,7 @@ export function useActivity(freight: Freight[], expenses: StandaloneExpense[]) {
                     type: 'revenue',
                     title: `Freight #${item.freightId} - ${item.origin} to ${item.destination}`,
                     date: new Date(item.date),
-                    amount: item.status === 'Cancelled' ? 0 : item.revenue,
+                    amount: item.ownerAmount ?? 0,
                     status: item.status,
                     link: `/freight-ledger?edit=${item.id}`,
                     color: 'success',

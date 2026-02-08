@@ -1,7 +1,10 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Freight, Asset, Driver, StandaloneExpense } from './types';
+import { Building2, Truck, Users, Plus, Search, Calendar as CalendarIcon, DollarSign, BarChart3, ChevronLeft, ChevronRight } from "lucide-react";
+import { format, isWithinInterval, startOfDay, endOfDay } from "date-fns";
+import { cn } from "@/lib/utils";
+import { Freight, Asset, Driver, StandaloneExpense, ExpenseCategory } from "@/lib/types";
 import { initialFreight, initialAssets, initialDrivers, initialExpenses } from './data';
 
 type DataContextType = {
@@ -16,6 +19,8 @@ type DataContextType = {
     restoreItem: (type: 'freight' | 'asset' | 'driver' | 'expense', id: string) => void;
     permanentlyDeleteItem: (type: 'freight' | 'asset' | 'driver' | 'expense', id: string) => void;
     deleteItem: (type: 'freight' | 'asset' | 'driver' | 'expense', id: string) => void;
+    restoreLoadExpense: (loadId: string, expenseId: string) => void;
+    permanentlyDeleteLoadExpense: (loadId: string, expenseId: string) => void;
     isLoaded: boolean;
 };
 
@@ -31,10 +36,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     // Initial load - runs only once
     useEffect(() => {
         try {
-            const savedFreight = localStorage.getItem('rvt_freight_v5');
-            const savedAssets = localStorage.getItem('rvt_assets_v5');
-            const savedDrivers = localStorage.getItem('rvt_drivers_v5');
-            const savedExpenses = localStorage.getItem('rvt_expenses_v1');
+            const savedFreight = localStorage.getItem('rvt_freight_v7');
+            const savedAssets = localStorage.getItem('rvt_assets_v7');
+            const savedDrivers = localStorage.getItem('rvt_drivers_v7');
+            const savedExpenses = localStorage.getItem('rvt_expenses_v4');
 
             if (savedFreight) {
                 const parsed = JSON.parse(savedFreight);
@@ -69,25 +74,25 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     // Save to localStorage - runs whenever data changes, but only after initial load
     useEffect(() => {
         if (isLoaded) {
-            localStorage.setItem('rvt_freight_v5', JSON.stringify(freight));
+            localStorage.setItem('rvt_freight_v7', JSON.stringify(freight));
         }
     }, [freight, isLoaded]);
 
     useEffect(() => {
         if (isLoaded) {
-            localStorage.setItem('rvt_assets_v5', JSON.stringify(assets));
+            localStorage.setItem('rvt_assets_v7', JSON.stringify(assets));
         }
     }, [assets, isLoaded]);
 
     useEffect(() => {
         if (isLoaded) {
-            localStorage.setItem('rvt_drivers_v5', JSON.stringify(drivers));
+            localStorage.setItem('rvt_drivers_v7', JSON.stringify(drivers));
         }
     }, [drivers, isLoaded]);
 
     useEffect(() => {
         if (isLoaded) {
-            localStorage.setItem('rvt_expenses_v1', JSON.stringify(expenses));
+            localStorage.setItem('rvt_expenses_v4', JSON.stringify(expenses));
         }
     }, [expenses, isLoaded]);
 
@@ -128,6 +133,20 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
+    const permanentlyDeleteLoadExpense = (loadId: string, expenseId: string) => {
+        setFreight(prev => prev.map(f => f.id === loadId ? {
+            ...f,
+            expenses: f.expenses.filter(e => e.id !== expenseId)
+        } : f));
+    };
+
+    const restoreLoadExpense = (loadId: string, expenseId: string) => {
+        setFreight(prev => prev.map(f => f.id === loadId ? {
+            ...f,
+            expenses: f.expenses.map(e => e.id === expenseId ? { ...e, isDeleted: false, deletedAt: undefined } : e)
+        } : f));
+    };
+
     return (
         <DataContext.Provider value={{
             freight,
@@ -141,6 +160,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             restoreItem,
             permanentlyDeleteItem,
             deleteItem,
+            restoreLoadExpense,
+            permanentlyDeleteLoadExpense,
             isLoaded
         }}>
             {children}

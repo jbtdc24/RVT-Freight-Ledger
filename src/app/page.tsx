@@ -197,7 +197,7 @@ export default function DashboardPage() {
     return labels.map(item => {
       const intervalFreight = validFreight.filter(f => {
         const d = new Date(f.date);
-        return d >= item.range[0] && d <= item.range[1];
+        return d >= item.range[0] && d <= item.range[1] && f.status === 'Delivered';
       });
 
       const intervalExpenses = expenses.filter(e => {

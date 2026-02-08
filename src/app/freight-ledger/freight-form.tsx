@@ -30,6 +30,10 @@ const expenseSchema = z.object({
   category: z.enum(expenseCategories),
   description: z.string().min(3, "Description must be at least 3 characters."),
   amount: z.coerce.number().positive("Amount must be a positive number."),
+  isDeleted: z.boolean().optional(),
+  deletedAt: z.string().optional(),
+  loadId: z.string().optional(),
+  loadNumber: z.string().optional(),
 });
 
 const commentSchema = z.object({
@@ -216,7 +220,7 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
   function handleFormSubmit(values: FreightFormValues) {
     const ownerBase = (values.lineHaul || 0) * (values.ownerPercentage / 100);
     const ownerAmount = ownerBase + (values.fuelSurcharge || 0) + (values.accessorials || 0) + (values.loading || 0) + (values.unloading || 0);
-    const totalExpenses = (values.expenses || []).reduce((sum, exp) => sum + exp.amount, 0);
+    const totalExpenses = (values.expenses || []).filter(exp => !exp.isDeleted).reduce((sum, exp) => sum + exp.amount, 0);
     const netProfit = ownerAmount - totalExpenses;
 
     const processedExpenses = (values.expenses || []).map(exp => ({ ...exp, id: exp.id || `exp-${Date.now()}-${Math.random()}` }));
@@ -598,25 +602,46 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
                 <CardTitle className="text-base">Load Expenses</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                {fields.map((field, index) => (
-                  <div key={field.id} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-4 items-start p-2 border rounded-md">
-                    <FormField control={form.control} name={`expenses.${index}.category`} render={({ field }) => (
-                      <FormItem><FormLabel className="sr-only">Category</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Category" /></SelectTrigger></FormControl><SelectContent>{expenseCategories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
-                    )}
-                    />
-                    <FormField control={form.control} name={`expenses.${index}.description`} render={({ field }) => (
-                      <FormItem><FormLabel className="sr-only">Description</FormLabel><FormControl><Input placeholder="Description" {...field} /></FormControl><FormMessage /></FormItem>
-                    )}
-                    />
-                    <FormField control={form.control} name={`expenses.${index}.amount`} render={({ field }) => (
-                      <FormItem><FormLabel className="sr-only">Amount</FormLabel><FormControl><Input type="number" placeholder="$" {...field} /></FormControl><FormMessage /></FormItem>
-                    )}
-                    />
-                    <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="mt-1">
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                ))}
+                {fields.map((field, index) => {
+                  const isDeleted = form.watch(`expenses.${index}.isDeleted`);
+                  if (isDeleted) return null;
+
+                  return (
+                    <div key={field.id} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-4 items-start p-2 border rounded-md">
+                      <FormField control={form.control} name={`expenses.${index}.category`} render={({ field }) => (
+                        <FormItem><FormLabel className="sr-only">Category</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Category" /></SelectTrigger></FormControl><SelectContent>{expenseCategories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                      )}
+                      />
+                      <FormField control={form.control} name={`expenses.${index}.description`} render={({ field }) => (
+                        <FormItem><FormLabel className="sr-only">Description</FormLabel><FormControl><Input placeholder="Description" {...field} /></FormControl><FormMessage /></FormItem>
+                      )}
+                      />
+                      <FormField control={form.control} name={`expenses.${index}.amount`} render={({ field }) => (
+                        <FormItem><FormLabel className="sr-only">Amount</FormLabel><FormControl><Input type="number" placeholder="$" {...field} /></FormControl><FormMessage /></FormItem>
+                      )}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          const expenseId = form.getValues(`expenses.${index}.id`);
+                          if (expenseId) {
+                            form.setValue(`expenses.${index}.isDeleted`, true);
+                            form.setValue(`expenses.${index}.deletedAt`, new Date().toISOString());
+                            form.setValue(`expenses.${index}.loadId`, initialData?.id);
+                            form.setValue(`expenses.${index}.loadNumber`, initialData?.freightId || "");
+                          } else {
+                            remove(index);
+                          }
+                        }}
+                        className="mt-1"
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  );
+                })}
                 <Button type="button" variant="outline" size="sm" onClick={() => append({ category: "Other", description: "", amount: 0 })}>
                   <PlusCircle className="mr-2 h-4 w-4" /> Add Expense
                 </Button>
