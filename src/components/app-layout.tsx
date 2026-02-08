@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Gauge, Truck, Warehouse, Calculator, Menu, Users, Trash2 } from "lucide-react";
+import { Gauge, Truck, Warehouse, Calculator, Menu, Users, Trash2, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { RvtLogo } from "@/components/icons";
@@ -16,6 +16,7 @@ const navItems = [
   { href: "/freight-ledger", label: "Freight Ledger", icon: Truck },
   { href: "/assets", label: "Assets", icon: Warehouse },
   { href: "/drivers", label: "Drivers", icon: Users },
+  { href: "/expenses", label: "Load Expenses", icon: FileText },
   { href: "/payroll", label: "Payroll", icon: Calculator },
   { href: "/recycle-bin", label: "Recycle Bin", icon: Trash2 },
 ];

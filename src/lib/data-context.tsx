@@ -1,19 +1,21 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Freight, Asset, Driver } from './types';
+import { Freight, Asset, Driver, StandaloneExpense } from './types';
 import { initialFreight, initialAssets, initialDrivers } from './data';
 
 type DataContextType = {
     freight: Freight[];
     assets: Asset[];
     drivers: Driver[];
+    expenses: StandaloneExpense[];
     setFreight: React.Dispatch<React.SetStateAction<Freight[]>>;
     setAssets: React.Dispatch<React.SetStateAction<Asset[]>>;
     setDrivers: React.Dispatch<React.SetStateAction<Driver[]>>;
-    restoreItem: (type: 'freight' | 'asset' | 'driver', id: string) => void;
-    permanentlyDeleteItem: (type: 'freight' | 'asset' | 'driver', id: string) => void;
-    deleteItem: (type: 'freight' | 'asset' | 'driver', id: string) => void;
+    setExpenses: React.Dispatch<React.SetStateAction<StandaloneExpense[]>>;
+    restoreItem: (type: 'freight' | 'asset' | 'driver' | 'expense', id: string) => void;
+    permanentlyDeleteItem: (type: 'freight' | 'asset' | 'driver' | 'expense', id: string) => void;
+    deleteItem: (type: 'freight' | 'asset' | 'driver' | 'expense', id: string) => void;
     isLoaded: boolean;
 };
 
@@ -23,6 +25,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const [freight, setFreight] = useState<Freight[]>(initialFreight);
     const [assets, setAssets] = useState<Asset[]>(initialAssets);
     const [drivers, setDrivers] = useState<Driver[]>(initialDrivers);
+    const [expenses, setExpenses] = useState<StandaloneExpense[]>([]);
     const [isLoaded, setIsLoaded] = useState(false);
 
     // Initial load - runs only once
@@ -31,6 +34,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             const savedFreight = localStorage.getItem('rvt_freight_v5');
             const savedAssets = localStorage.getItem('rvt_assets_v5');
             const savedDrivers = localStorage.getItem('rvt_drivers_v5');
+            const savedExpenses = localStorage.getItem('rvt_expenses_v1');
 
             if (savedFreight) {
                 const parsed = JSON.parse(savedFreight);
@@ -50,6 +54,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             if (savedDrivers) {
                 const parsed = JSON.parse(savedDrivers);
                 if (Array.isArray(parsed) && parsed.length > 0) setDrivers(parsed);
+            }
+            if (savedExpenses) {
+                const parsed = JSON.parse(savedExpenses);
+                if (Array.isArray(parsed) && parsed.length > 0) setExpenses(parsed);
             }
         } catch (e) {
             console.error("Failed to load data from localStorage", e);
@@ -77,7 +85,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         }
     }, [drivers, isLoaded]);
 
-    const deleteItem = (type: 'freight' | 'asset' | 'driver', id: string) => {
+    useEffect(() => {
+        if (isLoaded) {
+            localStorage.setItem('rvt_expenses_v1', JSON.stringify(expenses));
+        }
+    }, [expenses, isLoaded]);
+
+    const deleteItem = (type: 'freight' | 'asset' | 'driver' | 'expense', id: string) => {
         const deletedAt = new Date().toISOString();
         if (type === 'freight') {
             setFreight(prev => prev.map(f => f.id === id ? { ...f, isDeleted: true, deletedAt } : f));
@@ -85,26 +99,32 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             setAssets(prev => prev.map(a => a.id === id ? { ...a, isDeleted: true, deletedAt } : a));
         } else if (type === 'driver') {
             setDrivers(prev => prev.map(d => d.id === id ? { ...d, isDeleted: true, deletedAt } : d));
+        } else if (type === 'expense') {
+            setExpenses(prev => prev.map(e => e.id === id ? { ...e, isDeleted: true, deletedAt } : e));
         }
     };
 
-    const restoreItem = (type: 'freight' | 'asset' | 'driver', id: string) => {
+    const restoreItem = (type: 'freight' | 'asset' | 'driver' | 'expense', id: string) => {
         if (type === 'freight') {
             setFreight(prev => prev.map(f => f.id === id ? { ...f, isDeleted: false, deletedAt: undefined } : f));
         } else if (type === 'asset') {
             setAssets(prev => prev.map(a => a.id === id ? { ...a, isDeleted: false, deletedAt: undefined } : a));
         } else if (type === 'driver') {
             setDrivers(prev => prev.map(d => d.id === id ? { ...d, isDeleted: false, deletedAt: undefined } : d));
+        } else if (type === 'expense') {
+            setExpenses(prev => prev.map(e => e.id === id ? { ...e, isDeleted: false, deletedAt: undefined } : e));
         }
     };
 
-    const permanentlyDeleteItem = (type: 'freight' | 'asset' | 'driver', id: string) => {
+    const permanentlyDeleteItem = (type: 'freight' | 'asset' | 'driver' | 'expense', id: string) => {
         if (type === 'freight') {
             setFreight(prev => prev.filter(f => f.id !== id));
         } else if (type === 'asset') {
             setAssets(prev => prev.filter(a => a.id !== id));
         } else if (type === 'driver') {
             setDrivers(prev => prev.filter(d => d.id !== id));
+        } else if (type === 'expense') {
+            setExpenses(prev => prev.filter(e => e.id !== id));
         }
     };
 
@@ -113,9 +133,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             freight,
             assets,
             drivers,
+            expenses,
             setFreight,
             setAssets,
             setDrivers,
+            setExpenses,
             restoreItem,
             permanentlyDeleteItem,
             deleteItem,

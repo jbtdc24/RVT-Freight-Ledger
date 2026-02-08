@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { PageHeader } from '@/components/page-header';
 import type { Freight } from '@/lib/types';
 import { useData } from "@/lib/data-context";
+import { useActivity } from "@/hooks/use-activity";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Area, AreaChart, ResponsiveContainer, XAxis, YAxis, CartesianGrid } from "recharts";
 import { format, subDays, subWeeks, subMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfDay, endOfDay, eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, isWithinInterval } from "date-fns";
@@ -35,11 +36,14 @@ const chartConfig = {
 };
 
 export default function DashboardPage() {
-  const { freight } = useData();
+  const { freight, expenses } = useData();
+  const allActivity = useActivity(freight, expenses);
+  const recentActivity = useMemo(() => allActivity.slice(0, 5), [allActivity]);
+
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'year' | 'custom'>('week');
   const [customRange, setCustomRange] = useState<DateRange | undefined>(undefined);
-  const [activityFilter, setActivityFilter] = useState<'week' | 'month' | 'year' | 'all'>('week');
   const [showInvalidLoads, setShowInvalidLoads] = useState(false);
+  const [loadListDialog, setLoadListDialog] = useState<{ title: string; loads: Freight[] } | null>(null);
 
   const activeFreight = useMemo(() => freight.filter(item => !item.isDeleted), [freight]);
   const validFreight = useMemo(() => activeFreight.filter(f => f.driverName && f.comments && f.comments.length > 0 && f.status !== 'Cancelled'), [activeFreight]);
@@ -76,8 +80,37 @@ export default function DashboardPage() {
   }, [activeFreight, timeRange, customRange]);
 
   const deliveredFreight = useMemo(() => filteredFreight.filter(f => f.status === 'Delivered'), [filteredFreight]);
-  const pendingFreight = useMemo(() => filteredFreight.filter(f => f.status !== 'Delivered' && f.status !== 'Cancelled'), [filteredFreight]);
+  // Pending Freight should show ALL active non-delivered loads regardless of date selection (Snapshot of current state)
+  const pendingFreight = useMemo(() => activeFreight.filter(f => f.status !== 'Delivered' && f.status !== 'Cancelled'), [activeFreight]);
   const cancelledFreight = useMemo(() => filteredFreight.filter(f => f.status === 'Cancelled'), [filteredFreight]);
+
+  // Filter Standalone Expenses by Date Range
+  const filteredExpenses = useMemo(() => {
+    let start: Date, end: Date;
+    const now = new Date();
+
+    if (timeRange === 'week') {
+      start = startOfDay(subDays(now, 6));
+      end = endOfDay(now);
+    } else if (timeRange === 'month') {
+      start = startOfMonth(now);
+      end = endOfMonth(now);
+    } else if (timeRange === 'year') {
+      start = startOfMonth(subMonths(now, 5));
+      end = endOfMonth(now);
+    } else if (timeRange === 'custom' && customRange?.from && customRange?.to) {
+      start = startOfDay(customRange.from);
+      end = endOfDay(customRange.to);
+    } else {
+      return expenses.filter(e => !e.isDeleted);
+    }
+
+    return expenses.filter(e => {
+      if (e.isDeleted) return false;
+      const d = new Date(e.date);
+      return isWithinInterval(d, { start, end });
+    });
+  }, [expenses, timeRange, customRange]);
 
   /* --- Helper for Consistent Math --- */
   const calculateOwnerRevenue = (item: Freight) => {
@@ -100,22 +133,26 @@ export default function DashboardPage() {
     [pendingFreight]
   );
 
-  const totalExpenses = useMemo(() =>
-    deliveredFreight.reduce((sum, item) => sum + item.totalExpenses, 0),
-    [deliveredFreight]
-  );
+  const totalExpenses = useMemo(() => {
+    const freightExpenses = deliveredFreight.reduce((sum, item) => sum + item.totalExpenses, 0);
+    const standaloneExpenses = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
+    return freightExpenses + standaloneExpenses;
+  }, [deliveredFreight, filteredExpenses]);
 
   // We recalculate netProfit from the consistent revenue/expenses to ensure (Rev - Exp = Profit) is always visually true,
   // rather than relying on the item.netProfit field which might drift if data source logic changes.
   const netProfit = useMemo(() =>
-    deliveredFreight.reduce((sum, item) => sum + (calculateOwnerRevenue(item) - item.totalExpenses), 0),
-    [deliveredFreight]
+    deliveredFreight.reduce((sum, item) => sum + calculateOwnerRevenue(item), 0) - totalExpenses,
+    [deliveredFreight, totalExpenses]
   );
 
   const totalExpenseItems = useMemo(() =>
-    deliveredFreight.reduce((sum, item) => sum + item.expenses.length, 0),
-    [deliveredFreight]
+    deliveredFreight.reduce((sum, item) => sum + item.expenses.length, 0) + filteredExpenses.length,
+    [deliveredFreight, filteredExpenses]
   );
+
+  // Removed old activity calculation logic as we now use the hook
+
 
   const chartData = useMemo(() => {
     const labels: { label: string; range: [Date, Date]; fullDate: string }[] = [];
@@ -277,7 +314,10 @@ export default function DashboardPage() {
         </Card>
 
         {/* PENDING REVENUE CARD */}
-        <Card className="glass-card overflow-hidden relative group">
+        <Card
+          className="glass-card overflow-hidden relative group cursor-pointer hover:bg-white/5 transition-colors"
+          onClick={() => setLoadListDialog({ title: "Pending Loads", loads: pendingFreight })}
+        >
           <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
             <Clock className="h-24 w-24 text-blue-500" />
           </div>
@@ -298,7 +338,10 @@ export default function DashboardPage() {
         </Card>
 
         {/* CANCELLED LOADS CARD */}
-        <Card className="glass-card overflow-hidden relative group">
+        <Card
+          className="glass-card overflow-hidden relative group cursor-pointer hover:bg-white/5 transition-colors"
+          onClick={() => setLoadListDialog({ title: "Cancelled Loads", loads: cancelledFreight })}
+        >
           <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
             <XCircle className="h-24 w-24 text-muted-foreground" />
           </div>
@@ -475,159 +518,105 @@ export default function DashboardPage() {
         <Card className="glass-card border-none">
           <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-4 gap-4">
             <CardTitle className="text-xl">Recent Activity</CardTitle>
-            <div className="flex bg-white/5 rounded-lg p-1 gap-1 self-end sm:self-auto">
-              {(['week', 'month', 'year', 'all'] as const).map((range) => (
-                <button
-                  key={range}
-                  onClick={() => setActivityFilter(range)}
-                  className={cn(
-                    "px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all",
-                    activityFilter === range ? "bg-primary text-black shadow-sm" : "text-white/40 hover:text-white hover:bg-white/5"
-                  )}
-                >
-                  {range}
-                </button>
-              ))}
-            </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
-              {(() => {
-                const transactions: any[] = [];
-
-                // 1. Add normal freight revenue
-                activeFreight.forEach(item => {
-                  transactions.push({
-                    id: `rev-${item.id}`,
-                    loadId: item.id,
-                    type: 'revenue',
-                    title: `Freight #${item.freightId} - ${item.origin} to ${item.destination}`,
-                    date: new Date(item.date),
-                    amount: item.status === 'Cancelled' ? 0 : item.revenue,
-                    status: item.status,
-                    link: '/freight-ledger',
-                    icon: <DollarSign className="h-4 w-4" />,
-                    color: 'success'
-                  });
-
-                  // 2. Add individual expenses from each load
-                  item.expenses.forEach(exp => {
-                    transactions.push({
-                      id: `exp-${exp.id}`,
-                      loadId: item.id,
-                      type: 'expense',
-                      title: `${exp.category}: ${exp.description} (Load #${item.freightId})`,
-                      date: new Date(item.date),
-                      amount: -exp.amount,
-                      status: item.status === 'Cancelled' ? 'Void' : 'Paid',
-                      link: '/freight-ledger',
-                      icon: <Wrench className="h-4 w-4" />,
-                      color: 'destructive'
-                    });
-                  });
-                });
-
-                // 3. Add deletions
-                freight.filter(f => f.isDeleted).forEach(item => {
-                  transactions.push({
-                    id: `del-${item.id}`,
-                    type: 'deletion',
-                    title: `DELETED: Load #${item.freightId}`,
-                    date: item.deletedAt ? new Date(item.deletedAt) : new Date(),
-                    amount: 0,
-                    status: 'Removed',
-                    link: '/recycle-bin',
-                    icon: <Trash2 className="h-4 w-4" />,
-                    color: 'muted'
-                  });
-                });
-
-                // 4. Add comments & updates
-                activeFreight.forEach(item => {
-                  if (item.comments) {
-                    item.comments.forEach(comment => {
-                      transactions.push({
-                        id: `com-${comment.id}`,
-                        loadId: item.id,
-                        type: 'update',
-                        title: `${comment.type === 'system' ? 'System' : 'Note'}: ${comment.text}`,
-                        date: new Date(comment.timestamp),
-                        amount: 0,
-                        status: comment.author,
-                        link: '/freight-ledger',
-                        icon: <MessageSquare className="h-4 w-4" />,
-                        color: 'info'
-                      });
-                    });
-                  }
-                });
-
-                // Filter by date based on activityFilter
-                let cutoff = new Date(0); // Epoch default (all)
-                const now = new Date();
-                if (activityFilter === 'week') cutoff = subDays(now, 7);
-                if (activityFilter === 'month') cutoff = subDays(now, 30);
-                if (activityFilter === 'year') cutoff = subDays(now, 365);
-
-                const filtered = transactions.filter(t => t.date >= cutoff);
-
-                // Sort by date descending and take top 500
-                const recent = filtered
-                  .sort((a, b) => b.date.getTime() - a.date.getTime())
-                  .slice(0, 500);
-
-                if (recent.length === 0) {
-                  return <div className="flex flex-col items-center justify-center py-8 text-muted-foreground opacity-50 space-y-2">
-                    <p className="text-sm">No activity found in this range.</p>
-                  </div>;
-                }
-
-                return (
-                  <div className="max-h-[500px] overflow-y-auto pr-2 space-y-2 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
-                    {recent.map((item) => (
-                      <Link href={`${item.link}${item.loadId ? `?edit=${item.loadId}` : ''}`} key={item.id}>
-                        <div className="flex items-center justify-between group cursor-pointer hover:bg-white/5 p-2 rounded-xl transition-all active:scale-[0.98]">
-                          {/* Items Content */}
-                          <div className="flex items-center gap-4">
-                            <div className={cn(
-                              "p-2 rounded-full",
-                              item.color === 'success' ? "bg-success/20 text-success" :
-                                item.color === 'destructive' ? "bg-destructive/20 text-destructive" :
-                                  item.color === 'info' ? "bg-blue-500/20 text-blue-400" :
-                                    "bg-white/10 text-white/40"
-                            )}>
-                              {item.icon}
-                            </div>
-                            <div className="flex flex-col max-w-[200px] sm:max-w-[300px]">
-                              <span className="text-sm font-bold group-hover:text-primary transition-colors truncate" title={item.title}>{item.title}</span>
-                              <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{format(item.date, 'MMM dd, yyyy • HH:mm')}</span>
-                            </div>
-                          </div>
-                          <div className="flex flex-col items-end">
-                            <span className={cn(
-                              "text-sm font-bold",
-                              item.amount > 0 ? "text-success" :
-                                item.amount < 0 ? "text-destructive" : "text-white/20"
-                            )}>
-                              {item.amount !== 0 ? (item.amount > 0 ? '+' : '') + formatCurrency(item.amount) : '---'}
-                            </span>
-                            <span className="text-[10px] py-0.5 px-2 bg-white/5 rounded-full text-white/40 font-medium">{item.status}</span>
-                          </div>
+              {recentActivity.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">No recent activity</div>
+              ) : (
+                recentActivity.map((item) => (
+                  <div key={item.id} className="flex items-start gap-4 group">
+                    <div className={cn(
+                      "mt-1 w-8 h-8 rounded-full flex items-center justify-center border transition-colors shrink-0",
+                      item.color === 'success' && "bg-success/10 border-success/20 text-success group-hover:bg-success/20",
+                      item.color === 'destructive' && "bg-destructive/10 border-destructive/20 text-destructive group-hover:bg-destructive/20",
+                      item.color === 'warning' && "bg-warning/10 border-warning/20 text-warning group-hover:bg-warning/20",
+                      item.color === 'info' && "bg-blue-500/10 border-blue-500/20 text-blue-500 group-hover:bg-blue-500/20",
+                      item.color === 'muted' && "bg-muted/10 border-muted/20 text-muted-foreground group-hover:bg-muted/20"
+                    )}>
+                      {item.iconType === 'revenue' && <DollarSign className="h-4 w-4" />}
+                      {item.iconType === 'expense' && <Wrench className="h-4 w-4" />}
+                      {item.iconType === 'message' && <MessageSquare className="h-4 w-4" />}
+                      {item.iconType === 'delete' && <Trash2 className="h-4 w-4" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-medium text-foreground truncate">{item.title}</p>
+                        <span className="text-[10px] text-muted-foreground shrink-0 whitespace-nowrap">
+                          {format(item.date, "MMM d, h:mm a")}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between mt-1">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="text-[10px] h-5 px-1.5 font-normal">
+                            {item.status}
+                          </Badge>
+                          {item.link && (
+                            <Link href={item.link} className="flex items-center text-[10px] text-primary hover:underline opacity-0 group-hover:opacity-100 transition-opacity">
+                              View <ArrowRight className="ml-0.5 h-3 w-3" />
+                            </Link>
+                          )}
                         </div>
-                      </Link>
-                    ))}
+                        {item.amount !== 0 && (
+                          <span className={cn(
+                            "text-sm font-bold font-mono",
+                            item.amount > 0 ? "text-success" : "text-destructive"
+                          )}>
+                            {item.amount > 0 ? "+" : ""}{new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(item.amount)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                );
-              })()}
+                ))
+              )}
             </div>
-            <Link href="/freight-ledger">
-              <Button variant="ghost" className="w-full mt-6 text-[10px] font-black uppercase tracking-widest text-white/20 hover:text-primary hover:bg-white/5">
+          </CardContent>
+          <div className="p-4 border-t border-white/5">
+            <Link href="/activity">
+              <Button variant="ghost" className="w-full text-[10px] font-black uppercase tracking-widest text-white/20 hover:text-primary hover:bg-white/5">
                 View All Activity
               </Button>
             </Link>
-          </CardContent>
+          </div>
         </Card>
       </div>
+
+      <Dialog open={!!loadListDialog} onOpenChange={(open) => !open && setLoadListDialog(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{loadListDialog?.title}</DialogTitle>
+            <DialogDescription>Select a load to view or edit details.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+            {loadListDialog?.loads.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">No loads found in this category.</div>
+            ) : (
+              loadListDialog?.loads.map(load => (
+                <Link key={load.id} href={`/freight-ledger?edit=${load.id}`}>
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-card/50 hover:bg-accent/50 border border-border hover:border-primary/50 transition-all group cursor-pointer">
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-foreground group-hover:text-primary transition-colors">Load #{load.freightId}</span>
+                        <Badge variant="outline" className="text-[10px] h-5 px-1.5">{load.status}</Badge>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span>{load.origin}</span>
+                        <ArrowRight className="h-3 w-3" />
+                        <span>{load.destination}</span>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="font-mono font-bold">{formatCurrency(load.ownerAmount || 0)}</span>
+                      <span className="text-[10px] text-muted-foreground">{format(new Date(load.date), 'MMM d, yyyy')}</span>
+                    </div>
+                  </div>
+                </Link>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

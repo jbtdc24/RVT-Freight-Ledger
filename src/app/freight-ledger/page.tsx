@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState, Fragment, useMemo, useEffect } from "react";
+import { useState, Fragment, useMemo, useEffect, useRef } from "react";
 import { PlusCircle, Pencil, Wallet, ArrowRight, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, MessageSquare, PenTool, X, MapPin } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,17 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
 import { Card } from "@/components/ui/card";
 import { useData } from "@/lib/data-context";
 import type { Freight, Driver } from "@/lib/types";
@@ -43,6 +54,9 @@ export default function FreightLedgerPage() {
   // New state for viewing freight details (View Mode)
   const [viewingFreight, setViewingFreight] = useState<Freight | null>(null);
   const [statusFreight, setStatusFreight] = useState<Freight | null>(null);
+  const formRef = useRef<{ isDirty: () => boolean, submit: () => void } | null>(null);
+  const [showDiscardAlert, setShowDiscardAlert] = useState(false);
+
 
   const [currentPage, setCurrentPage] = useState(1);
   const [filters, setFilters] = useState<FiltersState>({
@@ -254,14 +268,55 @@ export default function FreightLedgerPage() {
       <FilterBar onFilterChange={setFilters} />
 
       {/* EDIT / CREATE DIALOG */}
+      {/* EDIT / CREATE DIALOG */}
       <Dialog open={isDialogOpen} onOpenChange={(open) => {
         if (!open) {
-          setEditingFreight(null);
-          clearEditParam();
+          // Attempting to close
+          if (formRef.current && formRef.current.isDirty()) {
+            setShowDiscardAlert(true);
+          } else {
+            setIsDialogOpen(false);
+            setEditingFreight(null);
+            clearEditParam();
+          }
+        } else {
+          setIsDialogOpen(true);
         }
-        setIsDialogOpen(open);
       }}>
-        <DialogContent className="max-w-[95vw] md:max-w-5xl lg:max-w-6xl">
+        <DialogContent
+          // Hide default Radix close button so we can control it completely
+          className="max-w-[95vw] md:max-w-5xl lg:max-w-6xl [&>button.absolute]:hidden"
+          onInteractOutside={(e) => {
+            if (formRef.current && formRef.current.isDirty()) {
+              e.preventDefault();
+              setShowDiscardAlert(true);
+            }
+          }}
+          onEscapeKeyDown={(e) => {
+            if (formRef.current && formRef.current.isDirty()) {
+              e.preventDefault();
+              setShowDiscardAlert(true);
+            }
+          }}
+        >
+          {/* Custom Close Button */}
+          <button
+            onClick={() => {
+              // Check dirty state
+              if (formRef.current && formRef.current.isDirty()) {
+                setShowDiscardAlert(true);
+              } else {
+                setIsDialogOpen(false);
+                setEditingFreight(null);
+                clearEditParam();
+              }
+            }}
+            className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
+          >
+            <X className="h-4 w-4" />
+            <span className="sr-only">Close</span>
+          </button>
+
           <DialogHeader>
             <DialogTitle>{editingFreight ? 'Edit Load' : 'Add New Load'}</DialogTitle>
             <DialogDescription>
@@ -269,10 +324,52 @@ export default function FreightLedgerPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="max-h-[80vh] overflow-y-auto p-1">
-            <FreightForm onSubmit={handleSaveFreight} onDelete={handleDeleteFreight} initialData={editingFreight} drivers={drivers} assets={assets} />
+            <FreightForm
+              ref={formRef}
+              onSubmit={handleSaveFreight}
+              onDelete={handleDeleteFreight}
+              initialData={editingFreight}
+              drivers={drivers}
+              assets={assets}
+            />
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={showDiscardAlert} onOpenChange={setShowDiscardAlert}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have unsaved changes. Do you want to save them before closing?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={(e) => {
+              // Prevent default behavior to ensure we handle the close order manually if needed
+              // But generally clean state updates are fine.
+              // The issue "freeze" often happens if the Dialog closes while an overlay is active.
+              e.stopPropagation();
+              setShowDiscardAlert(false);
+
+              // Allow a tiny tick for the Alert to close before nuking the parent dialog
+              setTimeout(() => {
+                setIsDialogOpen(false);
+                setEditingFreight(null);
+                clearEditParam();
+              }, 50);
+            }}>Discard Changes</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => {
+              e.stopPropagation();
+              setShowDiscardAlert(false);
+              if (formRef.current) {
+                // Submit initiates Save, which will eventually close the dialog via handleSaveFreight
+                formRef.current.submit();
+              }
+            }}>Save Changes</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <StatusDialog
         isOpen={!!statusFreight}

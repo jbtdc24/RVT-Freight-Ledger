@@ -20,35 +20,35 @@ function Calendar({
       showOutsideDays={showOutsideDays}
       className={cn("p-0 font-sans", className)}
       classNames={{
-        months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0 relative", // Add relative here
+        months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0 relative",
         month: "space-y-4",
-        month_caption: "flex justify-center relative items-center mb-1", // Slightly reduced margin
+        month_caption: "flex justify-center relative items-center mb-1",
         caption_label: "hidden",
-        caption_dropdowns: "flex justify-center gap-1 z-20 mx-8", // Add horizontal margin to make space for arrows
-        nav: "flex items-center absolute w-full justify-between z-10 px-1", // Absolute nav spanning full width
+        caption_dropdowns: "flex justify-center gap-1 z-20 mx-8",
+        nav: "flex items-center absolute w-full justify-between z-10 px-1",
         button_previous: cn(
           buttonVariants({ variant: "ghost" }),
-          "h-7 w-7 bg-transparent p-0 text-white opacity-50 hover:opacity-100 flex items-center justify-center rounded-full hover:bg-white/5"
+          "h-7 w-7 bg-transparent p-0 text-muted-foreground opacity-50 hover:opacity-100 flex items-center justify-center rounded-full hover:bg-muted"
         ),
         button_next: cn(
           buttonVariants({ variant: "ghost" }),
-          "h-7 w-7 bg-transparent p-0 text-white opacity-50 hover:opacity-100 flex items-center justify-center rounded-full hover:bg-white/5"
+          "h-7 w-7 bg-transparent p-0 text-muted-foreground opacity-50 hover:opacity-100 flex items-center justify-center rounded-full hover:bg-muted"
         ),
         month_grid: "w-full border-collapse",
         weekdays: "flex mb-4",
-        weekday: "text-white/40 w-10 font-bold text-[0.75rem] uppercase text-center",
+        weekday: "text-muted-foreground w-10 font-bold text-[0.75rem] uppercase text-center",
         week: "flex w-full mt-1",
         day: cn(
-          "h-10 w-10 p-0 font-medium transition-all rounded-md flex items-center justify-center relative hover:bg-white/5 cursor-pointer aria-selected:opacity-100"
+          "h-10 w-10 p-0 font-medium transition-all rounded-md flex items-center justify-center relative hover:bg-muted cursor-pointer aria-selected:opacity-100 text-foreground"
         ),
         day_button: "h-full w-full",
-        range_start: "bg-[#7EE1AD] text-black font-bold rounded-l-md hover:bg-[#7EE1AD] hover:text-black shadow-[0_0_20px_rgba(126,225,173,0.3)]",
-        range_end: "bg-[#7EE1AD] text-black font-bold rounded-r-md hover:bg-[#7EE1AD] hover:text-black shadow-[0_0_20px_rgba(126,225,173,0.3)]",
-        range_middle: "bg-white/10 text-white rounded-none hover:bg-white/20",
-        selected: "bg-[#7EE1AD] text-black font-bold rounded-md hover:bg-[#7EE1AD] hover:text-black shadow-[0_0_20px_rgba(126,225,173,0.4)]",
-        today: "text-[#7EE1AD] font-black underline decoration-2 underline-offset-4",
-        outside: "text-white/10 opacity-50",
-        disabled: "text-white/10 opacity-50",
+        range_start: "bg-primary text-primary-foreground font-bold rounded-l-md hover:bg-primary hover:text-primary-foreground shadow-[0_0_20px_rgba(var(--primary),0.3)]",
+        range_end: "bg-primary text-primary-foreground font-bold rounded-r-md hover:bg-primary hover:text-primary-foreground shadow-[0_0_20px_rgba(var(--primary),0.3)]",
+        range_middle: "bg-muted text-foreground rounded-none hover:bg-muted/80",
+        selected: "bg-primary text-primary-foreground font-bold rounded-md hover:bg-primary hover:text-primary-foreground shadow-[0_0_20px_rgba(var(--primary),0.4)]",
+        today: "text-primary font-black underline decoration-2 underline-offset-4",
+        outside: "text-muted-foreground opacity-50",
+        disabled: "text-muted-foreground opacity-50",
         hidden: "invisible",
         ...classNames,
       }}
@@ -66,21 +66,21 @@ function Calendar({
             onChange?.(changeEvent);
           };
           return (
-            <div className="relative inline-flex items-center cursor-pointer hover:bg-white/5 rounded-md">
+            <div className="relative inline-flex items-center cursor-pointer hover:bg-muted rounded-md">
               <select
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 appearance-none"
                 value={value}
                 onChange={handleChange}
               >
                 {options?.map((option) => (
-                  <option key={option.value} value={option.value}>
+                  <option key={option.value} value={option.value} className="text-foreground bg-background">
                     {option.label}
                   </option>
                 ))}
               </select>
-              <div className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white uppercase tracking-wider pointer-events-none">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-foreground uppercase tracking-wider pointer-events-none">
                 {selected?.label || value}
-                <ChevronDown className="h-3 w-3 text-white/40" />
+                <ChevronDown className="h-3 w-3 text-muted-foreground" />
               </div>
             </div>
           );
