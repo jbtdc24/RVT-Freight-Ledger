@@ -638,10 +638,12 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
               <CardContent className="space-y-6">
                 {fields.map((field, index) => {
                   const isDeleted = form.watch(`expenses.${index}.isDeleted`);
+                  const expenseData = form.watch(`expenses.${index}`);
 
+                  // Show deleted expenses with strikethrough
                   if (isDeleted) {
                     return (
-                      <div key={field.id} className="hidden">
+                      <div key={field.id} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-4 items-center p-2 border rounded-md bg-muted/30 opacity-60">
                         <input type="hidden" {...form.register(`expenses.${index}.id`)} />
                         <input type="hidden" {...form.register(`expenses.${index}.category`)} />
                         <input type="hidden" {...form.register(`expenses.${index}.description`)} />
@@ -650,6 +652,11 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
                         <input type="hidden" {...form.register(`expenses.${index}.deletedAt`)} />
                         <input type="hidden" {...form.register(`expenses.${index}.loadId`)} />
                         <input type="hidden" {...form.register(`expenses.${index}.loadNumber`)} />
+
+                        <span className="line-through text-muted-foreground">{expenseData?.category || 'N/A'}</span>
+                        <span className="line-through text-muted-foreground">{expenseData?.description || 'N/A'}</span>
+                        <span className="line-through text-destructive">${Number(expenseData?.amount || 0).toFixed(2)}</span>
+                        <span className="text-xs text-destructive font-medium px-2">DELETED</span>
                       </div>
                     );
                   }
@@ -676,7 +683,7 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
                           if (window.confirm("Delete this expense line? It will be moved to the Recycle Bin.")) {
                             const expenseId = form.getValues(`expenses.${index}.id`);
                             if (expenseId) {
-                              form.setValue(`expenses.${index}.isDeleted`, true);
+                              form.setValue(`expenses.${index}.isDeleted`, true, { shouldDirty: true });
                               form.setValue(`expenses.${index}.deletedAt`, new Date().toISOString());
                               form.setValue(`expenses.${index}.loadId`, initialData?.id);
                               form.setValue(`expenses.${index}.loadNumber`, initialData?.freightId || "");

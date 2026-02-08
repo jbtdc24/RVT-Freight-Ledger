@@ -51,8 +51,10 @@ export default function FreightLedgerPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingFreight, setEditingFreight] = useState<Freight | null>(null);
 
-  // New state for viewing freight details (View Mode)
-  const [viewingFreight, setViewingFreight] = useState<Freight | null>(null);
+  // Store only the ID for viewing - derive the actual freight from live data
+  const [viewingFreightId, setViewingFreightId] = useState<string | null>(null);
+  const viewingFreight = viewingFreightId ? freight.find(f => f.id === viewingFreightId) || null : null;
+
   const [statusFreight, setStatusFreight] = useState<Freight | null>(null);
   const formRef = useRef<{ isDirty: () => boolean, submit: () => void } | null>(null);
   const [showDiscardAlert, setShowDiscardAlert] = useState(false);
@@ -100,13 +102,36 @@ export default function FreightLedgerPage() {
   };
 
   const handleSaveFreight = (values: Omit<Freight, "id"> & { id?: string }) => {
+    console.log("handleSaveFreight called with:", values);
+
     if (values.id) {
-      setFreight(prev => prev.map(f => f.id === values.id ? { ...f, ...values } : f));
+      // EDITING existing freight
+      console.log("Updating freight with id:", values.id);
+      setFreight(prev => {
+        const updated = prev.map(f => {
+          if (f.id === values.id) {
+            // Merge the existing freight with new values, ensuring all fields are updated
+            const merged = {
+              ...f,
+              ...values,
+              id: f.id, // Keep original ID
+              date: values.date, // Ensure date is updated
+            };
+            console.log("Merged freight:", merged);
+            return merged;
+          }
+          return f;
+        });
+        console.log("Updated freight array:", updated);
+        return updated;
+      });
     } else {
+      // CREATING new freight
       const newFreight: Freight = {
         ...values,
         id: Math.random().toString(36).substr(2, 9),
       } as Freight;
+      console.log("Creating new freight:", newFreight);
       setFreight(prev => [newFreight, ...prev]);
     }
     setIsDialogOpen(false);
@@ -161,7 +186,7 @@ export default function FreightLedgerPage() {
       // Direct user to fix the issue
       handleOpenDialog(item);
     } else {
-      setViewingFreight(item);
+      setViewingFreightId(item.id);
     }
   }
 
@@ -379,7 +404,7 @@ export default function FreightLedgerPage() {
       />
 
       {/* VIEW DETAILS DIALOG */}
-      <Dialog open={!!viewingFreight} onOpenChange={(open) => !open && setViewingFreight(null)}>
+      <Dialog open={!!viewingFreightId} onOpenChange={(open) => !open && setViewingFreightId(null)}>
         <DialogContent className="max-w-[98vw] md:max-w-7xl lg:max-w-[95vw] overflow-hidden flex flex-col max-h-[90vh]">
           <DialogHeader>
             <div className="flex items-center justify-between pr-8">
@@ -524,18 +549,33 @@ export default function FreightLedgerPage() {
                   <div>
                     <h3 className="font-headline text-lg mb-3 flex items-center justify-between">
                       <span>Expenses</span>
-                      <Badge variant={viewingFreight.expenses.length > 0 ? "destructive" : "outline"}>{viewingFreight.expenses.length} items</Badge>
+                      <Badge variant={viewingFreight.expenses.filter(e => !e.isDeleted).length > 0 ? "destructive" : "outline"}>
+                        {viewingFreight.expenses.filter(e => !e.isDeleted).length} active
+                      </Badge>
                     </h3>
                     <div className="bg-muted/30 rounded-xl border overflow-hidden max-h-[200px] overflow-y-auto">
                       {viewingFreight.expenses.length > 0 ? (
                         <div className="divide-y">
                           {viewingFreight.expenses.map(exp => (
-                            <div key={exp.id} className="flex justify-between items-center p-3 hover:bg-white/5">
+                            <div
+                              key={exp.id}
+                              className={cn(
+                                "flex justify-between items-center p-3 hover:bg-white/5",
+                                exp.isDeleted && "opacity-50 bg-muted/50"
+                              )}
+                            >
                               <div>
-                                <p className="font-medium text-sm">{exp.description}</p>
-                                <p className="text-xs text-muted-foreground">{exp.category}</p>
+                                <p className={cn("font-medium text-sm", exp.isDeleted && "line-through text-muted-foreground")}>
+                                  {exp.description}
+                                </p>
+                                <p className={cn("text-xs text-muted-foreground", exp.isDeleted && "line-through")}>
+                                  {exp.category}
+                                  {exp.isDeleted && <Badge variant="outline" className="ml-2 text-[10px] text-destructive border-destructive/30">DELETED</Badge>}
+                                </p>
                               </div>
-                              <p className="font-semibold text-destructive text-sm">{formatCurrency(exp.amount)}</p>
+                              <p className={cn("font-semibold text-sm", exp.isDeleted ? "line-through text-muted-foreground" : "text-destructive")}>
+                                {formatCurrency(exp.amount)}
+                              </p>
                             </div>
                           ))}
                         </div>
@@ -582,10 +622,11 @@ export default function FreightLedgerPage() {
 
               {/* FOOTER ACTIONS */}
               <div className="flex justify-end pt-6 border-t mt-4 gap-4">
-                <Button variant="outline" onClick={() => setViewingFreight(null)}>Close</Button>
+                <Button variant="outline" onClick={() => setViewingFreightId(null)}>Close</Button>
                 <Button onClick={() => {
-                  setViewingFreight(null);
-                  handleOpenDialog(viewingFreight);
+                  const freightToEdit = viewingFreight;
+                  setViewingFreightId(null);
+                  if (freightToEdit) handleOpenDialog(freightToEdit);
                 }}>
                   <Pencil className="mr-2 h-4 w-4" /> Edit Load
                 </Button>
