@@ -208,15 +208,34 @@ export default function FreightLedgerPage() {
 
       if (textSearch) {
         const searchStr = textSearch.toLowerCase();
+
+        // Helper to check if any comment matches
+        const hasMatchingComment = item.comments?.some(c =>
+          c.type !== 'system' && c.text.toLowerCase().includes(searchStr)
+        );
+
+        // Helper to check if any expense matches
+        const hasMatchingExpense = item.expenses?.some(e =>
+          e.description.toLowerCase().includes(searchStr) ||
+          e.category.toLowerCase().includes(searchStr)
+        );
+
+        // Check stop details
+        const pickupStr = item.pickup ? `${item.pickup.companyName} ${item.pickup.address} ${item.pickup.cityStateZip} ${item.pickup.notes} ${item.pickup.contactName} ${item.pickup.appointmentNumber}` : '';
+        const dropStr = item.drop ? `${item.drop.companyName} ${item.drop.address} ${item.drop.cityStateZip} ${item.drop.notes} ${item.drop.contactName} ${item.drop.appointmentNumber}` : '';
+
         const matches =
           (item.freightId && item.freightId.toLowerCase().includes(searchStr)) ||
           (item.driverName && item.driverName.toLowerCase().includes(searchStr)) ||
           (item.agencyName && item.agencyName.toLowerCase().includes(searchStr)) ||
+          (item.postingCode && item.postingCode.toLowerCase().includes(searchStr)) ||
           (item.operatingEntity && item.operatingEntity.toLowerCase().includes(searchStr)) ||
           (item.contactName && item.contactName.toLowerCase().includes(searchStr)) ||
           (item.contactEmail && item.contactEmail.toLowerCase().includes(searchStr)) ||
           (item.contactPhone && item.contactPhone.toLowerCase().includes(searchStr)) ||
+          (item.contactFax && item.contactFax.toLowerCase().includes(searchStr)) ||
           (item.commodity && item.commodity.toLowerCase().includes(searchStr)) ||
+          (item.status && item.status.toLowerCase().includes(searchStr)) ||
           (item.assetName && item.assetName.toLowerCase().includes(searchStr)) ||
           (item.freightBillNumber && item.freightBillNumber.toLowerCase().includes(searchStr)) ||
           (item.customerReferenceNumber && item.customerReferenceNumber.toLowerCase().includes(searchStr)) ||
@@ -226,10 +245,15 @@ export default function FreightLedgerPage() {
           (item.freightClass && item.freightClass.toLowerCase().includes(searchStr)) ||
           (item.temperatureControl && item.temperatureControl.toLowerCase().includes(searchStr)) ||
           (item.bcoSpecialInstructions && item.bcoSpecialInstructions.toLowerCase().includes(searchStr)) ||
-          (item.pickup?.companyName && item.pickup.companyName.toLowerCase().includes(searchStr)) ||
-          (item.drop?.companyName && item.drop.companyName.toLowerCase().includes(searchStr)) ||
+          (pickupStr.toLowerCase().includes(searchStr)) ||
+          (dropStr.toLowerCase().includes(searchStr)) ||
           (item.origin && item.origin.toLowerCase().includes(searchStr)) ||
-          (item.destination && item.destination.toLowerCase().includes(searchStr));
+          (item.destination && item.destination.toLowerCase().includes(searchStr)) ||
+          (hasMatchingComment) ||
+          (hasMatchingExpense) ||
+          (item.hazardousMaterial && ('hazmat'.includes(searchStr) || 'hazardous'.includes(searchStr))) ||
+          (item.weight.toString().includes(searchStr)) ||
+          (item.pieces?.toString().includes(searchStr));
 
         if (!matches) return false;
       }
@@ -351,9 +375,9 @@ export default function FreightLedgerPage() {
           <div className="px-8 py-5 border-b flex items-center justify-between bg-muted/20 backdrop-blur-md">
             <div className="flex items-center gap-3">
               <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-              <h2 className="text-[11px] font-black uppercase tracking-[0.3em] text-muted-foreground/60">
+              <DialogTitle className="text-[11px] font-black uppercase tracking-[0.3em] text-muted-foreground/60">
                 {editingFreight ? "Edit Freight Load" : "New Freight Entry"}
-              </h2>
+              </DialogTitle>
             </div>
             {editingFreight && (
               <Badge variant="outline" className="text-[10px] font-mono opacity-50 px-3 py-1 bg-white/50">
