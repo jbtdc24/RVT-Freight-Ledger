@@ -17,11 +17,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { Freight, Driver, Asset } from "@/lib/types";
-import { PlusCircle, Trash2, MapPin, Truck, Phone, User, FileText, Package } from "lucide-react";
+import { PlusCircle, Trash2, MapPin, Truck, Phone, User, FileText, Package, ArrowRight, Wallet, PenTool, X, CalendarDays, MessageSquare, Pencil } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DatePicker } from "@/components/ui/date-picker";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
 
 const expenseSchema = z.object({
   id: z.string(),
@@ -114,14 +116,14 @@ export type FreightFormHandle = {
 interface FreightFormProps {
   onSubmit: (values: Omit<Freight, "id"> & { id?: string }) => void;
   onDelete?: (id: string) => void;
+  onCancel: () => void;
   initialData?: Freight | null;
   drivers: Driver[];
   assets: Asset[];
 }
 
-const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit, onDelete, initialData, drivers, assets }, ref) => {
+const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit, onDelete, onCancel, initialData, drivers, assets }, ref) => {
   const [newComment, setNewComment] = useState("");
-  const [activeTab, setActiveTab] = useState("details");
 
   const form = useForm<FreightFormValues>({
     resolver: zodResolver(formSchema),
@@ -188,10 +190,7 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
   useImperativeHandle(ref, () => ({
     isDirty: () => form.formState.isDirty || newComment.length > 0,
     submit: () => {
-      setTimeout(() => {
-        const commentInput = document.getElementById('comment-input');
-        if (commentInput) commentInput.focus();
-      }, 100);
+      form.handleSubmit(handleFormSubmit, handleFormError)();
     }
   }));
 
@@ -300,481 +299,524 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
     }
   };
 
+  // Watch values for the visual summary
+  const watchAll = form.watch();
+  const lineHaul = Number(watchAll.lineHaul) || 0;
+  const split = Number(watchAll.ownerPercentage) || 0;
+  const extras = (Number(watchAll.fuelSurcharge) || 0) + (Number(watchAll.accessorials) || 0) + (Number(watchAll.loading) || 0) + (Number(watchAll.unloading) || 0);
+  const ownerShare = (lineHaul * (split / 100)) + extras;
+  const brokerPay = lineHaul + extras;
+  const totalLoadExpenses = (watchAll.expenses || []).reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+  const loadNetProfit = ownerShare - totalLoadExpenses;
+
+  const formatCurrency = (val: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(val);
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleFormSubmit, handleFormError)} className="space-y-6">
-
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="details">Load Details</TabsTrigger>
-            <TabsTrigger value="route">Route & Cargo</TabsTrigger>
-            <TabsTrigger value="financials">Financials</TabsTrigger>
-            <TabsTrigger value="logs">Logs & Notes</TabsTrigger>
-          </TabsList>
-
-          {/* TAB 1: LOAD DETAILS (Header, IDs, Contact) */}
-          <TabsContent value="details" className="space-y-6 mt-4">
-            {/* Status Section - FIRST */}
-            <Card className="border-primary/20 bg-primary/5">
-              <CardContent className="pt-6">
+      <form onSubmit={form.handleSubmit(handleFormSubmit, handleFormError)} className="space-y-6 pb-20">
+        <div className="flex flex-col gap-2 mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <h1 className="text-xl font-black tracking-tight text-foreground">
+                Load <span className="text-primary">#{watchAll.freightId || "----"}</span>
+              </h1>
+              <div className="w-32">
                 <FormField control={form.control} name="status" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-lg font-bold text-primary">Current Load Status</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger className={cn(
+                        "h-7 text-[10px] font-black uppercase tracking-widest px-3 border-none shadow-sm",
+                        field.value === 'Delivered' && "bg-success text-success-foreground",
+                        field.value === 'Cancelled' && "bg-destructive text-destructive-foreground",
+                        (field.value === 'In Route' || field.value === 'For Pickup') && "bg-blue-600 text-white",
+                        field.value === 'Draft' && "bg-muted text-muted-foreground"
+                      )}>
+                        <SelectValue placeholder="Status" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="Draft">Draft</SelectItem>
+                      <SelectItem value="For Pickup">For Pickup</SelectItem>
+                      <SelectItem value="In Route">In Route</SelectItem>
+                      <SelectItem value="Delivered">Delivered</SelectItem>
+                      <SelectItem value="Cancelled">Cancelled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )} />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 bg-muted/30 p-1.5 rounded-xl border border-muted-foreground/10">
+              <CalendarDays className="h-4 w-4 text-muted-foreground ml-2" />
+              <FormField control={form.control} name="date" render={({ field }) => (
+                <div className="w-[180px]">
+                  <DatePicker date={field.value} onDateChange={field.onChange} />
+                </div>
+              )} />
+            </div>
+          </div>
+          <div className="flex items-center gap-3 text-lg text-muted-foreground font-semibold">
+            <span className="text-foreground">{watchAll.origin || "Origin"}</span>
+            <div className="h-[2px] w-8 bg-muted-foreground/20 rounded-full" />
+            <ArrowRight className="h-4 w-4 text-primary" />
+            <div className="h-[2px] w-8 bg-muted-foreground/20 rounded-full" />
+            <span className="text-foreground">{watchAll.destination || "Destination"}</span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          {/* COLUMN 1: LOGISTICS (4 cols) */}
+          <div className="lg:col-span-4 space-y-4">
+            {/* Route Details */}
+            <Card className="shadow-sm border-muted/40 overflow-hidden ring-1 ring-black/5">
+              <CardHeader className="py-2 bg-muted/20 border-b border-muted/30 flex flex-row items-center gap-2 space-y-0">
+                <MapPin className="h-3 w-3 text-primary" />
+                <CardTitle className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/80">Route Details</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-4 space-y-4">
+                <div className="relative pl-6 space-y-4 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-primary/10">
+                  <div className="relative">
+                    <div className="absolute -left-[17px] top-1.5 h-2 w-2 rounded-full bg-blue-500 border border-background shadow-[0_0_0_4px_rgba(59,130,246,0.05)]" />
+                    <FormField control={form.control} name="origin" render={({ field }) => (
+                      <FormItem className="space-y-0.5">
+                        <FormLabel className="text-[9px] uppercase font-black text-blue-500/70">Pickup</FormLabel>
+                        <FormControl><Input className="h-8 text-sm font-semibold border-muted-foreground/20" placeholder="Origin" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  </div>
+                  <div className="relative">
+                    <div className="absolute -left-[17px] top-1.5 h-2 w-2 rounded-full bg-orange-500 border border-background shadow-[0_0_0_4px_rgba(249,115,22,0.05)]" />
+                    <FormField control={form.control} name="destination" render={({ field }) => (
+                      <FormItem className="space-y-0.5">
+                        <FormLabel className="text-[9px] uppercase font-black text-orange-500/70">Drop</FormLabel>
+                        <FormControl><Input className="h-8 text-sm font-semibold border-muted-foreground/20" placeholder="Destination" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <FormField control={form.control} name="freightId" render={({ field }) => (
+                    <FormItem className="space-y-0.5">
+                      <FormLabel className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-tighter">Load ID</FormLabel>
+                      <FormControl><Input className="h-8 text-sm font-mono" {...field} /></FormControl>
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="distance" render={({ field }) => (
+                    <FormItem className="space-y-1">
+                      <FormLabel className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-tighter">Miles</FormLabel>
                       <FormControl>
-                        <SelectTrigger className="h-12 text-lg font-medium border-primary/30 bg-background/50">
-                          <SelectValue placeholder="Select Status" />
-                        </SelectTrigger>
+                        <div className="relative">
+                          <Input type="number" className="h-8 pr-8 text-sm font-semibold" {...field} />
+                          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] font-black text-muted-foreground opacity-30">MI</span>
+                        </div>
                       </FormControl>
-                      <SelectContent>
-                        <SelectItem value="Draft" className="font-medium">Draft / Pending</SelectItem>
-                        <SelectItem value="For Pickup" className="font-medium text-blue-400">For Pickup</SelectItem>
-                        <SelectItem value="In Route" className="font-medium text-yellow-400">In Route</SelectItem>
-                        <SelectItem value="Delivered" className="font-medium text-green-400">Delivered</SelectItem>
-                        <SelectItem value="Cancelled" className="font-medium text-red-400">Cancelled</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="driverId" render={({ field }) => (
+                    <FormItem className="space-y-1">
+                      <FormLabel className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-tighter">Driver</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl><SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Select" /></SelectTrigger></FormControl>
+                        <SelectContent>{drivers.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="assetId" render={({ field }) => (
+                    <FormItem className="space-y-1">
+                      <FormLabel className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-tighter">Asset</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl><SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Select" /></SelectTrigger></FormControl>
+                        <SelectContent>{assets.map(a => <SelectItem key={a.id} value={a.id}>{a.identifier}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </FormItem>
+                  )} />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Cargo & Eqpt */}
+            <Card className="shadow-sm border-muted/40 overflow-hidden ring-1 ring-black/5">
+              <CardHeader className="py-2 bg-muted/20 border-b border-muted/30 flex flex-row items-center gap-2 space-y-0">
+                <Package className="h-3 w-3 text-primary" />
+                <CardTitle className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/80">Cargo & Eqpt</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-4 space-y-3">
+                <FormField control={form.control} name="commodity" render={({ field }) => (
+                  <FormItem className="space-y-0.5">
+                    <FormLabel className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-tighter">Commodity</FormLabel>
+                    <FormControl><Input className="h-8 border-muted-foreground/20 text-sm" {...field} /></FormControl>
+                  </FormItem>
+                )} />
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField control={form.control} name="weight" render={({ field }) => (
+                    <FormItem className="space-y-0.5">
+                      <FormLabel className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-tighter">Weight</FormLabel>
+                      <FormControl><div className="relative"><Input type="number" className="h-8 pr-10 text-sm font-medium" {...field} /><span className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-black text-muted-foreground opacity-30">LBS</span></div></FormControl>
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="equipmentType" render={({ field }) => (
+                    <FormItem className="space-y-0.5">
+                      <FormLabel className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-tighter">Equip Type</FormLabel>
+                      <FormControl><Input className="h-8 border-muted-foreground/20 text-sm font-medium" placeholder="VAN/REEFER" {...field} /></FormControl>
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="trailerNumber" render={({ field }) => (
+                    <FormItem className="space-y-0.5">
+                      <FormLabel className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-tighter">Trailer #</FormLabel>
+                      <FormControl><Input className="h-8 border-muted-foreground/20 text-sm font-medium" {...field} /></FormControl>
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="pieces" render={({ field }) => (
+                    <FormItem className="space-y-0.5">
+                      <FormLabel className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-tighter">Pieces</FormLabel>
+                      <FormControl><Input type="number" className="h-8 border-muted-foreground/20 text-sm font-medium" {...field} /></FormControl>
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="dimensions" render={({ field }) => (
+                    <FormItem className="space-y-0.5">
+                      <FormLabel className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-tighter">Dimensions</FormLabel>
+                      <FormControl><Input className="h-8 border-muted-foreground/20 text-sm font-medium" placeholder="LxWxH" {...field} /></FormControl>
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="nmfcCode" render={({ field }) => (
+                    <FormItem className="space-y-0.5">
+                      <FormLabel className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-tighter">NMFC Code</FormLabel>
+                      <FormControl><Input className="h-8 border-muted-foreground/20 text-sm font-medium" {...field} /></FormControl>
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="freightClass" render={({ field }) => (
+                    <FormItem className="space-y-0.5">
+                      <FormLabel className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-tighter">Class</FormLabel>
+                      <FormControl><Input className="h-8 border-muted-foreground/20 text-sm font-medium" {...field} /></FormControl>
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="temperatureControl" render={({ field }) => (
+                    <FormItem className="space-y-0.5">
+                      <FormLabel className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-tighter">Temp Control</FormLabel>
+                      <FormControl><Input className="h-8 border-muted-foreground/20 text-sm font-medium" placeholder="e.g. 35F" {...field} /></FormControl>
+                    </FormItem>
+                  )} />
+                </div>
+
+                <FormField control={form.control} name="hazardousMaterial" render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-3 bg-destructive/5">
+                    <FormControl>
+                      <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel className="text-[10px] font-black uppercase tracking-widest text-destructive">Hazardous Material (HAZMAT)</FormLabel>
+                    </div>
+                  </FormItem>
+                )} />
+
+                <FormField control={form.control} name="bcoSpecialInstructions" render={({ field }) => (
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-tighter">Special Instructions</FormLabel>
+                    <FormControl><Textarea className="min-h-[60px] text-xs font-medium" {...field} /></FormControl>
                   </FormItem>
                 )} />
               </CardContent>
             </Card>
+          </div>
 
-            {/* Header Info */}
-            <Card>
-              <CardHeader><CardTitle className="text-base flex items-center gap-2"><User className="h-4 w-4" /> Agency & Contact</CardTitle></CardHeader>
-              <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* COLUMN 2: FINANCIALS (5 cols) */}
+          <div className="lg:col-span-5 space-y-4">
+            <Card className="shadow-sm border-muted/40 overflow-hidden ring-1 ring-black/5">
+              <CardHeader className="py-2 bg-muted/20 border-b border-muted/30 flex flex-row items-center gap-2 space-y-0">
+                <Wallet className="h-3 w-3 text-primary" />
+                <CardTitle className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/80">Financial Details</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-4 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+                  <FormField control={form.control} name="lineHaul" render={({ field }) => (
+                    <FormItem className="space-y-0.5">
+                      <FormLabel className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-tighter">Line Haul (LH)</FormLabel>
+                      <FormControl><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">$</span><Input type="number" className="h-9 pl-7 text-lg font-black border-primary/20 bg-primary/5 focus-visible:ring-primary" {...field} /></div></FormControl>
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="ownerPercentage" render={({ field }) => (
+                    <FormItem className="space-y-0.5">
+                      <FormLabel className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-tighter">Our Split %</FormLabel>
+                      <FormControl><div className="relative"><Input type="number" className="h-9 pr-7 text-lg font-black text-blue-600 border-blue-200 bg-blue-50/30" {...field} /><span className="absolute right-3 top-1/2 -translate-y-1/2 font-bold text-blue-400 opacity-50">%</span></div></FormControl>
+                      <p className="text-[9px] font-black text-blue-500/60 mt-0.5">Portion: <span className="underline">{formatCurrency(lineHaul * (field.value / 100))}</span></p>
+                    </FormItem>
+                  )} />
+                </div>
+
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 pt-1">
+                  <FormField control={form.control} name="fuelSurcharge" render={({ field }) => (
+                    <FormItem className="space-y-0.5">
+                      <FormLabel className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-tighter">Fuel Surcharge</FormLabel>
+                      <FormControl><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-semibold text-xs">$</span><Input type="number" className="h-8 pl-6 text-sm font-semibold" {...field} /></div></FormControl>
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="loading" render={({ field }) => (
+                    <FormItem className="space-y-0.5">
+                      <FormLabel className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-tighter">Loading</FormLabel>
+                      <FormControl><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-semibold text-xs">$</span><Input type="number" className="h-8 pl-6 text-sm font-semibold" {...field} /></div></FormControl>
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="unloading" render={({ field }) => (
+                    <FormItem className="space-y-0.5">
+                      <FormLabel className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-tighter">Unloading</FormLabel>
+                      <FormControl><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-semibold text-xs">$</span><Input type="number" className="h-8 pl-6 text-sm font-semibold" {...field} /></div></FormControl>
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="accessorials" render={({ field }) => (
+                    <FormItem className="space-y-0.5">
+                      <FormLabel className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-tighter">Accessorials</FormLabel>
+                      <FormControl><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-semibold text-xs">$</span><Input type="number" className="h-8 pl-6 text-sm font-semibold" {...field} /></div></FormControl>
+                    </FormItem>
+                  )} />
+                </div>
+
+                <div className="pt-4 border-t-2 border-dashed border-muted/80 space-y-2">
+                  <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-widest text-muted-foreground/40 px-1">
+                    <span>Broker Bill:</span>
+                    <span className="font-mono text-xs">{formatCurrency(brokerPay)}</span>
+                  </div>
+                  <div className="flex justify-between items-center px-4 py-2 bg-blue-50/50 rounded-xl border border-blue-100/50">
+                    <span className="text-[10px] font-black text-blue-700/70 uppercase tracking-widest">Gross Share</span>
+                    <span className="text-base font-black text-blue-900 font-mono">{formatCurrency(ownerShare)}</span>
+                  </div>
+                  <div className="flex justify-between items-center px-4 py-1.5 bg-destructive/5 rounded-xl border border-destructive/10">
+                    <span className="text-[10px] font-black text-destructive/60 uppercase tracking-widest">Deductions</span>
+                    <span className="text-base font-black text-destructive font-mono">({formatCurrency(totalLoadExpenses)})</span>
+                  </div>
+                  <div className={cn(
+                    "flex justify-between items-center px-4 py-3 rounded-xl border-2 shadow-sm",
+                    loadNetProfit >= 0 ? "bg-success/5 border-success/20" : "bg-destructive/5 border-destructive/20"
+                  )}>
+                    <span className="text-xs font-black uppercase tracking-[0.2em] opacity-50">Net Profit</span>
+                    <span className={cn("text-2xl font-black font-mono", loadNetProfit >= 0 ? "text-success" : "text-destructive")}>
+                      {formatCurrency(loadNetProfit)}
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Reference */}
+            <Card className="shadow-sm border-muted/40 overflow-hidden ring-1 ring-black/5">
+              <CardHeader className="py-2 bg-muted/20 border-b border-muted/30 flex flex-row items-center gap-2 space-y-0">
+                <PenTool className="h-3 w-3 text-primary" />
+                <CardTitle className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/80">Documentation</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-4 grid grid-cols-2 gap-x-4 gap-y-3">
+                <FormField control={form.control} name="freightBillNumber" render={({ field }) => (
+                  <FormItem className="space-y-0.5">
+                    <FormLabel className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-tighter">Bill #</FormLabel>
+                    <FormControl><Input className="h-8 font-mono text-sm" {...field} /></FormControl>
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="customerReferenceNumber" render={({ field }) => (
+                  <FormItem className="space-y-0.5">
+                    <FormLabel className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-tighter">Ref #</FormLabel>
+                    <FormControl><Input className="h-8 font-mono text-sm" {...field} /></FormControl>
+                  </FormItem>
+                )} />
                 <FormField control={form.control} name="agencyName" render={({ field }) => (
-                  <FormItem><FormLabel>Agency Name</FormLabel><FormControl><Input placeholder="e.g. Rob Johnston - TPN" {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem className="col-span-2 space-y-0.5">
+                    <FormLabel className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-tighter">Dispatch Agency</FormLabel>
+                    <FormControl><Input className="h-8 text-sm" {...field} /></FormControl>
+                  </FormItem>
                 )} />
                 <FormField control={form.control} name="contactName" render={({ field }) => (
-                  <FormItem><FormLabel>Contact Name</FormLabel><FormControl><Input placeholder="e.g. Jenn Peterson" {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem className="space-y-0.5">
+                    <FormLabel className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-tighter">Contact Name</FormLabel>
+                    <FormControl><Input className="h-8 text-sm" {...field} /></FormControl>
+                  </FormItem>
                 )} />
                 <FormField control={form.control} name="contactPhone" render={({ field }) => (
-                  <FormItem><FormLabel>Contact Phone</FormLabel><FormControl><Input placeholder="(555) 555-5555" {...field} /></FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={form.control} name="contactEmail" render={({ field }) => (
-                  <FormItem><FormLabel>Contact Email</FormLabel><FormControl><Input placeholder="email@example.com" {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem className="space-y-0.5">
+                    <FormLabel className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-tighter">Phone</FormLabel>
+                    <FormControl><Input className="h-8 text-sm" {...field} /></FormControl>
+                  </FormItem>
                 )} />
                 <FormField control={form.control} name="contactFax" render={({ field }) => (
-                  <FormItem><FormLabel>Contact Fax</FormLabel><FormControl><Input placeholder="(555) 555-5555" {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem className="space-y-0.5">
+                    <FormLabel className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-tighter">Fax</FormLabel>
+                    <FormControl><Input className="h-8 text-sm" {...field} /></FormControl>
+                  </FormItem>
                 )} />
-                <FormField control={form.control} name="postingCode" render={({ field }) => (
-                  <FormItem><FormLabel>Posting Code</FormLabel><FormControl><Input placeholder="e.g. TPO" {...field} /></FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={form.control} name="operatingEntity" render={({ field }) => (
-                  <FormItem><FormLabel>Operating Entity</FormLabel><FormControl><Input placeholder="e.g. Landstar Ranger Inc" {...field} /></FormControl><FormMessage /></FormItem>
-                )} />
-              </CardContent>
-            </Card>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader><CardTitle className="text-base flex items-center gap-2"><FileText className="h-4 w-4" /> Identification</CardTitle></CardHeader>
-                <CardContent className="space-y-4">
-                  <FormField control={form.control} name="freightId" render={({ field }) => (
-                    <FormItem><FormLabel>Load # (ID)</FormLabel><FormControl><Input placeholder="e.g. EL9100100" {...field} /></FormControl><FormMessage /></FormItem>
-                  )} />
-                  <FormField control={form.control} name="freightBillNumber" render={({ field }) => (
-                    <FormItem><FormLabel>Freight Bill #</FormLabel><FormControl><Input placeholder="e.g. 1419829" {...field} /></FormControl><FormMessage /></FormItem>
-                  )} />
-                  <FormField control={form.control} name="customerReferenceNumber" render={({ field }) => (
-                    <FormItem><FormLabel>Customer Ref #</FormLabel><FormControl><Input placeholder="e.g. S028166" {...field} /></FormControl><FormMessage /></FormItem>
-                  )} />
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader><CardTitle className="text-base flex items-center gap-2"><Truck className="h-4 w-4" /> Assignment</CardTitle></CardHeader>
-                <CardContent className="space-y-4">
-                  <FormField control={form.control} name="date" render={({ field }) => (
-                    <FormItem><FormLabel>Date</FormLabel><FormControl><DatePicker date={field.value} onDateChange={field.onChange} /></FormControl><FormMessage /></FormItem>
-                  )} />
-                  <FormField control={form.control} name="driverId" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Driver</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl><SelectTrigger><SelectValue placeholder="Select driver" /></SelectTrigger></FormControl>
-                        <SelectContent>{drivers.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}</SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                  <FormField control={form.control} name="assetId" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Truck / Asset</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl><SelectTrigger><SelectValue placeholder="Select truck" /></SelectTrigger></FormControl>
-                        <SelectContent>{assets.map(a => <SelectItem key={a.id} value={a.id}>{a.identifier}</SelectItem>)}</SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          {/* TAB 2: ROUTE & CARGO */}
-          <TabsContent value="route" className="space-y-6 mt-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* ORIGIN */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base flex items-center justify-between">
-                    <span className="flex items-center gap-2"><MapPin className="h-4 w-4 text-primary" /> Origin (Pickup)</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <FormField control={form.control} name="origin" render={({ field }) => (
-                    <FormItem><FormLabel>City, State</FormLabel><FormControl><Input placeholder="e.g. Chicago, IL" {...field} /></FormControl><FormMessage /></FormItem>
-                  )} />
-                  <FormField control={form.control} name="pickup.companyName" render={({ field }) => (
-                    <FormItem><FormLabel>Company Name</FormLabel><FormControl><Input placeholder="Shipper Name" {...field} /></FormControl></FormItem>
-                  )} />
-                  <FormField control={form.control} name="pickup.address" render={({ field }) => (
-                    <FormItem><FormLabel>Address</FormLabel><FormControl><Input placeholder="Street Address" {...field} /></FormControl></FormItem>
-                  )} />
-                  <div className="grid grid-cols-2 gap-2">
-                    <FormField control={form.control} name="pickup.appointmentTime" render={({ field }) => (
-                      <FormItem><FormLabel>Target Time</FormLabel><FormControl><Input placeholder="14:00" {...field} /></FormControl></FormItem>
-                    )} />
-                    <FormField control={form.control} name="pickup.appointmentNumber" render={({ field }) => (
-                      <FormItem><FormLabel>Appt #</FormLabel><FormControl><Input placeholder="#" {...field} /></FormControl></FormItem>
-                    )} />
-                  </div>
-                  <FormField control={form.control} name="pickup.notes" render={({ field }) => (
-                    <FormItem><FormLabel>Stop Notes</FormLabel><FormControl><Textarea className="min-h-[60px]" placeholder="Pickup instructions..." {...field} /></FormControl></FormItem>
-                  )} />
-                </CardContent>
-              </Card>
-
-              {/* DESTINATION */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base flex items-center justify-between">
-                    <span className="flex items-center gap-2"><MapPin className="h-4 w-4 text-destructive" /> Destination (Drop)</span>
-                    <FormField control={form.control} name="distance" render={({ field }) => (
-                      <FormItem className="space-y-0"><FormControl><div className="relative w-24"><Input className="h-8 text-right pr-8" placeholder="Miles" {...field} /><span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">mi</span></div></FormControl></FormItem>
-                    )} />
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <FormField control={form.control} name="destination" render={({ field }) => (
-                    <FormItem><FormLabel>City, State</FormLabel><FormControl><Input placeholder="e.g. Dallas, TX" {...field} /></FormControl><FormMessage /></FormItem>
-                  )} />
-                  <FormField control={form.control} name="drop.companyName" render={({ field }) => (
-                    <FormItem><FormLabel>Company Name</FormLabel><FormControl><Input placeholder="Consignee Name" {...field} /></FormControl><FormMessage /></FormItem>
-                  )} />
-                  <FormField control={form.control} name="drop.address" render={({ field }) => (
-                    <FormItem><FormLabel>Address</FormLabel><FormControl><Input placeholder="Street Address" {...field} /></FormControl></FormItem>
-                  )} />
-                  <div className="grid grid-cols-2 gap-2">
-                    <FormField control={form.control} name="drop.appointmentTime" render={({ field }) => (
-                      <FormItem><FormLabel>Target Time</FormLabel><FormControl><Input placeholder="08:00 - 12:00" {...field} /></FormControl></FormItem>
-                    )} />
-                    <FormField control={form.control} name="drop.appointmentNumber" render={({ field }) => (
-                      <FormItem><FormLabel>Appt #</FormLabel><FormControl><Input placeholder="#" {...field} /></FormControl></FormItem>
-                    )} />
-                  </div>
-                  <FormField control={form.control} name="drop.notes" render={({ field }) => (
-                    <FormItem><FormLabel>Stop Notes</FormLabel><FormControl><Textarea className="min-h-[60px]" placeholder="Unload instructions..." {...field} /></FormControl></FormItem>
-                  )} />
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* CARGO & EQUIPMENT */}
-            <Card>
-              <CardHeader><CardTitle className="text-base flex items-center gap-2"><Package className="h-4 w-4" /> Cargo & Equipment</CardTitle></CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
-                  <FormField control={form.control} name="commodity" render={({ field }) => (
-                    <FormItem className="md:col-span-2"><FormLabel>Commodity / Item Description</FormLabel><FormControl><Input placeholder="e.g. CONSUMER GOODS" {...field} /></FormControl><FormMessage /></FormItem>
-                  )} />
-                  <FormField control={form.control} name="weight" render={({ field }) => (
-                    <FormItem><FormLabel>Weight (lbs)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
-                  )} />
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <FormField control={form.control} name="pieces" render={({ field }) => (
-                    <FormItem><FormLabel>Pieces / Qty</FormLabel><FormControl><Input type="number" {...field} /></FormControl></FormItem>
-                  )} />
-                  <FormField control={form.control} name="dimensions" render={({ field }) => (
-                    <FormItem><FormLabel>Dims (LxWxH)</FormLabel><FormControl><Input placeholder="e.g. 40x48x96" {...field} /></FormControl></FormItem>
-                  )} />
-                  <FormField control={form.control} name="nmfcCode" render={({ field }) => (
-                    <FormItem><FormLabel>NMFC</FormLabel><FormControl><Input placeholder="NMFC" {...field} /></FormControl></FormItem>
-                  )} />
-                  <FormField control={form.control} name="freightClass" render={({ field }) => (
-                    <FormItem><FormLabel>Class</FormLabel><FormControl><Input placeholder="e.g. 70.0" {...field} /></FormControl></FormItem>
-                  )} />
-                  <FormField control={form.control} name="temperatureControl" render={({ field }) => (
-                    <FormItem><FormLabel>Temp</FormLabel><FormControl><Input placeholder="e.g. -10 F" {...field} /></FormControl></FormItem>
-                  )} />
-                  <FormField control={form.control} name="trailerNumber" render={({ field }) => (
-                    <FormItem><FormLabel>Trailer #</FormLabel><FormControl><Input placeholder="e.g. 672677" {...field} /></FormControl></FormItem>
-                  )} />
-                  <FormField control={form.control} name="equipmentType" render={({ field }) => (
-                    <FormItem><FormLabel>Equip Type</FormLabel><FormControl><Input placeholder="e.g. VANL" {...field} /></FormControl></FormItem>
-                  )} />
-                </div>
-                <div className="mt-4 flex items-center space-x-2 border p-3 rounded-md bg-muted/20">
-                  <FormField control={form.control} name="hazardousMaterial" render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                      <FormControl>
-                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                      </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel>Hazardous Materials (HazMat)</FormLabel>
-                      </div>
-                    </FormItem>
-                  )} />
-                </div>
-                <FormField control={form.control} name="bcoSpecialInstructions" render={({ field }) => (
-                  <FormItem className="mt-4"><FormLabel>BCO Special Instructions</FormLabel><FormControl><Textarea placeholder="Special requirements..." {...field} /></FormControl></FormItem>
+                <FormField control={form.control} name="contactEmail" render={({ field }) => (
+                  <FormItem className="space-y-0.5">
+                    <FormLabel className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-tighter">Email</FormLabel>
+                    <FormControl><Input className="h-8 text-sm" {...field} /></FormControl>
+                  </FormItem>
                 )} />
               </CardContent>
             </Card>
-          </TabsContent>
+          </div>
 
-          {/* TAB 3: FINANCIALS */}
-          <TabsContent value="financials" className="space-y-6 mt-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Revenue Breakdown</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-start">
-                  <FormField
-                    control={form.control}
-                    name="lineHaul"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Line Haul</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-                            <Input type="number" className="pl-7" placeholder="0.00" {...field} />
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="ownerPercentage"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Our Split (%)</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <Input type="number" className="pr-12" placeholder="100" {...field} />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
-                          </div>
-                        </FormControl>
-                        <p className="text-[10px] text-muted-foreground mt-1">
-                          Your share: <span className="font-bold text-primary">
-                            ${((form.watch('lineHaul') || 0) * ((field.value || 0) / 100)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </span>
-                        </p>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 items-start">
-                  <FormField control={form.control} name="fuelSurcharge" render={({ field }) => (
-                    <FormItem><FormLabel>Fuel Surcharge</FormLabel><FormControl><Input type="number" placeholder="$" {...field} /></FormControl><FormMessage /></FormItem>
-                  )}
-                  />
-                  <FormField control={form.control} name="accessorials" render={({ field }) => (
-                    <FormItem><FormLabel>Other Accessorials</FormLabel><FormControl><Input type="number" placeholder="$" {...field} /></FormControl><FormMessage /></FormItem>
-                  )}
-                  />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 items-start">
-                  <FormField control={form.control} name="loading" render={({ field }) => (
-                    <FormItem><FormLabel>Loading</FormLabel><FormControl><Input type="number" placeholder="$" {...field} /></FormControl><FormMessage /></FormItem>
-                  )}
-                  />
-                  <FormField control={form.control} name="unloading" render={({ field }) => (
-                    <FormItem><FormLabel>Unloading</FormLabel><FormControl><Input type="number" placeholder="$" {...field} /></FormControl><FormMessage /></FormItem>
-                  )}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* LOAD EXPENSES */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="text-base text-destructive">Load-Specific Expenses</CardTitle>
-                  <p className="text-xs text-muted-foreground mt-1 tracking-tight italic">Enter expenses directly linked to this specific load (e.g. tolls, specific fuel stop, lumper fees).</p>
-                </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="h-8 border-destructive/20 text-destructive hover:bg-destructive/10"
-                  onClick={() => appendExpense({ id: Math.random().toString(36).substr(2, 9), category: "Fuel", description: "", amount: 0 })}
-                >
-                  <PlusCircle className="mr-2 h-4 w-4" /> Add Line
-                </Button>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {expenseFields.length === 0 ? (
-                  <div className="text-center py-6 border-2 border-dashed rounded-lg bg-muted/20">
-                    <p className="text-sm text-muted-foreground">No load-specific expenses added.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {expenseFields.map((field, index) => (
-                      <div key={field.id} className="flex gap-4 items-start bg-muted/30 p-4 rounded-lg relative group border border-transparent hover:border-destructive/10 transition-all">
-                        <div className="flex-none w-32">
-                          <FormField
-                            control={form.control}
-                            name={`expenses.${index}.category`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Category</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                  <FormControl>
-                                    <SelectTrigger className="h-9">
-                                      <SelectValue placeholder="Cat" />
-                                    </SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent>
-                                    {['Fuel', 'Tolls', 'Lumper', 'Parking', 'Scales', 'Maintenance', 'Other'].map(cat => (
-                                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </FormItem>
-                            )}
-                          />
+          {/* COLUMN 3: SIDEBAR (3 cols) */}
+          <div className="lg:col-span-3 space-y-4">
+            {/* Expenses */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2">
+                  <div className="h-1 w-3 bg-destructive rounded-full" /> Expenses
+                </h3>
+                <Badge variant="destructive" className="rounded-full px-2 py-0.5 text-[8px] font-black uppercase tracking-widest">
+                  {expenseFields.length}
+                </Badge>
+              </div>
+              <div className="space-y-3 max-h-[450px] overflow-y-auto pr-2 custom-scrollbar">
+                {expenseFields.map((field, index) => (
+                  <div key={field.id} className="bg-background border border-muted/30 p-3 rounded-xl relative group hover:border-destructive/30 hover:shadow-md transition-all">
+                    <div className="flex flex-col gap-2">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1 mr-6">
+                          <FormField control={form.control} name={`expenses.${index}.description`} render={({ field }) => (
+                            <Input className="h-5 border-none bg-transparent p-0 text-[13px] font-black text-foreground placeholder-muted-foreground/30 focus-visible:ring-0" placeholder="Description..." {...field} />
+                          )} />
                         </div>
-                        <div className="flex-1">
-                          <FormField
-                            control={form.control}
-                            name={`expenses.${index}.description`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Description / Detail</FormLabel>
-                                <FormControl>
-                                  <Input className="h-9 focus-visible:ring-destructive" placeholder="Vendor, Location, or Reason" {...field} />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-                        <div className="flex-none w-28">
-                          <FormField
-                            control={form.control}
-                            name={`expenses.${index}.amount`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Amount</FormLabel>
-                                <FormControl>
-                                  <div className="relative">
-                                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">$</span>
-                                    <Input type="number" step="0.01" className="h-9 pl-5 pr-2 focus-visible:ring-destructive" placeholder="0.00" {...field} />
-                                  </div>
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="mt-6 h-9 w-9 text-muted-foreground hover:text-destructive transition-colors rounded-full"
-                          onClick={() => removeExpense(index)}
-                        >
-                          <Trash2 className="h-4 w-4" />
+                        <Button type="button" variant="ghost" size="icon" className="h-5 w-5 rounded-full bg-destructive/10 text-destructive hover:bg-destructive hover:text-white transition-all shadow-sm" onClick={() => removeExpense(index)}>
+                          <X className="h-2.5 w-2.5" />
                         </Button>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
 
-            <Card className="bg-destructive/5 border-destructive/20 shadow-none">
-              <CardContent className="p-4 flex justify-between items-center">
-                <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground italic">Total Load Deductions (Expenses)</span>
-                <span className="text-xl font-mono font-bold text-destructive">
-                  -${(form.watch("expenses") || []).reduce((sum, e) => sum + (Number(e.amount) || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                </span>
-              </CardContent>
-            </Card>
+                      <div className="flex items-center justify-between gap-2 pt-1 border-t border-muted/20">
+                        <FormField control={form.control} name={`expenses.${index}.category`} render={({ field }) => (
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger className="h-5 text-[9px] font-black uppercase tracking-widest text-muted-foreground/70 border-none bg-transparent p-0 focus:ring-0 w-min hover:text-primary transition-colors">
+                                <SelectValue />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {['Fuel', 'Tolls', 'Lumper', 'Parking', 'Scales', 'Maintenance', 'Other'].map(cat => (
+                                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )} />
 
-          </TabsContent>
-
-          {/* TAB 4: LOGS & NOTES */}
-          <TabsContent value="logs" className="space-y-6 mt-4">
-            <Card id="comment-section" className={form.formState.errors.comments ? "border-destructive" : ""}>
-              <CardHeader>
-                <CardTitle className="text-base">Comments & Signature Log</CardTitle>
-                {form.formState.errors.comments && (
-                  <p className="text-sm font-medium text-destructive mt-1">{form.formState.errors.comments.message}</p>
-                )}
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="flex gap-2">
-                  <div className="flex-1">
-                    <Input
-                      id="comment-input"
-                      placeholder="Add a comment or note..."
-                      value={newComment}
-                      onChange={(e) => setNewComment(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addComment(); } }}
-                    />
-                  </div>
-                  <Button type="button" variant="secondary" onClick={addComment}>Add Note</Button>
-                </div>
-
-                <div className="space-y-4 max-h-[200px] overflow-y-auto pr-2">
-                  {comments.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">No activity logged.</p>}
-                  {comments.map((comment) => (
-                    <div key={comment.id} className="flex flex-col gap-1 p-3 rounded-lg bg-muted/50 border border-border">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-primary">{comment.author}</span>
-                        <span className="text-[10px] text-muted-foreground">{new Date(comment.timestamp).toLocaleString()}</span>
+                        <div className="flex items-center gap-1 group/amt">
+                          <span className="text-xs font-black text-destructive opacity-30">$</span>
+                          <FormField control={form.control} name={`expenses.${index}.amount`} render={({ field }) => (
+                            <Input type="number" className="h-7 w-24 border-none bg-destructive/5 rounded-lg px-2 text-right font-black text-destructive focus-visible:ring-destructive" {...field} />
+                          )} />
+                        </div>
                       </div>
-                      <p className="text-sm text-foreground">{comment.text}</p>
+                    </div>
+                  </div>
+                ))}
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full h-10 border-dashed border-2 bg-muted/5 hover:bg-primary/5 hover:border-primary/40 text-muted-foreground/60 hover:text-primary transition-all rounded-xl group flex items-center justify-center gap-2 py-2"
+                  onClick={() => appendExpense({ id: Math.random().toString(36).substr(2, 9), category: "Other", description: "", amount: 0 })}
+                >
+                  <PlusCircle className="h-3.5 w-3.5" />
+                  <span className="text-[9px] font-black uppercase tracking-widest">New Expense</span>
+                </Button>
+              </div>
+            </div>
+
+            {/* Comments */}
+            <div className="space-y-3">
+              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2">
+                <div className="h-1 w-3 bg-primary/40 rounded-full" /> Notes & Log
+              </h3>
+              <div className="bg-muted/10 border border-muted/30 rounded-2xl p-4 flex flex-col gap-4">
+                <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                  {comments.length === 0 && (
+                    <div className="text-center py-10 opacity-20">
+                      <MessageSquare className="h-8 w-8 mx-auto mb-2" />
+                      <p className="text-[10px] font-bold uppercase tracking-widest">No history yet</p>
+                    </div>
+                  )}
+                  {comments.map((comment) => (
+                    <div key={comment.id} className={cn(
+                      "p-3 rounded-xl text-xs border transition-all",
+                      comment.type === 'system'
+                        ? "bg-muted/30 border-muted/50 text-muted-foreground opacity-60"
+                        : "bg-background border-border shadow-sm hover:shadow-md"
+                    )}>
+                      <div className="flex items-center justify-between mb-1.5 opacity-50">
+                        <span className="font-black text-[9px] uppercase tracking-tighter">{comment.author}</span>
+                        <span className="text-[8px] font-medium">{format(new Date(comment.timestamp), "MMM d, h:mm a")}</span>
+                      </div>
+                      <p className="leading-relaxed font-medium">{comment.text}</p>
                     </div>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
 
-            <div className="flex gap-4">
-              {initialData && onDelete && (
+                <div className="relative group">
+                  <Input
+                    id="comment-input"
+                    className="pr-12 bg-background h-10 border-muted-foreground/20 rounded-xl focus-visible:ring-primary shadow-sm text-[11px] font-medium"
+                    placeholder="Log a update..."
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addComment(); } }}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-1 top-1 h-8 text-[9px] font-black uppercase tracking-widest text-primary hover:bg-primary/10 px-2 transition-all"
+                    onClick={addComment}
+                  >
+                    Post
+                  </Button>
+                </div>
+                {form.formState.errors.comments && (
+                  <p className="text-[9px] font-black text-destructive uppercase tracking-widest animate-pulse px-1">
+                    {form.formState.errors.comments.message}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* ACTION BUTTONS UNDER LOGS */}
+            <div className="pt-4 mt-2 border-t border-muted/40 space-y-2">
+              <Button
+                type="submit"
+                className="w-full h-10 rounded-full bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 text-xs font-black uppercase tracking-[0.2em] flex items-center justify-center gap-2 transition-all active:scale-95"
+              >
+                <div className="h-4 w-4 flex items-center justify-center">
+                  <Pencil className="h-3 w-3" />
+                </div>
+                {initialData ? "Save Changes" : "Create Entry"}
+              </Button>
+
+              <div className="grid grid-cols-2 gap-2">
                 <Button
                   type="button"
-                  variant="destructive"
-                  className="flex-1"
-                  onClick={() => {
-                    if (confirm("Are you sure you want to PERMANENTLY delete this load? This action cannot be undone.")) {
-                      onDelete(initialData.id);
-                    }
-                  }}
+                  variant="outline"
+                  className="h-9 rounded-full border-muted-foreground/20 hover:bg-muted font-black text-[10px] uppercase tracking-widest transition-all"
+                  onClick={onCancel}
                 >
-                  <Trash2 className="mr-2 h-4 w-4" /> Delete Load
+                  Close
                 </Button>
-              )}
-              <Button type="submit" className={initialData && onDelete ? "flex-[2]" : "w-full"}>
-                {initialData ? "Save Changes" : "Add Load"}
-              </Button>
+
+                {initialData && onDelete && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-9 rounded-full text-destructive hover:text-destructive hover:bg-destructive/5 font-black text-[9px] uppercase tracking-widest transition-all flex items-center justify-center gap-1.5"
+                    onClick={() => {
+                      if (confirm("Are you sure?")) {
+                        onDelete(initialData.id);
+                      }
+                    }}
+                  >
+                    <Trash2 className="h-3 w-3" /> Delete
+                  </Button>
+                )}
+              </div>
             </div>
-          </TabsContent>
-        </Tabs>
+          </div>
+        </div>
+
       </form>
-    </Form>
+    </Form >
   );
 });
 

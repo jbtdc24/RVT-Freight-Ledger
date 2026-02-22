@@ -3,7 +3,7 @@
 "use client";
 
 import { useState, Fragment, useMemo, useEffect, useRef } from "react";
-import { PlusCircle, Pencil, Wallet, ArrowRight, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, MessageSquare, PenTool, X, MapPin } from "lucide-react";
+import { PlusCircle, Pencil, Wallet, ArrowRight, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, MessageSquare, PenTool, X, MapPin, Trash2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
@@ -333,7 +333,7 @@ export default function FreightLedgerPage() {
       }}>
         <DialogContent
           // Hide default Radix close button so we can control it completely
-          className="max-w-[95vw] md:max-w-5xl lg:max-w-6xl [&>button.absolute]:hidden"
+          className="max-w-[98vw] md:max-w-7xl lg:max-w-[95vw] overflow-hidden flex flex-col max-h-[95vh] [&>button.absolute]:hidden"
           onInteractOutside={(e) => {
             if (formRef.current && formRef.current.isDirty()) {
               e.preventDefault();
@@ -347,35 +347,35 @@ export default function FreightLedgerPage() {
             }
           }}
         >
-          {/* Custom Close Button */}
-          <button
-            onClick={() => {
-              // Check dirty state
-              if (formRef.current && formRef.current.isDirty()) {
-                setShowDiscardAlert(true);
-              } else {
-                setIsDialogOpen(false);
-                setEditingFreight(null);
-                clearEditParam();
-              }
-            }}
-            className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
-          >
-            <X className="h-4 w-4" />
-            <span className="sr-only">Close</span>
-          </button>
+          {/* DIALOG HEADER */}
+          <div className="px-8 py-5 border-b flex items-center justify-between bg-muted/20 backdrop-blur-md">
+            <div className="flex items-center gap-3">
+              <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+              <h2 className="text-[11px] font-black uppercase tracking-[0.3em] text-muted-foreground/60">
+                {editingFreight ? "Edit Freight Load" : "New Freight Entry"}
+              </h2>
+            </div>
+            {editingFreight && (
+              <Badge variant="outline" className="text-[10px] font-mono opacity-50 px-3 py-1 bg-white/50">
+                INTERNAL ID: {editingFreight.id.slice(0, 8)}
+              </Badge>
+            )}
+          </div>
 
-          <DialogHeader>
-            <DialogTitle>{editingFreight ? 'Edit Load' : 'Add New Load'}</DialogTitle>
-            <DialogDescription>
-              {editingFreight ? 'Edit the details for this load.' : 'Enter the details for the completed load.'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="max-h-[80vh] overflow-y-auto p-1">
+          <div className="flex-1 overflow-y-auto p-8 pt-6 custom-scrollbar">
             <FreightForm
               ref={formRef}
               onSubmit={handleSaveFreight}
               onDelete={handleDeleteFreight}
+              onCancel={() => {
+                if (formRef.current && formRef.current.isDirty()) {
+                  setShowDiscardAlert(true);
+                } else {
+                  setIsDialogOpen(false);
+                  setEditingFreight(null);
+                  clearEditParam();
+                }
+              }}
               initialData={editingFreight}
               drivers={drivers}
               assets={assets}
@@ -429,35 +429,60 @@ export default function FreightLedgerPage() {
       {/* VIEW DETAILS DIALOG */}
       <Dialog open={!!viewingFreightId} onOpenChange={(open) => !open && setViewingFreightId(null)}>
         <DialogContent className="max-w-[98vw] md:max-w-7xl lg:max-w-[95vw] overflow-hidden flex flex-col max-h-[90vh]">
-          <DialogHeader>
-            <div className="flex items-center justify-between pr-8">
-              <DialogTitle className="text-xl flex items-center gap-2">
+          <DialogHeader className="flex flex-row items-center justify-between pr-6 border-b pb-3">
+            <div className="space-y-0.5">
+              <DialogTitle className="text-lg flex items-center gap-2">
                 Load #{viewingFreight?.freightId}
-                <Badge variant="outline" className="font-mono">{viewingFreight && format(new Date(viewingFreight.date), 'MM/dd/yyyy')}</Badge>
-                {viewingFreight?.postingCode && <Badge variant="secondary">{viewingFreight.postingCode}</Badge>}
-                <Badge variant={viewingFreight?.status === 'Delivered' ? 'default' : viewingFreight?.status === 'Cancelled' ? 'destructive' : 'outline'}>{viewingFreight?.status}</Badge>
+                <Badge variant="outline" className="font-mono text-[10px] h-5">{viewingFreight && format(new Date(viewingFreight.date), 'MM/dd/yyyy')}</Badge>
+                {viewingFreight?.postingCode && <Badge variant="secondary" className="text-[10px] h-5">{viewingFreight.postingCode}</Badge>}
+                <Badge className="text-[10px] h-5" variant={viewingFreight?.status === 'Delivered' ? 'default' : viewingFreight?.status === 'Cancelled' ? 'destructive' : 'outline'}>{viewingFreight?.status}</Badge>
               </DialogTitle>
+              <DialogDescription className="text-xs font-semibold">
+                {viewingFreight?.origin} <ArrowRight className="inline h-2.5 w-2.5 mx-1 text-primary" /> {viewingFreight?.destination}
+              </DialogDescription>
             </div>
-            <DialogDescription>
-              {viewingFreight?.origin} <ArrowRight className="inline h-3 w-3" /> {viewingFreight?.destination}
-            </DialogDescription>
+
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 px-5 rounded-full border-muted-foreground/20 hover:bg-muted font-bold text-[11px]"
+                onClick={() => setViewingFreightId(null)}
+              >
+                Close
+              </Button>
+              <Button
+                size="sm"
+                className="h-9 px-6 rounded-full bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 font-bold text-[11px] flex items-center gap-2"
+                onClick={() => {
+                  const freightToEdit = viewingFreight;
+                  setViewingFreightId(null);
+                  if (freightToEdit) handleOpenDialog(freightToEdit);
+                }}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                Edit Load
+              </Button>
+            </div>
           </DialogHeader>
 
           {viewingFreight && (
-            <div className="flex-1 overflow-y-auto pr-2">
+            <div className="flex-1 overflow-y-auto pr-2 mt-2">
               {/* PRIMARY INFO GRID */}
-              <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 p-1 mb-6">
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 p-1 mb-4">
 
                 {/* COL 1: ROUTE & CARGO */}
-                <div className="space-y-6">
+                <div className="space-y-4">
                   {/* Route Details */}
-                  <div className="bg-muted/30 p-4 rounded-xl border space-y-4">
-                    <h3 className="font-headline text-lg flex items-center gap-2"><MapPin className="h-4 w-4" /> Route Details</h3>
+                  <div className="bg-muted/20 p-3 rounded-xl border space-y-3">
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/80 flex items-center gap-2">
+                      <div className="h-1 w-3 bg-primary rounded-full" /> Route Details
+                    </h3>
 
                     {/* PICKUP */}
-                    <div className="pl-3 border-l-2 border-primary/50 relative">
-                      <div className="absolute -left-[5px] top-0 h-2 w-2 rounded-full bg-primary" />
-                      <p className="text-xs font-bold text-primary uppercase tracking-wider mb-1">Pickup (Stop 1)</p>
+                    <div className="pl-3 border-l-2 border-primary/20 relative">
+                      <div className="absolute -left-[5px] top-1 h-2 w-2 rounded-full bg-primary" />
+                      <p className="text-[9px] font-black text-primary/70 uppercase tracking-widest mb-0.5">Pickup</p>
                       <p className="font-semibold">{viewingFreight.pickup?.companyName || viewingFreight.origin}</p>
                       {viewingFreight.pickup?.address && <p className="text-sm text-muted-foreground">{viewingFreight.pickup.address}, {viewingFreight.pickup.cityStateZip}</p>}
                       <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
@@ -468,9 +493,9 @@ export default function FreightLedgerPage() {
                     </div>
 
                     {/* DROP */}
-                    <div className="pl-3 border-l-2 border-orange-500/50 relative">
-                      <div className="absolute -left-[5px] top-0 h-2 w-2 rounded-full bg-orange-500" />
-                      <p className="text-xs font-bold text-orange-500 uppercase tracking-wider mb-1">Drop (Stop 2)</p>
+                    <div className="pl-3 border-l-2 border-orange-500/20 relative">
+                      <div className="absolute -left-[5px] top-1 h-2 w-2 rounded-full bg-orange-500" />
+                      <p className="text-[9px] font-black text-orange-500/70 uppercase tracking-widest mb-0.5">Drop</p>
                       <p className="font-semibold">{viewingFreight.drop?.companyName || viewingFreight.destination}</p>
                       {viewingFreight.drop?.address && <p className="text-sm text-muted-foreground">{viewingFreight.drop.address}, {viewingFreight.drop.cityStateZip}</p>}
                       <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
@@ -489,8 +514,10 @@ export default function FreightLedgerPage() {
                   </div>
 
                   {/* Cargo & Equip */}
-                  <div className="bg-muted/30 p-4 rounded-xl border space-y-3 text-sm">
-                    <h3 className="font-headline text-lg flex items-center gap-2"><Wallet className="h-4 w-4" /> Cargo & Eqpt</h3>
+                  <div className="bg-muted/20 p-3 rounded-xl border space-y-2.5 text-sm">
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/80 flex items-center gap-2">
+                      <div className="h-1 w-3 bg-primary rounded-full" /> Cargo & Eqpt
+                    </h3>
                     <div className="grid grid-cols-2 gap-2">
                       <div className="col-span-2">
                         <p className="text-xs text-muted-foreground">Commodity</p>
@@ -509,13 +536,13 @@ export default function FreightLedgerPage() {
                 </div>
 
                 {/* COL 2: FINANCIALS & ID */}
-                <div className="space-y-6">
+                <div className="space-y-4">
                   {/* Financial Breakdown */}
-                  <div className="bg-muted/30 p-4 rounded-xl border space-y-4">
-                    <h3 className="font-headline text-lg flex items-center gap-2">
-                      <Wallet className="h-4 w-4" /> Financials
+                  <div className="bg-muted/20 p-3 rounded-xl border space-y-3">
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/80 flex items-center gap-2">
+                      <div className="h-1 w-3 bg-primary rounded-full" /> Financial Details
                     </h3>
-                    <div className="grid grid-cols-2 gap-y-4 gap-x-8 text-sm">
+                    <div className="grid grid-cols-2 gap-y-3 gap-x-6 text-sm">
                       <div><p className="text-muted-foreground">Line Haul</p><p className="font-medium text-base">{formatCurrency(viewingFreight.lineHaul)}</p></div>
                       <div>
                         <p className="text-muted-foreground">Our Share of LH ({viewingFreight.ownerPercentage}%)</p>
@@ -549,31 +576,33 @@ export default function FreightLedgerPage() {
                   </div>
 
                   {/* ID & Agency */}
-                  <div className="bg-muted/30 p-4 rounded-xl border space-y-3 text-sm">
-                    <h3 className="font-headline text-lg flex items-center gap-2"><PenTool className="h-4 w-4" /> Reference & Contact</h3>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div><p className="text-xs text-muted-foreground">Freight Bill #</p><p className="font-medium font-mono">{viewingFreight.freightBillNumber || 'N/A'}</p></div>
-                      <div><p className="text-xs text-muted-foreground">Cust Ref #</p><p className="font-medium font-mono">{viewingFreight.customerReferenceNumber || 'N/A'}</p></div>
-                      <div className="col-span-2 pt-2 border-t mt-2">
-                        <p className="text-xs text-muted-foreground">Agency</p>
-                        <p className="font-medium">{viewingFreight.agencyName || 'N/A'}</p>
+                  <div className="bg-muted/20 p-3 rounded-xl border space-y-2.5 text-sm">
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/80 flex items-center gap-2">
+                      <div className="h-1 w-3 bg-primary rounded-full" /> Documentation
+                    </h3>
+                    <div className="grid grid-cols-2 gap-x-2 gap-y-2">
+                      <div className="bg-white/40 p-1.5 rounded-lg border border-muted-foreground/5"><p className="text-[9px] font-bold text-muted-foreground uppercase">Bill #</p><p className="font-bold font-mono text-xs">{viewingFreight.freightBillNumber || 'N/A'}</p></div>
+                      <div className="bg-white/40 p-1.5 rounded-lg border border-muted-foreground/5"><p className="text-[9px] font-bold text-muted-foreground uppercase">Ref #</p><p className="font-bold font-mono text-xs">{viewingFreight.customerReferenceNumber || 'N/A'}</p></div>
+                      <div className="col-span-2 pt-1 border-t mt-1">
+                        <p className="text-[9px] font-bold text-muted-foreground uppercase">Dispatch Agency</p>
+                        <p className="font-bold text-xs">{viewingFreight.agencyName || 'N/A'}</p>
                       </div>
-                      <div><p className="text-xs text-muted-foreground">Contact</p><p className="font-medium truncate">{viewingFreight.contactName || 'N/A'}</p></div>
-                      <div><p className="text-xs text-muted-foreground">Phone</p><p className="font-medium">{viewingFreight.contactPhone || 'N/A'}</p></div>
-                      <div><p className="text-xs text-muted-foreground">Fax</p><p className="font-medium">{viewingFreight.contactFax || 'N/A'}</p></div>
-                      <div className="col-span-2"><p className="text-xs text-muted-foreground">Email</p><p className="font-medium truncate">{viewingFreight.contactEmail || 'N/A'}</p></div>
+                      <div><p className="text-[9px] font-bold text-muted-foreground uppercase">Contact</p><p className="font-semibold text-xs truncate">{viewingFreight.contactName || 'N/A'}</p></div>
+                      <div><p className="text-[9px] font-bold text-muted-foreground uppercase">Phone</p><p className="font-semibold text-xs">{viewingFreight.contactPhone || 'N/A'}</p></div>
+                      <div><p className="text-[9px] font-bold text-muted-foreground uppercase">Fax</p><p className="font-semibold text-xs">{viewingFreight.contactFax || 'N/A'}</p></div>
+                      <div className="col-span-2"><p className="text-[9px] font-bold text-muted-foreground uppercase">Email</p><p className="font-semibold text-xs truncate">{viewingFreight.contactEmail || 'N/A'}</p></div>
                     </div>
                   </div>
                 </div>
 
                 {/* COL 3: LOGS & EXPENSES */}
-                <div className="space-y-6">
+                <div className="space-y-4">
                   {/* Expenses */}
-                  <div>
-                    <h3 className="font-headline text-lg mb-3 flex items-center justify-between">
-                      <span>Expenses</span>
-                      <Badge variant={viewingFreight.expenses.length > 0 ? "destructive" : "outline"}>
-                        {viewingFreight.expenses.length} active
+                  <div className="space-y-2">
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/80 flex items-center justify-between">
+                      <div className="flex items-center gap-2"><div className="h-1 w-3 bg-destructive/60 rounded-full" /> Expenses</div>
+                      <Badge variant={viewingFreight.expenses.length > 0 ? "destructive" : "outline"} className="text-[8px] h-4 rounded-full px-1.5">
+                        {viewingFreight.expenses.length}
                       </Badge>
                     </h3>
                     <div className="bg-muted/30 rounded-xl border overflow-hidden max-h-[200px] overflow-y-auto">
@@ -601,12 +630,12 @@ export default function FreightLedgerPage() {
                     </div>
                   </div>
 
-                  {/* Comments */}
-                  <div>
-                    <h3 className="font-headline text-lg mb-3 flex items-center gap-2">
-                      <MessageSquare className="h-4 w-4" /> Comments
+                  {/* Notes & Log */}
+                  <div className="space-y-2">
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/80 flex items-center gap-2">
+                      <div className="h-1 w-3 bg-primary/40 rounded-full" /> Notes & Log
                     </h3>
-                    <div className="bg-muted/30 rounded-xl border overflow-hidden max-h-[200px] overflow-y-auto">
+                    <div className="bg-muted/20 rounded-xl border overflow-hidden max-h-[300px] overflow-y-auto">
                       {viewingFreight.comments && viewingFreight.comments.length > 0 ? (
                         <div className="divide-y">
                           {viewingFreight.comments.filter(c => c.type !== 'system').map(comment => (
@@ -621,7 +650,7 @@ export default function FreightLedgerPage() {
                           {viewingFreight.comments.filter(c => c.type !== 'system').length === 0 && <div className="p-4 text-center text-xs text-muted-foreground">No manual notes.</div>}
                         </div>
                       ) : (
-                        <div className="p-8 text-center text-muted-foreground text-sm">No comments.</div>
+                        <div className="p-8 text-center text-muted-foreground text-sm">No history logged.</div>
                       )}
                     </div>
                   </div>
@@ -634,18 +663,6 @@ export default function FreightLedgerPage() {
                     </div>
                   )}
                 </div>
-              </div>
-
-              {/* FOOTER ACTIONS */}
-              <div className="flex justify-end pt-6 border-t mt-4 gap-4">
-                <Button variant="outline" onClick={() => setViewingFreightId(null)}>Close</Button>
-                <Button onClick={() => {
-                  const freightToEdit = viewingFreight;
-                  setViewingFreightId(null);
-                  if (freightToEdit) handleOpenDialog(freightToEdit);
-                }}>
-                  <Pencil className="mr-2 h-4 w-4" /> Edit Load
-                </Button>
               </div>
             </div>
           )}
