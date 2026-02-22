@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { PlusCircle, Pencil } from "lucide-react";
+import { PlusCircle, Pencil, FileCheck, MessageSquare, Image as ImageIcon, ExternalLink } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import {
@@ -77,11 +78,11 @@ export default function DriversPage() {
         }
         setIsDialogOpen(open);
       }}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[800px]">
           <DialogHeader>
-            <DialogTitle>{editingDriver ? 'Edit Driver' : 'Add New Driver'}</DialogTitle>
+            <DialogTitle>{editingDriver ? 'Edit Driver Profile' : 'Add New Driver'}</DialogTitle>
             <DialogDescription>
-              {editingDriver ? 'Edit the driver details.' : 'Enter the details for the new driver.'}
+              {editingDriver ? 'Update identification and driver records.' : 'Create a new driver profile with ID and records.'}
             </DialogDescription>
           </DialogHeader>
           <DriverForm onSubmit={handleSaveDriver} onDelete={handleDeleteDriver} initialData={editingDriver} />
@@ -94,21 +95,67 @@ export default function DriversPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
-              <TableHead>Pay Type</TableHead>
-              <TableHead>Pay Rate</TableHead>
+              <TableHead>Pay Details</TableHead>
+              <TableHead>Identification</TableHead>
+              <TableHead>Records</TableHead>
               <TableHead className="w-[50px]"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {activeDrivers.map((item) => (
-              <TableRow key={item.id}>
-                <TableCell className="font-medium">{item.name}</TableCell>
+              <TableRow
+                key={item.id}
+                className="cursor-pointer hover:bg-muted/50 transition-colors group"
+                onClick={() => handleOpenDialog(item)}
+              >
+                <TableCell className="font-semibold text-foreground">{item.name}</TableCell>
                 <TableCell>
-                  <Badge variant="outline">{item.payType}</Badge>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-sm font-medium">{formatPayRate(item)}</span>
+                    <Badge variant="outline" className="w-fit text-[10px] uppercase font-black px-1.5 py-0">{item.payType}</Badge>
+                  </div>
                 </TableCell>
-                <TableCell>{formatPayRate(item)}</TableCell>
                 <TableCell>
-                  <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(item)} className="h-8 w-8">
+                  {item.idImages && item.idImages.length > 0 ? (
+                    <div className="flex items-center gap-2 text-success">
+                      <div className="flex -space-x-4 overflow-hidden">
+                        {item.idImages.slice(0, 3).map((img, idx) => (
+                          <div key={idx} className="inline-block h-8 w-12 rounded bg-background border-2 border-background overflow-hidden shadow-sm">
+                            <img src={img} alt="ID" className="w-full h-full object-cover" />
+                          </div>
+                        ))}
+                        {item.idImages.length > 3 && (
+                          <div className="flex items-center justify-center h-8 w-8 rounded-full bg-muted border-2 border-background text-[10px] font-black">
+                            +{item.idImages.length - 3}
+                          </div>
+                        )}
+                      </div>
+                      <Badge variant="outline" className="text-success border-success/20 bg-success/5 gap-1">
+                        <FileCheck className="h-3 w-3" /> {item.idImages.length} Docs
+                      </Badge>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-muted-foreground/50">
+                      <div className="h-8 w-12 rounded bg-muted/10 border border-dashed border-muted-foreground/10 flex items-center justify-center">
+                        <ImageIcon className="h-4 w-4 opacity-20" />
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-widest">Missing ID</span>
+                    </div>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-1.5">
+                    <MessageSquare className="h-3.5 w-3.5 text-muted-foreground/50" />
+                    <span className="text-sm font-medium">{(item.comments?.length || 0)}</span>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 hover:bg-primary/10 hover:text-primary transition-colors"
+                    onClick={(e) => { e.stopPropagation(); handleOpenDialog(item); }}
+                  >
                     <Pencil className="h-4 w-4" />
                     <span className="sr-only">Edit Driver</span>
                   </Button>

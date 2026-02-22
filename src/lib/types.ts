@@ -31,6 +31,7 @@ export type LoadComment = {
   text: string;
   author: string; // e.g., "System", "John Doe"
   timestamp: string; // ISO string
+  date?: string; // Optional custom event date (ISO string)
   type: 'manual' | 'system';
 };
 
@@ -121,6 +122,8 @@ export type Asset = {
   type: 'Truck' | 'Business Car';
   identifier: string;
   description?: string;
+  idImages?: string[]; // Array of base64 or URLs
+  comments?: LoadComment[];
 };
 
 export type Driver = {
@@ -128,4 +131,6 @@ export type Driver = {
   name: string;
   payRate: number; // can be $/mile or % of revenue
   payType: 'per-mile' | 'percentage';
+  idImages?: string[]; // Array of base64 or URLs
+  comments?: LoadComment[];
 };
