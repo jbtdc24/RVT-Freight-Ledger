@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, forwardRef, useImperativeHandle, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useFieldArray } from "react-hook-form";
 import { z } from "zod";
@@ -23,13 +23,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-const expenseCategories = ["Maintenance", "Fuel", "Repairs", "Other"] as const;
+
+const expenseCategories = ["Maintenance", "Fuel", "Repairs", "Tolls", "Scale Ticket", "Other"] as const;
 
 const expenseSchema = z.object({
   id: z.string().optional(),
   category: z.enum(expenseCategories),
   description: z.string().min(3, "Description must be at least 3 characters."),
   amount: z.coerce.number().positive("Amount must be a positive number."),
+  isDeleted: z.boolean().optional(),
+  deletedAt: z.string().optional(),
+  loadId: z.string().optional(),
+  loadNumber: z.string().optional(),
 });
 
 const commentSchema = z.object({
@@ -66,6 +71,9 @@ const formSchema = z.object({
   freightBillNumber: z.string().optional(),
   customerReferenceNumber: z.string().optional(),
 
+  // Status
+  status: z.enum(['Draft', 'For Pickup', 'In Route', 'Delivered', 'Cancelled']).default('Draft'),
+
   // General
   date: z.date({ required_error: "A date is required." }),
   driverId: z.string({ required_error: "Driver is required." }).min(1, "Driver is required."),
@@ -96,58 +104,97 @@ const formSchema = z.object({
   fuelSurcharge: z.coerce.number().min(0, "Fuel Surcharge cannot be negative."),
   loading: z.coerce.number().min(0, "Loading charge cannot be negative.").optional().default(0),
   unloading: z.coerce.number().min(0, "Unloading charge cannot be negative.").optional().default(0),
-  accessorials: z.coerce.number().min(0, "Accessorials cannot be negative."),
+  accessorials: z.coerce.number().min(0, "Accessorials cannot be negative.").optional().default(0),
   ownerPercentage: z.coerce.number().min(0).max(100).default(100),
-  expenses: z.array(expenseSchema).optional(),
+
   comments: z.array(commentSchema).optional(),
+  expenses: z.array(expenseSchema).optional(),
 });
 
 type FreightFormValues = z.infer<typeof formSchema>;
 
-type FreightFormProps = {
+export type FreightFormHandle = {
+  isDirty: () => boolean;
+  submit: () => void;
+};
+
+interface FreightFormProps {
   onSubmit: (values: Omit<Freight, "id"> & { id?: string }) => void;
   onDelete?: (id: string) => void;
   initialData?: Freight | null;
   drivers: Driver[];
   assets: Asset[];
-};
+}
 
-export function FreightForm({ onSubmit, onDelete, initialData, drivers, assets }: FreightFormProps) {
+const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit, onDelete, initialData, drivers, assets }, ref) => {
   const [newComment, setNewComment] = useState("");
+  const [activeTab, setActiveTab] = useState("details");
 
   const form = useForm<FreightFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: initialData ? {
-      ...JSON.parse(JSON.stringify(initialData)),
-      date: new Date(initialData.date),
-      pickup: initialData.pickup || {},
-      drop: initialData.drop || {},
+      ...initialData,
+      date: initialData.date ? new Date(initialData.date) : new Date(),
       expenses: initialData.expenses || [],
-      ownerPercentage: initialData.ownerPercentage ?? 100,
       comments: initialData.comments || [],
-      hazardousMaterial: initialData.hazardousMaterial || false,
     } : {
-      freightId: "",
       date: new Date(),
-      origin: "",
-      destination: "",
-      distance: 0,
-      weight: 0,
-      pickup: {},
-      drop: {},
       hazardousMaterial: false,
-      driverId: undefined,
-      assetId: undefined,
-      lineHaul: 0,
-      fuelSurcharge: 0,
       loading: 0,
       unloading: 0,
+      lineHaul: 0,
+      fuelSurcharge: 0,
       accessorials: 0,
-      ownerPercentage: 100,
+      ownerPercentage: 100, // Default to 100% split
       expenses: [],
       comments: [],
+      status: 'Draft',
     },
   });
+
+  // Subscribe to isDirty to ensure updates
+  const { isDirty } = form.formState;
+
+  // Debug logging
+  // console.log("FreightForm Render - isDirty:", isDirty, "NewComment:", newComment);
+
+  useEffect(() => {
+    if (initialData) {
+      form.reset({
+        ...initialData,
+        date: initialData.date ? new Date(initialData.date) : new Date(),
+        expenses: initialData.expenses || [],
+        comments: initialData.comments || [],
+      });
+    } else {
+      form.reset({
+        date: new Date(),
+        hazardousMaterial: false,
+        loading: 0,
+        unloading: 0,
+        lineHaul: 0,
+        fuelSurcharge: 0,
+        accessorials: 0,
+        ownerPercentage: 100,
+        expenses: [],
+        comments: [],
+        status: 'Draft',
+      });
+      setNewComment("");
+      setActiveTab("details");
+    }
+  }, [initialData, form]);
+
+  useImperativeHandle(ref, () => ({
+    isDirty: () => form.formState.isDirty || newComment.length > 0,
+    submit: () => {
+      setActiveTab("logs");
+      setTimeout(() => {
+        const commentInput = document.getElementById('comment-input');
+        if (commentInput) commentInput.focus();
+      }, 100);
+    }
+  }));
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
@@ -167,14 +214,14 @@ export function FreightForm({ onSubmit, onDelete, initialData, drivers, assets }
       type: 'manual'
     };
 
-    form.setValue("comments", [comment, ...comments]);
+    form.setValue("comments", [comment, ...comments], { shouldDirty: true });
     setNewComment("");
   };
 
   function handleFormSubmit(values: FreightFormValues) {
     const ownerBase = (values.lineHaul || 0) * (values.ownerPercentage / 100);
     const ownerAmount = ownerBase + (values.fuelSurcharge || 0) + (values.accessorials || 0) + (values.loading || 0) + (values.unloading || 0);
-    const totalExpenses = (values.expenses || []).reduce((sum, exp) => sum + exp.amount, 0);
+    const totalExpenses = (values.expenses || []).filter(exp => !exp.isDeleted).reduce((sum, exp) => sum + exp.amount, 0);
     const netProfit = ownerAmount - totalExpenses;
 
     const processedExpenses = (values.expenses || []).map(exp => ({ ...exp, id: exp.id || `exp-${Date.now()}-${Math.random()}` }));
@@ -182,26 +229,33 @@ export function FreightForm({ onSubmit, onDelete, initialData, drivers, assets }
     let changeLog = initialData ? "Load updated" : "Load created";
     let hasChanges = false;
 
-    // (Diff logic simplified for brevity but functional logic remains same as strict requirement)
-    // For now, simpler checking since we added SO many fields.
+    // Changes check strictly for status
     if (initialData) {
-      hasChanges = true; // Assume changes on save for this scale of edit form
+      if (initialData.status !== values.status) {
+        changeLog = `Status changed: ${initialData.status} -> ${values.status}`;
+        hasChanges = true;
+      }
     }
 
-    // Pending comment check
+    // Pending comment check - detect if user has added a comment via:
+    // 1. Clicking "Add Note" button (which adds to values.comments)
+    // 2. Typing in the input field (newComment has text)
     const initialCommentCount = initialData?.comments?.length || 0;
     const currentCommentCount = values.comments?.length || 0;
-    const hasAddedComment = (currentCommentCount > initialCommentCount) || (newComment.trim().length > 0);
+    const hasNewCommentInArray = currentCommentCount > initialCommentCount;
+    const hasNewCommentInInput = newComment.trim().length > 0;
+    const hasAnyNewComment = hasNewCommentInArray || hasNewCommentInInput;
 
-    // Enforce Comment Requirement
-    if (initialData && !hasAddedComment && !newComment.trim()) {
+    // Enforce Comment Requirement for EDITS
+    if (initialData && !hasAnyNewComment) {
       form.setError("comments", { type: "manual", message: "PLEASE ADD A NOTE explaining changes." });
-      document.getElementById("comment-section")?.scrollIntoView({ behavior: "smooth" });
+      setActiveTab("logs");
       return;
     }
-    if (!initialData && !newComment.trim()) {
+    // Enforce initial note for NEW loads
+    if (!initialData && !hasNewCommentInInput) {
       form.setError("comments", { type: "manual", message: "Please add an initial note." });
-      document.getElementById("comment-section")?.scrollIntoView({ behavior: "smooth" });
+      setActiveTab("logs");
       return;
     }
 
@@ -242,11 +296,39 @@ export function FreightForm({ onSubmit, onDelete, initialData, drivers, assets }
     onSubmit(submissionData);
   }
 
+  // Handler for form validation errors
+  const handleFormError = (errors: any) => {
+    console.error("Form validation errors:", errors);
+    // Find the first error and switch to that tab
+    const errorKeys = Object.keys(errors);
+    if (errorKeys.length > 0) {
+      const firstError = errorKeys[0];
+      // Map field to tab
+      const detailFields = ['agencyName', 'postingCode', 'contactName', 'contactPhone', 'contactEmail', 'contactFax', 'operatingEntity', 'freightId', 'freightBillNumber', 'customerReferenceNumber', 'status', 'date', 'driverId', 'assetId'];
+      const routeFields = ['origin', 'destination', 'distance', 'pickup', 'drop', 'weight', 'commodity', 'pieces', 'dimensions', 'nmfcCode', 'freightClass', 'temperatureControl', 'trailerNumber', 'equipmentType', 'hazardousMaterial', 'bcoSpecialInstructions'];
+      const financialFields = ['lineHaul', 'fuelSurcharge', 'loading', 'unloading', 'accessorials', 'ownerPercentage', 'expenses'];
+
+      if (detailFields.includes(firstError)) {
+        setActiveTab('details');
+      } else if (routeFields.includes(firstError)) {
+        setActiveTab('route');
+      } else if (financialFields.includes(firstError)) {
+        setActiveTab('financials');
+      } else {
+        setActiveTab('logs');
+      }
+
+      // Show alert with error summary
+      const errorMessages = errorKeys.map(key => `${key}: ${errors[key]?.message || 'Invalid'}`).join('\n');
+      alert(`Please fix the following errors:\n\n${errorMessages}`);
+    }
+  };
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(handleFormSubmit, handleFormError)} className="space-y-6">
 
-        <Tabs defaultValue="details" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="details">Load Details</TabsTrigger>
             <TabsTrigger value="route">Route & Cargo</TabsTrigger>
@@ -256,6 +338,32 @@ export function FreightForm({ onSubmit, onDelete, initialData, drivers, assets }
 
           {/* TAB 1: LOAD DETAILS (Header, IDs, Contact) */}
           <TabsContent value="details" className="space-y-6 mt-4">
+            {/* Status Section - FIRST */}
+            <Card className="border-primary/20 bg-primary/5">
+              <CardContent className="pt-6">
+                <FormField control={form.control} name="status" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-lg font-bold text-primary">Current Load Status</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger className="h-12 text-lg font-medium border-primary/30 bg-background/50">
+                          <SelectValue placeholder="Select Status" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="Draft" className="font-medium">Draft / Pending</SelectItem>
+                        <SelectItem value="For Pickup" className="font-medium text-blue-400">For Pickup</SelectItem>
+                        <SelectItem value="In Route" className="font-medium text-yellow-400">In Route</SelectItem>
+                        <SelectItem value="Delivered" className="font-medium text-green-400">Delivered</SelectItem>
+                        <SelectItem value="Cancelled" className="font-medium text-red-400">Cancelled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              </CardContent>
+            </Card>
+
             {/* Header Info */}
             <Card>
               <CardHeader><CardTitle className="text-base flex items-center gap-2"><User className="h-4 w-4" /> Agency & Contact</CardTitle></CardHeader>
@@ -333,13 +441,17 @@ export function FreightForm({ onSubmit, onDelete, initialData, drivers, assets }
 
           {/* TAB 2: ROUTE & CARGO */}
           <TabsContent value="route" className="space-y-6 mt-4">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* PICKUP */}
-              <Card className="border-l-4 border-l-primary/50">
-                <CardHeader><CardTitle className="text-base flex items-center gap-2"><MapPin className="h-4 w-4" /> Pickup (Stop 1)</CardTitle></CardHeader>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* ORIGIN */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center justify-between">
+                    <span className="flex items-center gap-2"><MapPin className="h-4 w-4 text-primary" /> Origin (Pickup)</span>
+                  </CardTitle>
+                </CardHeader>
                 <CardContent className="space-y-4">
                   <FormField control={form.control} name="origin" render={({ field }) => (
-                    <FormItem><FormLabel>Origin City/State</FormLabel><FormControl><Input placeholder="e.g. Las Vegas, NV" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>City, State</FormLabel><FormControl><Input placeholder="e.g. Chicago, IL" {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="pickup.companyName" render={({ field }) => (
                     <FormItem><FormLabel>Company Name</FormLabel><FormControl><Input placeholder="Shipper Name" {...field} /></FormControl><FormMessage /></FormItem>
@@ -349,24 +461,31 @@ export function FreightForm({ onSubmit, onDelete, initialData, drivers, assets }
                   )} />
                   <div className="grid grid-cols-2 gap-2">
                     <FormField control={form.control} name="pickup.appointmentTime" render={({ field }) => (
-                      <FormItem><FormLabel>Target Time</FormLabel><FormControl><Input placeholder="14:00 - 16:00" {...field} /></FormControl></FormItem>
+                      <FormItem><FormLabel>Target Time</FormLabel><FormControl><Input placeholder="14:00" {...field} /></FormControl></FormItem>
                     )} />
                     <FormField control={form.control} name="pickup.appointmentNumber" render={({ field }) => (
                       <FormItem><FormLabel>Appt #</FormLabel><FormControl><Input placeholder="#" {...field} /></FormControl></FormItem>
                     )} />
                   </div>
                   <FormField control={form.control} name="pickup.notes" render={({ field }) => (
-                    <FormItem><FormLabel>Stop Notes</FormLabel><FormControl><Textarea className="min-h-[60px]" placeholder="Check in instructions..." {...field} /></FormControl></FormItem>
+                    <FormItem><FormLabel>Stop Notes</FormLabel><FormControl><Textarea className="min-h-[60px]" placeholder="Pickup instructions..." {...field} /></FormControl></FormItem>
                   )} />
                 </CardContent>
               </Card>
 
-              {/* DROP */}
-              <Card className="border-l-4 border-l-orange-500/50">
-                <CardHeader><CardTitle className="text-base flex items-center gap-2"><MapPin className="h-4 w-4" /> Drop (Stop 2)</CardTitle></CardHeader>
+              {/* DESTINATION */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center justify-between">
+                    <span className="flex items-center gap-2"><MapPin className="h-4 w-4 text-destructive" /> Destination (Drop)</span>
+                    <FormField control={form.control} name="distance" render={({ field }) => (
+                      <FormItem className="space-y-0"><FormControl><div className="relative w-24"><Input className="h-8 text-right pr-8" placeholder="Miles" {...field} /><span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">mi</span></div></FormControl></FormItem>
+                    )} />
+                  </CardTitle>
+                </CardHeader>
                 <CardContent className="space-y-4">
                   <FormField control={form.control} name="destination" render={({ field }) => (
-                    <FormItem><FormLabel>Destination City/State</FormLabel><FormControl><Input placeholder="e.g. Seattle, WA" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>City, State</FormLabel><FormControl><Input placeholder="e.g. Dallas, TX" {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="drop.companyName" render={({ field }) => (
                     <FormItem><FormLabel>Company Name</FormLabel><FormControl><Input placeholder="Consignee Name" {...field} /></FormControl><FormMessage /></FormItem>
@@ -517,26 +636,70 @@ export function FreightForm({ onSubmit, onDelete, initialData, drivers, assets }
                 <CardTitle className="text-base">Load Expenses</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                {fields.map((field, index) => (
-                  <div key={field.id} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-4 items-start p-2 border rounded-md">
-                    <FormField control={form.control} name={`expenses.${index}.category`} render={({ field }) => (
-                      <FormItem><FormLabel className="sr-only">Category</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Category" /></SelectTrigger></FormControl><SelectContent>{expenseCategories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
-                    )}
-                    />
-                    <FormField control={form.control} name={`expenses.${index}.description`} render={({ field }) => (
-                      <FormItem><FormLabel className="sr-only">Description</FormLabel><FormControl><Input placeholder="Description" {...field} /></FormControl><FormMessage /></FormItem>
-                    )}
-                    />
-                    <FormField control={form.control} name={`expenses.${index}.amount`} render={({ field }) => (
-                      <FormItem><FormLabel className="sr-only">Amount</FormLabel><FormControl><Input type="number" placeholder="$" {...field} /></FormControl><FormMessage /></FormItem>
-                    )}
-                    />
-                    <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="mt-1">
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                ))}
-                <Button type="button" variant="outline" size="sm" onClick={() => append({ category: "Other", description: "", amount: 0 })}>
+                {fields.map((field, index) => {
+                  const isDeleted = form.watch(`expenses.${index}.isDeleted`);
+                  const expenseData = form.watch(`expenses.${index}`);
+
+                  // Show deleted expenses with strikethrough
+                  if (isDeleted) {
+                    return (
+                      <div key={field.id} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-4 items-center p-2 border rounded-md bg-muted/30 opacity-60">
+                        <input type="hidden" {...form.register(`expenses.${index}.id`)} />
+                        <input type="hidden" {...form.register(`expenses.${index}.category`)} />
+                        <input type="hidden" {...form.register(`expenses.${index}.description`)} />
+                        <input type="hidden" {...form.register(`expenses.${index}.amount`)} />
+                        <input type="hidden" {...form.register(`expenses.${index}.isDeleted`)} />
+                        <input type="hidden" {...form.register(`expenses.${index}.deletedAt`)} />
+                        <input type="hidden" {...form.register(`expenses.${index}.loadId`)} />
+                        <input type="hidden" {...form.register(`expenses.${index}.loadNumber`)} />
+
+                        <span className="line-through text-muted-foreground">{expenseData?.category || 'N/A'}</span>
+                        <span className="line-through text-muted-foreground">{expenseData?.description || 'N/A'}</span>
+                        <span className="line-through text-destructive">${Number(expenseData?.amount || 0).toFixed(2)}</span>
+                        <span className="text-xs text-destructive font-medium px-2">DELETED</span>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div key={field.id} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-4 items-start p-2 border rounded-md">
+                      <FormField control={form.control} name={`expenses.${index}.category`} render={({ field }) => (
+                        <FormItem><FormLabel className="sr-only">Category</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Category" /></SelectTrigger></FormControl><SelectContent>{expenseCategories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                      )}
+                      />
+                      <FormField control={form.control} name={`expenses.${index}.description`} render={({ field }) => (
+                        <FormItem><FormLabel className="sr-only">Description</FormLabel><FormControl><Input placeholder="Description" {...field} /></FormControl><FormMessage /></FormItem>
+                      )}
+                      />
+                      <FormField control={form.control} name={`expenses.${index}.amount`} render={({ field }) => (
+                        <FormItem><FormLabel className="sr-only">Amount</FormLabel><FormControl><Input type="number" placeholder="$" {...field} /></FormControl><FormMessage /></FormItem>
+                      )}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          if (window.confirm("Delete this expense line? It will be moved to the Recycle Bin.")) {
+                            const expenseId = form.getValues(`expenses.${index}.id`);
+                            if (expenseId) {
+                              form.setValue(`expenses.${index}.isDeleted`, true, { shouldDirty: true });
+                              form.setValue(`expenses.${index}.deletedAt`, new Date().toISOString());
+                              form.setValue(`expenses.${index}.loadId`, initialData?.id);
+                              form.setValue(`expenses.${index}.loadNumber`, initialData?.freightId || "");
+                            } else {
+                              remove(index);
+                            }
+                          }
+                        }}
+                        className="mt-1"
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  );
+                })}
+                <Button type="button" variant="outline" size="sm" onClick={() => append({ category: "Other", description: "", amount: 0, isDeleted: false })}>
                   <PlusCircle className="mr-2 h-4 w-4" /> Add Expense
                 </Button>
               </CardContent>
@@ -556,6 +719,7 @@ export function FreightForm({ onSubmit, onDelete, initialData, drivers, assets }
                 <div className="flex gap-2">
                   <div className="flex-1">
                     <Input
+                      id="comment-input"
                       placeholder="Add a comment or note..."
                       value={newComment}
                       onChange={(e) => setNewComment(e.target.value)}
@@ -568,12 +732,12 @@ export function FreightForm({ onSubmit, onDelete, initialData, drivers, assets }
                 <div className="space-y-4 max-h-[200px] overflow-y-auto pr-2">
                   {comments.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">No activity logged.</p>}
                   {comments.map((comment) => (
-                    <div key={comment.id} className="flex flex-col gap-1 p-3 rounded-lg bg-white/5 border border-white/5">
+                    <div key={comment.id} className="flex flex-col gap-1 p-3 rounded-lg bg-muted/50 border border-border">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-bold text-primary">{comment.author}</span>
                         <span className="text-[10px] text-muted-foreground">{new Date(comment.timestamp).toLocaleString()}</span>
                       </div>
-                      <p className="text-sm text-white/80">{comment.text}</p>
+                      <p className="text-sm text-foreground">{comment.text}</p>
                     </div>
                   ))}
                 </div>
@@ -595,4 +759,8 @@ export function FreightForm({ onSubmit, onDelete, initialData, drivers, assets }
       </form>
     </Form>
   );
-}
+});
+
+FreightForm.displayName = "FreightForm";
+
+export { FreightForm };

@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Gauge, Truck, Warehouse, Calculator, Menu, Users, Trash2 } from "lucide-react";
+import { Gauge, Truck, Warehouse, Calculator, Menu, Users, Trash2, FileText, Building2, Home, ClipboardList, HandCoins } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { RvtLogo } from "@/components/icons";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 import { useData } from "@/lib/data-context";
+import { appConfig } from "@/lib/config";
 import { Loader2 } from "lucide-react";
 
 const navItems = [
@@ -16,7 +17,10 @@ const navItems = [
   { href: "/freight-ledger", label: "Freight Ledger", icon: Truck },
   { href: "/assets", label: "Assets", icon: Warehouse },
   { href: "/drivers", label: "Drivers", icon: Users },
+  { href: "/expenses", label: "Load Expenses", icon: FileText },
+  { href: "/business-expenses", label: "Business Expenses", icon: Building2 },
   { href: "/payroll", label: "Payroll", icon: Calculator },
+  { href: "/home-management", label: "Home Management", icon: Home },
   { href: "/recycle-bin", label: "Recycle Bin", icon: Trash2 },
 ];
 
@@ -40,22 +44,25 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const navLinks = (
     <nav className="grid gap-2 px-4 py-4">
-      {navItems.map(({ href, label, icon: Icon }) => (
-        <Link
-          key={href}
-          href={href}
-          className={`flex items-center gap-3 rounded-xl px-4 py-3 transition-all duration-300 group ${pathname === href
-            ? "bg-primary text-primary-foreground shadow-[0_0_15px_rgba(var(--primary),0.3)]"
-            : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
-            }`}
-        >
-          <Icon className={`h-4 w-4 transition-transform duration-300 group-hover:scale-110 ${pathname === href ? "" : "text-primary/70"}`} />
-          <span className="font-medium">{label}</span>
-          {pathname === href && (
-            <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary-foreground animate-pulse" />
-          )}
-        </Link>
-      ))}
+      {navItems.map((item) => {
+        const { href, label, icon: Icon } = item;
+        return (
+          <Link
+            key={href}
+            href={href}
+            className={`flex items-center gap-3 rounded-xl px-4 py-3 transition-all duration-300 group ${pathname === href
+              ? "bg-primary text-primary-foreground shadow-[0_0_15px_rgba(var(--primary),0.3)]"
+              : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
+              }`}
+          >
+            <Icon className={`h-4 w-4 transition-transform duration-300 group-hover:scale-110 ${pathname === href ? "" : "text-primary/70"}`} />
+            <span className="font-medium">{label}</span>
+            {pathname === href && (
+              <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary-foreground animate-pulse" />
+            )}
+          </Link>
+        );
+      })}
     </nav>
   );
 
@@ -81,8 +88,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <div className="glass-card !p-4 flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-primary to-accent" />
             <div className="flex flex-col">
-              <span className="text-xs font-bold">Alex Driver</span>
-              <span className="text-[10px] text-muted-foreground">Premium Account</span>
+              <span className="text-xs font-bold">{appConfig.ownerName}</span>
+              <span className="text-[10px] text-muted-foreground">{appConfig.accountType}</span>
             </div>
           </div>
         </div>

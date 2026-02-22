@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState, Fragment, useMemo, useEffect } from "react";
+import { useState, Fragment, useMemo, useEffect, useRef } from "react";
 import { PlusCircle, Pencil, Wallet, ArrowRight, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, MessageSquare, PenTool, X, MapPin } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -23,10 +23,22 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
 import { Card } from "@/components/ui/card";
 import { useData } from "@/lib/data-context";
 import type { Freight, Driver } from "@/lib/types";
 import { FreightForm } from "./freight-form";
+import { StatusDialog } from "@/components/status-dialog";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { FilterBar, type FiltersState } from "./filter-bar";
@@ -39,8 +51,14 @@ export default function FreightLedgerPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingFreight, setEditingFreight] = useState<Freight | null>(null);
 
-  // New state for viewing freight details (View Mode)
-  const [viewingFreight, setViewingFreight] = useState<Freight | null>(null);
+  // Store only the ID for viewing - derive the actual freight from live data
+  const [viewingFreightId, setViewingFreightId] = useState<string | null>(null);
+  const viewingFreight = viewingFreightId ? freight.find(f => f.id === viewingFreightId) || null : null;
+
+  const [statusFreight, setStatusFreight] = useState<Freight | null>(null);
+  const formRef = useRef<{ isDirty: () => boolean, submit: () => void } | null>(null);
+  const [showDiscardAlert, setShowDiscardAlert] = useState(false);
+
 
   const [currentPage, setCurrentPage] = useState(1);
   const [filters, setFilters] = useState<FiltersState>({
@@ -84,13 +102,36 @@ export default function FreightLedgerPage() {
   };
 
   const handleSaveFreight = (values: Omit<Freight, "id"> & { id?: string }) => {
+    console.log("handleSaveFreight called with:", values);
+
     if (values.id) {
-      setFreight(prev => prev.map(f => f.id === values.id ? { ...f, ...values } : f));
+      // EDITING existing freight
+      console.log("Updating freight with id:", values.id);
+      setFreight(prev => {
+        const updated = prev.map(f => {
+          if (f.id === values.id) {
+            // Merge the existing freight with new values, ensuring all fields are updated
+            const merged = {
+              ...f,
+              ...values,
+              id: f.id, // Keep original ID
+              date: values.date, // Ensure date is updated
+            };
+            console.log("Merged freight:", merged);
+            return merged;
+          }
+          return f;
+        });
+        console.log("Updated freight array:", updated);
+        return updated;
+      });
     } else {
+      // CREATING new freight
       const newFreight: Freight = {
         ...values,
         id: Math.random().toString(36).substr(2, 9),
       } as Freight;
+      console.log("Creating new freight:", newFreight);
       setFreight(prev => [newFreight, ...prev]);
     }
     setIsDialogOpen(false);
@@ -104,6 +145,39 @@ export default function FreightLedgerPage() {
     setEditingFreight(null);
   };
 
+  const handleUpdateStatus = (id: string, newStatus: Freight['status'], comment: string) => {
+    setFreight(prev => prev.map(f => {
+      if (f.id === id) {
+        // Create change comment
+        const statusComment = {
+          id: Math.random().toString(36).substr(2, 9),
+          text: `Status changed: ${f.status} -> ${newStatus}`,
+          author: "System",
+          timestamp: new Date().toISOString(),
+          type: 'system' as const
+        };
+
+        // Create user note comment
+        const userComment = {
+          id: Math.random().toString(36).substr(2, 9),
+          text: comment,
+          author: "User",
+          timestamp: new Date().toISOString(),
+          type: 'manual' as const
+        };
+
+        const currentComments = f.comments || [];
+
+        return {
+          ...f,
+          status: newStatus,
+          comments: [userComment, statusComment, ...currentComments]
+        };
+      }
+      return f;
+    }));
+  };
+
   const formatCurrency = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
 
   const handleRowClick = (item: Freight) => {
@@ -112,7 +186,7 @@ export default function FreightLedgerPage() {
       // Direct user to fix the issue
       handleOpenDialog(item);
     } else {
-      setViewingFreight(item);
+      setViewingFreightId(item.id);
     }
   }
 
@@ -219,14 +293,55 @@ export default function FreightLedgerPage() {
       <FilterBar onFilterChange={setFilters} />
 
       {/* EDIT / CREATE DIALOG */}
+      {/* EDIT / CREATE DIALOG */}
       <Dialog open={isDialogOpen} onOpenChange={(open) => {
         if (!open) {
-          setEditingFreight(null);
-          clearEditParam();
+          // Attempting to close
+          if (formRef.current && formRef.current.isDirty()) {
+            setShowDiscardAlert(true);
+          } else {
+            setIsDialogOpen(false);
+            setEditingFreight(null);
+            clearEditParam();
+          }
+        } else {
+          setIsDialogOpen(true);
         }
-        setIsDialogOpen(open);
       }}>
-        <DialogContent className="max-w-[95vw] md:max-w-5xl lg:max-w-6xl">
+        <DialogContent
+          // Hide default Radix close button so we can control it completely
+          className="max-w-[95vw] md:max-w-5xl lg:max-w-6xl [&>button.absolute]:hidden"
+          onInteractOutside={(e) => {
+            if (formRef.current && formRef.current.isDirty()) {
+              e.preventDefault();
+              setShowDiscardAlert(true);
+            }
+          }}
+          onEscapeKeyDown={(e) => {
+            if (formRef.current && formRef.current.isDirty()) {
+              e.preventDefault();
+              setShowDiscardAlert(true);
+            }
+          }}
+        >
+          {/* Custom Close Button */}
+          <button
+            onClick={() => {
+              // Check dirty state
+              if (formRef.current && formRef.current.isDirty()) {
+                setShowDiscardAlert(true);
+              } else {
+                setIsDialogOpen(false);
+                setEditingFreight(null);
+                clearEditParam();
+              }
+            }}
+            className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
+          >
+            <X className="h-4 w-4" />
+            <span className="sr-only">Close</span>
+          </button>
+
           <DialogHeader>
             <DialogTitle>{editingFreight ? 'Edit Load' : 'Add New Load'}</DialogTitle>
             <DialogDescription>
@@ -234,13 +349,62 @@ export default function FreightLedgerPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="max-h-[80vh] overflow-y-auto p-1">
-            <FreightForm onSubmit={handleSaveFreight} onDelete={handleDeleteFreight} initialData={editingFreight} drivers={drivers} assets={assets} />
+            <FreightForm
+              ref={formRef}
+              onSubmit={handleSaveFreight}
+              onDelete={handleDeleteFreight}
+              initialData={editingFreight}
+              drivers={drivers}
+              assets={assets}
+            />
           </div>
         </DialogContent>
       </Dialog>
 
+      <AlertDialog open={showDiscardAlert} onOpenChange={setShowDiscardAlert}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have unsaved changes. Do you want to save them before closing?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={(e) => {
+              // Prevent default behavior to ensure we handle the close order manually if needed
+              // But generally clean state updates are fine.
+              // The issue "freeze" often happens if the Dialog closes while an overlay is active.
+              e.stopPropagation();
+              setShowDiscardAlert(false);
+
+              // Allow a tiny tick for the Alert to close before nuking the parent dialog
+              setTimeout(() => {
+                setIsDialogOpen(false);
+                setEditingFreight(null);
+                clearEditParam();
+              }, 50);
+            }}>Discard Changes</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => {
+              e.stopPropagation();
+              setShowDiscardAlert(false);
+              if (formRef.current) {
+                // Submit initiates Save, which will eventually close the dialog via handleSaveFreight
+                formRef.current.submit();
+              }
+            }}>Save Changes</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <StatusDialog
+        isOpen={!!statusFreight}
+        onClose={() => setStatusFreight(null)}
+        freight={statusFreight}
+        onUpdateStatus={handleUpdateStatus}
+      />
+
       {/* VIEW DETAILS DIALOG */}
-      <Dialog open={!!viewingFreight} onOpenChange={(open) => !open && setViewingFreight(null)}>
+      <Dialog open={!!viewingFreightId} onOpenChange={(open) => !open && setViewingFreightId(null)}>
         <DialogContent className="max-w-[98vw] md:max-w-7xl lg:max-w-[95vw] overflow-hidden flex flex-col max-h-[90vh]">
           <DialogHeader>
             <div className="flex items-center justify-between pr-8">
@@ -248,6 +412,7 @@ export default function FreightLedgerPage() {
                 Load #{viewingFreight?.freightId}
                 <Badge variant="outline" className="font-mono">{viewingFreight && format(new Date(viewingFreight.date), 'MM/dd/yyyy')}</Badge>
                 {viewingFreight?.postingCode && <Badge variant="secondary">{viewingFreight.postingCode}</Badge>}
+                <Badge variant={viewingFreight?.status === 'Delivered' ? 'default' : viewingFreight?.status === 'Cancelled' ? 'destructive' : 'outline'}>{viewingFreight?.status}</Badge>
               </DialogTitle>
             </div>
             <DialogDescription>
@@ -384,18 +549,33 @@ export default function FreightLedgerPage() {
                   <div>
                     <h3 className="font-headline text-lg mb-3 flex items-center justify-between">
                       <span>Expenses</span>
-                      <Badge variant={viewingFreight.expenses.length > 0 ? "destructive" : "outline"}>{viewingFreight.expenses.length} items</Badge>
+                      <Badge variant={viewingFreight.expenses.filter(e => !e.isDeleted).length > 0 ? "destructive" : "outline"}>
+                        {viewingFreight.expenses.filter(e => !e.isDeleted).length} active
+                      </Badge>
                     </h3>
                     <div className="bg-muted/30 rounded-xl border overflow-hidden max-h-[200px] overflow-y-auto">
                       {viewingFreight.expenses.length > 0 ? (
                         <div className="divide-y">
                           {viewingFreight.expenses.map(exp => (
-                            <div key={exp.id} className="flex justify-between items-center p-3 hover:bg-white/5">
+                            <div
+                              key={exp.id}
+                              className={cn(
+                                "flex justify-between items-center p-3 hover:bg-white/5",
+                                exp.isDeleted && "opacity-50 bg-muted/50"
+                              )}
+                            >
                               <div>
-                                <p className="font-medium text-sm">{exp.description}</p>
-                                <p className="text-xs text-muted-foreground">{exp.category}</p>
+                                <p className={cn("font-medium text-sm", exp.isDeleted && "line-through text-muted-foreground")}>
+                                  {exp.description}
+                                </p>
+                                <p className={cn("text-xs text-muted-foreground", exp.isDeleted && "line-through")}>
+                                  {exp.category}
+                                  {exp.isDeleted && <Badge variant="outline" className="ml-2 text-[10px] text-destructive border-destructive/30">DELETED</Badge>}
+                                </p>
                               </div>
-                              <p className="font-semibold text-destructive text-sm">{formatCurrency(exp.amount)}</p>
+                              <p className={cn("font-semibold text-sm", exp.isDeleted ? "line-through text-muted-foreground" : "text-destructive")}>
+                                {formatCurrency(exp.amount)}
+                              </p>
                             </div>
                           ))}
                         </div>
@@ -442,10 +622,11 @@ export default function FreightLedgerPage() {
 
               {/* FOOTER ACTIONS */}
               <div className="flex justify-end pt-6 border-t mt-4 gap-4">
-                <Button variant="outline" onClick={() => setViewingFreight(null)}>Close</Button>
+                <Button variant="outline" onClick={() => setViewingFreightId(null)}>Close</Button>
                 <Button onClick={() => {
-                  setViewingFreight(null);
-                  handleOpenDialog(viewingFreight);
+                  const freightToEdit = viewingFreight;
+                  setViewingFreightId(null);
+                  if (freightToEdit) handleOpenDialog(freightToEdit);
                 }}>
                   <Pencil className="mr-2 h-4 w-4" /> Edit Load
                 </Button>
@@ -469,6 +650,7 @@ export default function FreightLedgerPage() {
               <TableHead className="w-[40px]"></TableHead>
               <TableHead className="hidden sm:table-cell">Date</TableHead>
               <TableHead>Freight ID</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead>Driver</TableHead>
               <TableHead>Route</TableHead>
               <TableHead className="text-right">RPM</TableHead>
@@ -504,6 +686,23 @@ export default function FreightLedgerPage() {
                     <TableCell className="font-medium">
                       {item.freightId}
                       {item.agencyName && <div className="text-[10px] text-muted-foreground font-normal truncate max-w-[100px]" title={item.agencyName}>{item.agencyName}</div>}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={cn(
+                        "text-[10px] uppercase tracking-wider font-bold",
+                        item.status === 'Delivered' && "bg-success/10 text-success border-success/20",
+                        item.status === 'Cancelled' && "bg-destructive/10 text-destructive border-destructive/20",
+                        (item.status === 'In Route' || item.status === 'For Pickup') && "bg-blue-500/10 text-blue-500 border-blue-500/20",
+                        item.status === 'Draft' && "text-muted-foreground"
+                      )}>
+                        {item.status}
+                      </Badge>
+                      <Button variant="ghost" size="sm" className="h-5 text-[10px] ml-1 px-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => {
+                        e.stopPropagation();
+                        setStatusFreight(item);
+                      }}>
+                        <Pencil className="h-3 w-3" />
+                      </Button>
                     </TableCell>
                     <TableCell>
                       <div>{item.driverName}</div>

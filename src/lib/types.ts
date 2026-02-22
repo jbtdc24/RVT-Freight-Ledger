@@ -1,8 +1,35 @@
+export type ExpenseCategory = 'Maintenance' | 'Fuel' | 'Repairs' | 'Tolls' | 'Scale Ticket' | 'Other';
+
 export type LoadExpense = {
   id: string;
-  category: 'Maintenance' | 'Fuel' | 'Repairs' | 'Other';
+  category: ExpenseCategory;
   description: string;
   amount: number;
+  date?: string; // ISO string
+  isDeleted?: boolean;
+  deletedAt?: string;
+  loadId?: string; // Back-reference
+  loadNumber?: string; // For display in Recycle Bin
+};
+
+export type StandaloneExpense = {
+  id: string;
+  category: ExpenseCategory;
+  description: string;
+  amount: number;
+  date: string; // ISO string
+
+  // Optional links
+  driverId?: string;
+  driverName?: string;
+  assetId?: string;
+  assetName?: string;
+
+  // History
+  comments?: LoadComment[];
+
+  isDeleted?: boolean;
+  deletedAt?: string;
 };
 
 export type LoadComment = {
@@ -83,6 +110,9 @@ export type Freight = {
   // Soft delete
   isDeleted?: boolean;
   deletedAt?: string;
+
+  // Status
+  status: 'Draft' | 'For Pickup' | 'In Route' | 'Delivered' | 'Cancelled';
 };
 
 export type StopDetail = {
