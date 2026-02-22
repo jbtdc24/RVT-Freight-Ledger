@@ -24,18 +24,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 
-const expenseCategories = ["Maintenance", "Fuel", "Repairs", "Tolls", "Scale Ticket", "Other"] as const;
 
-const expenseSchema = z.object({
-  id: z.string().optional(),
-  category: z.enum(expenseCategories),
-  description: z.string().min(3, "Description must be at least 3 characters."),
-  amount: z.coerce.number().positive("Amount must be a positive number."),
-  isDeleted: z.boolean().optional(),
-  deletedAt: z.string().optional(),
-  loadId: z.string().optional(),
-  loadNumber: z.string().optional(),
-});
 
 const commentSchema = z.object({
   id: z.string(),
@@ -108,7 +97,7 @@ const formSchema = z.object({
   ownerPercentage: z.coerce.number().min(0).max(100).default(100),
 
   comments: z.array(commentSchema).optional(),
-  expenses: z.array(expenseSchema).optional(),
+
 });
 
 type FreightFormValues = z.infer<typeof formSchema>;
@@ -135,7 +124,7 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
     defaultValues: initialData ? {
       ...initialData,
       date: initialData.date ? new Date(initialData.date) : new Date(),
-      expenses: initialData.expenses || [],
+
       comments: initialData.comments || [],
     } : {
       date: new Date(),
@@ -146,7 +135,7 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
       fuelSurcharge: 0,
       accessorials: 0,
       ownerPercentage: 100, // Default to 100% split
-      expenses: [],
+
       comments: [],
       status: 'Draft',
     },
@@ -163,7 +152,7 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
       form.reset({
         ...initialData,
         date: initialData.date ? new Date(initialData.date) : new Date(),
-        expenses: initialData.expenses || [],
+
         comments: initialData.comments || [],
       });
     } else {
@@ -176,7 +165,7 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
         fuelSurcharge: 0,
         accessorials: 0,
         ownerPercentage: 100,
-        expenses: [],
+
         comments: [],
         status: 'Draft',
       });
@@ -196,10 +185,7 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
     }
   }));
 
-  const { fields, append, remove } = useFieldArray({
-    control: form.control,
-    name: "expenses",
-  });
+
 
   const comments = form.watch("comments") || [];
 
@@ -221,10 +207,7 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
   function handleFormSubmit(values: FreightFormValues) {
     const ownerBase = (values.lineHaul || 0) * (values.ownerPercentage / 100);
     const ownerAmount = ownerBase + (values.fuelSurcharge || 0) + (values.accessorials || 0) + (values.loading || 0) + (values.unloading || 0);
-    const totalExpenses = (values.expenses || []).filter(exp => !exp.isDeleted).reduce((sum, exp) => sum + exp.amount, 0);
-    const netProfit = ownerAmount - totalExpenses;
 
-    const processedExpenses = (values.expenses || []).map(exp => ({ ...exp, id: exp.id || `exp-${Date.now()}-${Math.random()}` }));
 
     let changeLog = initialData ? "Load updated" : "Load created";
     let hasChanges = false;
@@ -282,11 +265,11 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
     // Cast values to Freight (loose cast due to form values shape match)
     const submissionData: any = {
       ...values,
-      expenses: processedExpenses,
+      expenses: [], // Default to empty since we removed the feature
       comments: finalComments,
       revenue: (values.lineHaul || 0) + (values.fuelSurcharge || 0) + (values.accessorials || 0) + (values.loading || 0) + (values.unloading || 0),
-      totalExpenses,
-      netProfit,
+      totalExpenses: 0,
+      netProfit: ownerAmount,
       ownerAmount,
       driverName: drivers.find(d => d.id === values.driverId)?.name,
       assetName: assets.find(a => a.id === values.assetId)?.identifier,
@@ -306,7 +289,7 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
       // Map field to tab
       const detailFields = ['agencyName', 'postingCode', 'contactName', 'contactPhone', 'contactEmail', 'contactFax', 'operatingEntity', 'freightId', 'freightBillNumber', 'customerReferenceNumber', 'status', 'date', 'driverId', 'assetId'];
       const routeFields = ['origin', 'destination', 'distance', 'pickup', 'drop', 'weight', 'commodity', 'pieces', 'dimensions', 'nmfcCode', 'freightClass', 'temperatureControl', 'trailerNumber', 'equipmentType', 'hazardousMaterial', 'bcoSpecialInstructions'];
-      const financialFields = ['lineHaul', 'fuelSurcharge', 'loading', 'unloading', 'accessorials', 'ownerPercentage', 'expenses'];
+      const financialFields = ['lineHaul', 'fuelSurcharge', 'loading', 'unloading', 'accessorials', 'ownerPercentage'];
 
       if (detailFields.includes(firstError)) {
         setActiveTab('details');
@@ -631,79 +614,7 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Load Expenses</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {fields.map((field, index) => {
-                  const isDeleted = form.watch(`expenses.${index}.isDeleted`);
-                  const expenseData = form.watch(`expenses.${index}`);
 
-                  // Show deleted expenses with strikethrough
-                  if (isDeleted) {
-                    return (
-                      <div key={field.id} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-4 items-center p-2 border rounded-md bg-muted/30 opacity-60">
-                        <input type="hidden" {...form.register(`expenses.${index}.id`)} />
-                        <input type="hidden" {...form.register(`expenses.${index}.category`)} />
-                        <input type="hidden" {...form.register(`expenses.${index}.description`)} />
-                        <input type="hidden" {...form.register(`expenses.${index}.amount`)} />
-                        <input type="hidden" {...form.register(`expenses.${index}.isDeleted`)} />
-                        <input type="hidden" {...form.register(`expenses.${index}.deletedAt`)} />
-                        <input type="hidden" {...form.register(`expenses.${index}.loadId`)} />
-                        <input type="hidden" {...form.register(`expenses.${index}.loadNumber`)} />
-
-                        <span className="line-through text-muted-foreground">{expenseData?.category || 'N/A'}</span>
-                        <span className="line-through text-muted-foreground">{expenseData?.description || 'N/A'}</span>
-                        <span className="line-through text-destructive">${Number(expenseData?.amount || 0).toFixed(2)}</span>
-                        <span className="text-xs text-destructive font-medium px-2">DELETED</span>
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <div key={field.id} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-4 items-start p-2 border rounded-md">
-                      <FormField control={form.control} name={`expenses.${index}.category`} render={({ field }) => (
-                        <FormItem><FormLabel className="sr-only">Category</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Category" /></SelectTrigger></FormControl><SelectContent>{expenseCategories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
-                      )}
-                      />
-                      <FormField control={form.control} name={`expenses.${index}.description`} render={({ field }) => (
-                        <FormItem><FormLabel className="sr-only">Description</FormLabel><FormControl><Input placeholder="Description" {...field} /></FormControl><FormMessage /></FormItem>
-                      )}
-                      />
-                      <FormField control={form.control} name={`expenses.${index}.amount`} render={({ field }) => (
-                        <FormItem><FormLabel className="sr-only">Amount</FormLabel><FormControl><Input type="number" placeholder="$" {...field} /></FormControl><FormMessage /></FormItem>
-                      )}
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          if (window.confirm("Delete this expense line? It will be moved to the Recycle Bin.")) {
-                            const expenseId = form.getValues(`expenses.${index}.id`);
-                            if (expenseId) {
-                              form.setValue(`expenses.${index}.isDeleted`, true, { shouldDirty: true });
-                              form.setValue(`expenses.${index}.deletedAt`, new Date().toISOString());
-                              form.setValue(`expenses.${index}.loadId`, initialData?.id);
-                              form.setValue(`expenses.${index}.loadNumber`, initialData?.freightId || "");
-                            } else {
-                              remove(index);
-                            }
-                          }
-                        }}
-                        className="mt-1"
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  );
-                })}
-                <Button type="button" variant="outline" size="sm" onClick={() => append({ category: "Other", description: "", amount: 0, isDeleted: false })}>
-                  <PlusCircle className="mr-2 h-4 w-4" /> Add Expense
-                </Button>
-              </CardContent>
-            </Card>
           </TabsContent>
 
           {/* TAB 4: LOGS & NOTES */}
