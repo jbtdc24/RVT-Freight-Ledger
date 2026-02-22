@@ -42,7 +42,7 @@ import { StatusDialog } from "@/components/status-dialog";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { FilterBar, type FiltersState } from "./filter-bar";
-import { isBefore, isAfter, startOfDay, endOfDay, format } from 'date-fns';
+import { isBefore, isAfter, startOfDay, endOfDay, format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, isWithinInterval } from 'date-fns';
 
 const ITEMS_PER_PAGE = 12;
 
@@ -69,6 +69,7 @@ export default function FreightLedgerPage() {
     expenses: { min: '', max: '' },
     netProfit: { min: '', max: '' },
     dateRange: undefined,
+    dateFilterType: 'month' as const,
   });
 
   const searchParams = useSearchParams();
@@ -194,7 +195,7 @@ export default function FreightLedgerPage() {
     return freight.filter(item => {
       if (item.isDeleted) return false;
 
-      const { freightId, route, textSearch, revenue, expenses, netProfit, dateRange } = filters;
+      const { freightId, route, textSearch, revenue, expenses, netProfit, dateRange, dateFilterType } = filters;
 
       if (freightId && !item.freightId.toLowerCase().includes(freightId.toLowerCase())) {
         return false;
@@ -210,27 +211,51 @@ export default function FreightLedgerPage() {
       if (textSearch) {
         const searchStr = textSearch.toLowerCase();
         const matches =
+          (item.freightId && item.freightId.toLowerCase().includes(searchStr)) ||
           (item.driverName && item.driverName.toLowerCase().includes(searchStr)) ||
           (item.agencyName && item.agencyName.toLowerCase().includes(searchStr)) ||
+          (item.operatingEntity && item.operatingEntity.toLowerCase().includes(searchStr)) ||
           (item.contactName && item.contactName.toLowerCase().includes(searchStr)) ||
+          (item.contactEmail && item.contactEmail.toLowerCase().includes(searchStr)) ||
+          (item.contactPhone && item.contactPhone.toLowerCase().includes(searchStr)) ||
           (item.commodity && item.commodity.toLowerCase().includes(searchStr)) ||
           (item.assetName && item.assetName.toLowerCase().includes(searchStr)) ||
-          (item.freightBillNumber && item.freightBillNumber.toLowerCase().includes(searchStr));
+          (item.freightBillNumber && item.freightBillNumber.toLowerCase().includes(searchStr)) ||
+          (item.customerReferenceNumber && item.customerReferenceNumber.toLowerCase().includes(searchStr)) ||
+          (item.trailerNumber && item.trailerNumber.toLowerCase().includes(searchStr)) ||
+          (item.equipmentType && item.equipmentType.toLowerCase().includes(searchStr)) ||
+          (item.nmfcCode && item.nmfcCode.toLowerCase().includes(searchStr)) ||
+          (item.freightClass && item.freightClass.toLowerCase().includes(searchStr)) ||
+          (item.temperatureControl && item.temperatureControl.toLowerCase().includes(searchStr)) ||
+          (item.bcoSpecialInstructions && item.bcoSpecialInstructions.toLowerCase().includes(searchStr)) ||
+          (item.pickup?.companyName && item.pickup.companyName.toLowerCase().includes(searchStr)) ||
+          (item.drop?.companyName && item.drop.companyName.toLowerCase().includes(searchStr)) ||
+          (item.origin && item.origin.toLowerCase().includes(searchStr)) ||
+          (item.destination && item.destination.toLowerCase().includes(searchStr));
 
         if (!matches) return false;
       }
 
-      if (dateRange?.from) {
-        const itemDate = new Date(item.date);
-        if (isBefore(itemDate, startOfDay(dateRange.from))) {
-          return false;
-        }
+      const now = new Date();
+      let start: Date | undefined, end: Date | undefined;
+
+      if (dateFilterType === 'week') {
+        start = startOfWeek(now, { weekStartsOn: 1 });
+        end = endOfWeek(now, { weekStartsOn: 1 });
+      } else if (dateFilterType === 'month') {
+        start = startOfMonth(now);
+        end = endOfMonth(now);
+      } else if (dateFilterType === 'year') {
+        start = startOfYear(now);
+        end = endOfYear(now);
+      } else if (dateFilterType === 'range' && dateRange?.from) {
+        start = startOfDay(dateRange.from);
+        end = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
       }
-      if (dateRange?.to) {
+
+      if (start && end) {
         const itemDate = new Date(item.date);
-        if (isAfter(itemDate, endOfDay(dateRange.to))) {
-          return false;
-        }
+        if (!isWithinInterval(itemDate, { start: start!, end: end! })) return false;
       }
 
       const revenueMin = parseFloat(revenue.min);

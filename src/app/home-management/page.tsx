@@ -1,24 +1,25 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Progress } from "@/components/ui/progress";
 import {
-    Home, TrendingUp, TrendingDown, Calendar, Wallet, HandCoins, Plus, CheckCircle2,
-    Clock, Trash2, Edit2, DollarSign, ShoppingCart, Car, Film, Zap, Heart,
-    GraduationCap, Utensils, Briefcase, Gift, PiggyBank, CreditCard, MoreHorizontal,
-    ArrowUpCircle, ArrowDownCircle
+    Home, TrendingUp, TrendingDown, Calendar, Wallet, Plus,
+    Trash2, Edit2, DollarSign, ShoppingCart, Car, Film, Zap, Heart,
+    GraduationCap, Utensils, Briefcase, Gift, PiggyBank, MoreHorizontal,
+    ArrowUpCircle, ArrowDownCircle, X, Search
 } from "lucide-react";
-import { format, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
+import { format, startOfMonth, endOfMonth, isWithinInterval, startOfWeek, endOfWeek, startOfYear, endOfYear, startOfDay, endOfDay } from "date-fns";
+import { cn } from "@/lib/utils";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { type DateRange } from "react-day-picker";
 
 // Transaction Types
 type TransactionType = 'income' | 'expense';
@@ -32,21 +33,7 @@ type Transaction = {
     date: string;
 };
 
-type Receivable = {
-    id: string;
-    source: string;
-    description: string;
-    amount: number;
-    dueDate: string;
-    status: 'pending' | 'paid' | 'overdue';
-    paidDate?: string;
-    category: string;
-};
 
-type Budget = {
-    category: string;
-    limit: number;
-};
 
 // Category definitions
 const incomeCategories = [
@@ -70,7 +57,6 @@ const expenseCategories = [
     { value: "other_expense", label: "Other", icon: MoreHorizontal },
 ];
 
-const receivableCategories = ["Rent", "Invoice", "Loan Repayment", "Refund", "Salary", "Gift", "Other"];
 
 export default function HomeManagementPage() {
     const [activeTab, setActiveTab] = useState("overview");
@@ -86,51 +72,103 @@ export default function HomeManagementPage() {
         description: "",
         date: format(new Date(), "yyyy-MM-dd"),
     });
-
-    // Receivables State
-    const [receivables, setReceivables] = useState<Receivable[]>([]);
-    const [isReceivableDialogOpen, setIsReceivableDialogOpen] = useState(false);
-    const [editingReceivableId, setEditingReceivableId] = useState<string | null>(null);
-    const [receivableForm, setReceivableForm] = useState({
-        source: "",
-        description: "",
-        amount: "",
-        dueDate: format(new Date(), "yyyy-MM-dd"),
-        category: "Other",
+    const [customCategories, setCustomCategories] = useState<Record<string, string[]>>(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('rvt_home_categories_v2');
+            if (saved) return JSON.parse(saved);
+        }
+        return { income: [], expense: [] };
     });
 
-    // Budgets State
-    const [budgets, setBudgets] = useState<Budget[]>([
-        { category: "food", limit: 500 },
-        { category: "transportation", limit: 300 },
-        { category: "entertainment", limit: 200 },
-    ]);
-    const [isBudgetDialogOpen, setIsBudgetDialogOpen] = useState(false);
-    const [budgetForm, setBudgetForm] = useState({ category: "", limit: "" });
+    useEffect(() => {
+        localStorage.setItem('rvt_home_categories_v2', JSON.stringify(customCategories));
+    }, [customCategories]);
 
-    const currentMonth = format(new Date(), "MMMM yyyy");
-    const monthStart = startOfMonth(new Date());
-    const monthEnd = endOfMonth(new Date());
+    const removeCustomCategory = (type: string, cat: string) => {
+        if (!window.confirm(`Delete custom category "${cat}"?`)) return;
+        setCustomCategories(prev => ({
+            ...prev,
+            [type]: (prev[type] || []).filter(c => c !== cat)
+        }));
+    };
+
+
+    // Filter State
+    const [searchTerm, setSearchTerm] = useState("");
+    const [dateFilterType, setDateFilterType] = useState<"week" | "month" | "year" | "range">("month");
+    const [dateRange, setDateRange] = useState<DateRange | undefined>();
+
+    const getCategoryLabel = (value: string) => {
+        const all = [...incomeCategories, ...expenseCategories];
+        return all.find(c => c.value === value)?.label || value;
+    };
 
     const formatCurrency = (value: number) =>
         new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
 
-    // Calculate monthly totals
-    const monthlyStats = useMemo(() => {
-        const thisMonthTransactions = transactions.filter(t => {
-            const date = new Date(t.date);
-            return isWithinInterval(date, { start: monthStart, end: monthEnd });
-        });
+    const filteredTransactions = useMemo(() => {
+        let result = transactions;
 
-        const income = thisMonthTransactions
+        if (searchTerm) {
+            const searchLower = searchTerm.toLowerCase();
+            result = result.filter(t =>
+                t.description.toLowerCase().includes(searchLower) ||
+                t.category.toLowerCase().includes(searchLower) ||
+                t.amount.toString().includes(searchLower) ||
+                getCategoryLabel(t.category).toLowerCase().includes(searchLower)
+            );
+        }
+
+        const now = new Date();
+        let start: Date | undefined, end: Date | undefined;
+
+        if (dateFilterType === 'week') {
+            start = startOfWeek(now, { weekStartsOn: 1 });
+            end = endOfWeek(now, { weekStartsOn: 1 });
+        } else if (dateFilterType === 'month') {
+            start = startOfMonth(now);
+            end = endOfMonth(now);
+        } else if (dateFilterType === 'year') {
+            start = startOfYear(now);
+            end = endOfYear(now);
+        } else if (dateFilterType === 'range' && dateRange?.from) {
+            start = startOfDay(dateRange.from);
+            end = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
+        }
+
+        if (start && end) {
+            result = result.filter(t => {
+                const d = new Date(t.date);
+                return isWithinInterval(d, { start: start!, end: end! });
+            });
+        }
+
+        return result.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }, [transactions, searchTerm, dateFilterType, dateRange]);
+
+
+    const currentMonthLabel = useMemo(() => {
+        if (dateFilterType === 'week') return "This Week";
+        if (dateFilterType === 'month') return format(new Date(), "MMMM yyyy");
+        if (dateFilterType === 'year') return format(new Date(), "yyyy");
+        if (dateFilterType === 'range' && dateRange?.from) {
+            if (dateRange.to) return `${format(dateRange.from, "MMM d")} - ${format(dateRange.to, "MMM d")}`;
+            return format(dateRange.from, "MMM d, yyyy");
+        }
+        return "All Time";
+    }, [dateFilterType, dateRange]);
+
+    // Calculate monthly totals based off FILTERED transactions
+    const monthlyStats = useMemo(() => {
+        const income = filteredTransactions
             .filter(t => t.type === 'income')
             .reduce((sum, t) => sum + t.amount, 0);
 
-        const expenses = thisMonthTransactions
+        const expenses = filteredTransactions
             .filter(t => t.type === 'expense')
             .reduce((sum, t) => sum + t.amount, 0);
 
-        const expensesByCategory = thisMonthTransactions
+        const expensesByCategory = filteredTransactions
             .filter(t => t.type === 'expense')
             .reduce((acc, t) => {
                 acc[t.category] = (acc[t.category] || 0) + t.amount;
@@ -142,12 +180,9 @@ export default function HomeManagementPage() {
             expenses,
             balance: income - expenses,
             expensesByCategory,
-            transactionCount: thisMonthTransactions.length,
+            transactionCount: filteredTransactions.length,
         };
-    }, [transactions, monthStart, monthEnd]);
-
-    const pendingReceivables = receivables.filter(r => r.status === 'pending').reduce((sum, r) => sum + r.amount, 0);
-    const paidReceivables = receivables.filter(r => r.status === 'paid').reduce((sum, r) => sum + r.amount, 0);
+    }, [filteredTransactions]);
 
     // Transaction handlers
     const resetTransactionForm = () => {
@@ -168,12 +203,21 @@ export default function HomeManagementPage() {
             return;
         }
 
+        const finalCategory = transactionForm.category.trim() || 'Other';
+        const predefined = transactionForm.type === 'income' ? incomeCategories.map(c => c.value) : expenseCategories.map(c => c.value);
+        if (!predefined.includes(finalCategory) && !(customCategories[transactionForm.type] || []).includes(finalCategory)) {
+            setCustomCategories(prev => ({
+                ...prev,
+                [transactionForm.type]: [...(prev[transactionForm.type] || []), finalCategory]
+            }));
+        }
+
         if (editingTransactionId) {
             setTransactions(prev => prev.map(t => t.id === editingTransactionId ? {
                 ...t,
                 type: transactionForm.type,
                 amount,
-                category: transactionForm.category,
+                category: finalCategory,
                 description: transactionForm.description,
                 date: new Date(transactionForm.date).toISOString(),
             } : t));
@@ -182,7 +226,7 @@ export default function HomeManagementPage() {
                 id: Math.random().toString(36).substr(2, 9),
                 type: transactionForm.type,
                 amount,
-                category: transactionForm.category,
+                category: finalCategory,
                 description: transactionForm.description,
                 date: new Date(transactionForm.date).toISOString(),
             }, ...prev]);
@@ -210,90 +254,9 @@ export default function HomeManagementPage() {
         }
     };
 
-    // Receivable handlers
-    const resetReceivableForm = () => {
-        setReceivableForm({
-            source: "",
-            description: "",
-            amount: "",
-            dueDate: format(new Date(), "yyyy-MM-dd"),
-            category: "Other",
-        });
-        setEditingReceivableId(null);
-    };
 
-    const handleSaveReceivable = () => {
-        const amount = parseFloat(receivableForm.amount);
-        if (!receivableForm.source || isNaN(amount) || amount <= 0) {
-            alert("Please fill in all required fields.");
-            return;
-        }
 
-        if (editingReceivableId) {
-            setReceivables(prev => prev.map(r => r.id === editingReceivableId ? {
-                ...r,
-                source: receivableForm.source,
-                description: receivableForm.description,
-                amount,
-                dueDate: new Date(receivableForm.dueDate).toISOString(),
-                category: receivableForm.category,
-            } : r));
-        } else {
-            setReceivables(prev => [{
-                id: Math.random().toString(36).substr(2, 9),
-                source: receivableForm.source,
-                description: receivableForm.description,
-                amount,
-                dueDate: new Date(receivableForm.dueDate).toISOString(),
-                status: 'pending',
-                category: receivableForm.category,
-            }, ...prev]);
-        }
 
-        resetReceivableForm();
-        setIsReceivableDialogOpen(false);
-    };
-
-    const handleMarkReceivablePaid = (id: string) => {
-        setReceivables(prev => prev.map(r => r.id === id ? {
-            ...r,
-            status: 'paid',
-            paidDate: new Date().toISOString(),
-        } : r));
-    };
-
-    const handleDeleteReceivable = (id: string) => {
-        if (window.confirm("Delete this receivable?")) {
-            setReceivables(prev => prev.filter(r => r.id !== id));
-        }
-    };
-
-    // Budget handlers
-    const handleSaveBudget = () => {
-        const limit = parseFloat(budgetForm.limit);
-        if (!budgetForm.category || isNaN(limit) || limit <= 0) {
-            alert("Please enter a valid category and limit.");
-            return;
-        }
-
-        setBudgets(prev => {
-            const existing = prev.findIndex(b => b.category === budgetForm.category);
-            if (existing >= 0) {
-                const updated = [...prev];
-                updated[existing] = { category: budgetForm.category, limit };
-                return updated;
-            }
-            return [...prev, { category: budgetForm.category, limit }];
-        });
-
-        setBudgetForm({ category: "", limit: "" });
-        setIsBudgetDialogOpen(false);
-    };
-
-    const getCategoryLabel = (value: string) => {
-        const all = [...incomeCategories, ...expenseCategories];
-        return all.find(c => c.value === value)?.label || value;
-    };
 
     const getCategoryIcon = (value: string, type: TransactionType) => {
         const categories = type === 'income' ? incomeCategories : expenseCategories;
@@ -301,38 +264,58 @@ export default function HomeManagementPage() {
         return cat?.icon || MoreHorizontal;
     };
 
-    const getStatusBadge = (status: Receivable['status']) => {
-        switch (status) {
-            case 'paid':
-                return <Badge className="bg-green-500/20 text-green-500 border-green-500/30">Paid</Badge>;
-            case 'overdue':
-                return <Badge className="bg-red-500/20 text-red-500 border-red-500/30">Overdue</Badge>;
-            default:
-                return <Badge className="bg-amber-500/20 text-amber-500 border-amber-500/30">Pending</Badge>;
-        }
-    };
+
 
     return (
         <div className="space-y-8">
             <PageHeader title="Home Management">
                 <Badge variant="outline" className="text-sm">
                     <Calendar className="mr-2 h-4 w-4" />
-                    {currentMonth}
+                    {currentMonthLabel}
                 </Badge>
             </PageHeader>
 
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="relative w-full max-w-sm">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        type="search"
+                        placeholder="Search transactions..."
+                        className="pl-8"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+                <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-full w-full sm:w-auto overflow-x-auto">
+                    {(['week', 'month', 'year', 'range'] as const).map(type => (
+                        <Button
+                            key={type}
+                            variant={dateFilterType === type ? "default" : "ghost"}
+                            size="sm"
+                            className={cn("rounded-full capitalize", dateFilterType === type ? "shadow-sm" : "")}
+                            onClick={() => setDateFilterType(type)}
+                        >
+                            {type}
+                        </Button>
+                    ))}
+                    {dateFilterType === 'range' && (
+                        <div className="ml-2">
+                            <DateRangePicker date={dateRange} onDateChange={setDateRange} />
+                        </div>
+                    )}
+                </div>
+            </div>
+
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full max-w-lg grid-cols-4">
+                <TabsList className="grid w-full max-w-[250px] grid-cols-2">
                     <TabsTrigger value="overview">Overview</TabsTrigger>
                     <TabsTrigger value="transactions">Transactions</TabsTrigger>
-                    <TabsTrigger value="budgets">Budgets</TabsTrigger>
-                    <TabsTrigger value="receivables">Receivables</TabsTrigger>
                 </TabsList>
 
                 {/* ==================== OVERVIEW TAB ==================== */}
                 <TabsContent value="overview" className="space-y-6 mt-6">
                     {/* Summary Cards */}
-                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+                    <div className="grid gap-6 md:grid-cols-3">
                         <Card className="glass border-0">
                             <CardHeader className="flex flex-row items-center justify-between pb-2">
                                 <CardTitle className="text-sm font-medium text-muted-foreground">Income</CardTitle>
@@ -368,16 +351,6 @@ export default function HomeManagementPage() {
                             </CardContent>
                         </Card>
 
-                        <Card className="glass border-0">
-                            <CardHeader className="flex flex-row items-center justify-between pb-2">
-                                <CardTitle className="text-sm font-medium text-muted-foreground">Pending</CardTitle>
-                                <CreditCard className="h-5 w-5 text-amber-500" />
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold text-amber-500">{formatCurrency(pendingReceivables)}</div>
-                                <p className="text-xs text-muted-foreground mt-1">Receivables</p>
-                            </CardContent>
-                        </Card>
                     </div>
 
                     {/* Spending Breakdown */}
@@ -397,8 +370,6 @@ export default function HomeManagementPage() {
                                     {Object.entries(monthlyStats.expensesByCategory)
                                         .sort((a, b) => b[1] - a[1])
                                         .map(([category, amount]) => {
-                                            const budget = budgets.find(b => b.category === category);
-                                            const percentage = budget ? (amount / budget.limit) * 100 : 0;
                                             const Icon = getCategoryIcon(category, 'expense');
 
                                             return (
@@ -410,19 +381,8 @@ export default function HomeManagementPage() {
                                                         </div>
                                                         <div className="text-right">
                                                             <span className="font-bold text-red-500">{formatCurrency(amount)}</span>
-                                                            {budget && (
-                                                                <span className="text-xs text-muted-foreground ml-2">
-                                                                    / {formatCurrency(budget.limit)}
-                                                                </span>
-                                                            )}
                                                         </div>
                                                     </div>
-                                                    {budget && (
-                                                        <Progress
-                                                            value={Math.min(percentage, 100)}
-                                                            className={`h-2 ${percentage > 100 ? '[&>div]:bg-red-500' : percentage > 80 ? '[&>div]:bg-amber-500' : '[&>div]:bg-green-500'}`}
-                                                        />
-                                                    )}
                                                 </div>
                                             );
                                         })}
@@ -437,11 +397,11 @@ export default function HomeManagementPage() {
                             <CardTitle>Recent Transactions</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            {transactions.length === 0 ? (
-                                <p className="text-center text-muted-foreground py-8">No transactions yet. Add your first one!</p>
+                            {filteredTransactions.length === 0 ? (
+                                <p className="text-center text-muted-foreground py-8">No transactions found.</p>
                             ) : (
                                 <div className="space-y-3">
-                                    {transactions.slice(0, 5).map(t => {
+                                    {filteredTransactions.slice(0, 5).map(t => {
                                         const Icon = getCategoryIcon(t.category, t.type);
                                         return (
                                             <div key={t.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
@@ -525,26 +485,49 @@ export default function HomeManagementPage() {
                                         </div>
                                     </div>
 
-                                    <div className="grid gap-2">
+                                    <div className="space-y-3">
                                         <Label>Category *</Label>
-                                        <Select
+                                        <Input
                                             value={transactionForm.category}
-                                            onValueChange={(value) => setTransactionForm(prev => ({ ...prev, category: value }))}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select category" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {(transactionForm.type === 'income' ? incomeCategories : expenseCategories).map(cat => (
-                                                    <SelectItem key={cat.value} value={cat.value}>
-                                                        <div className="flex items-center gap-2">
-                                                            <cat.icon className="h-4 w-4" />
-                                                            {cat.label}
-                                                        </div>
-                                                    </SelectItem>
+                                            onChange={(e) => setTransactionForm({ ...transactionForm, category: e.target.value })}
+                                            placeholder="Type or select a category below..."
+                                        />
+                                        <div className="flex flex-wrap gap-2">
+                                            {(transactionForm.type === 'income' ? incomeCategories : expenseCategories)
+                                                .filter(c => c.value !== 'other_income' && c.value !== 'other_expense')
+                                                .map(c => (
+                                                    <div
+                                                        key={c.value}
+                                                        onClick={() => setTransactionForm({ ...transactionForm, category: c.value })}
+                                                        className={cn(
+                                                            "px-3 py-1 flex items-center gap-1.5 text-[11px] font-semibold rounded-full cursor-pointer transition-colors border select-none",
+                                                            transactionForm.category === c.value ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground border-transparent hover:bg-muted/80"
+                                                        )}
+                                                    >
+                                                        <c.icon className="h-3.5 w-3.5" />
+                                                        {c.label}
+                                                    </div>
                                                 ))}
-                                            </SelectContent>
-                                        </Select>
+                                            {(customCategories[transactionForm.type] || []).map(c => (
+                                                <div
+                                                    key={c}
+                                                    className={cn(
+                                                        "flex items-center gap-1.5 px-3 py-1 text-[11px] font-semibold rounded-full cursor-pointer transition-colors border select-none group",
+                                                        transactionForm.category === c ? "bg-primary/20 text-primary border-primary" : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
+                                                    )}
+                                                    onClick={() => setTransactionForm({ ...transactionForm, category: c })}
+                                                >
+                                                    {c}
+                                                    <X
+                                                        className="h-3 w-3 text-muted-foreground group-hover:text-destructive transition-colors opacity-70 group-hover:opacity-100"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            removeCustomCategory(transactionForm.type, c);
+                                                        }}
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
 
                                     <div className="grid gap-2">
@@ -566,11 +549,11 @@ export default function HomeManagementPage() {
 
                     <Card>
                         <CardContent className="pt-6">
-                            {transactions.length === 0 ? (
+                            {filteredTransactions.length === 0 ? (
                                 <div className="text-center py-12 text-muted-foreground">
                                     <DollarSign className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                                    <p className="text-lg font-medium">No transactions yet</p>
-                                    <p className="text-sm">Start tracking your income and expenses!</p>
+                                    <p className="text-lg font-medium">No transactions found</p>
+                                    <p className="text-sm">Adjust your filters or start tracking your income and expenses!</p>
                                 </div>
                             ) : (
                                 <Table>
@@ -584,7 +567,7 @@ export default function HomeManagementPage() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {transactions.map((t) => {
+                                        {filteredTransactions.map((t) => {
                                             const Icon = getCategoryIcon(t.category, t.type);
                                             return (
                                                 <TableRow key={t.id}>
@@ -621,265 +604,7 @@ export default function HomeManagementPage() {
                     </Card>
                 </TabsContent>
 
-                {/* ==================== BUDGETS TAB ==================== */}
-                <TabsContent value="budgets" className="space-y-6 mt-6">
-                    <div className="flex justify-between items-center">
-                        <h2 className="text-lg font-semibold">Monthly Budgets</h2>
-                        <Dialog open={isBudgetDialogOpen} onOpenChange={setIsBudgetDialogOpen}>
-                            <DialogTrigger asChild>
-                                <Button>
-                                    <Plus className="mr-2 h-4 w-4" />
-                                    Set Budget
-                                </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                                <DialogHeader>
-                                    <DialogTitle>Set Category Budget</DialogTitle>
-                                    <DialogDescription>Set a monthly spending limit for a category</DialogDescription>
-                                </DialogHeader>
-                                <div className="grid gap-4 py-4">
-                                    <div className="grid gap-2">
-                                        <Label>Category</Label>
-                                        <Select value={budgetForm.category} onValueChange={(v) => setBudgetForm(prev => ({ ...prev, category: v }))}>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select category" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {expenseCategories.map(cat => (
-                                                    <SelectItem key={cat.value} value={cat.value}>
-                                                        <div className="flex items-center gap-2">
-                                                            <cat.icon className="h-4 w-4" />
-                                                            {cat.label}
-                                                        </div>
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="grid gap-2">
-                                        <Label>Monthly Limit ($)</Label>
-                                        <Input
-                                            type="number"
-                                            placeholder="500"
-                                            value={budgetForm.limit}
-                                            onChange={(e) => setBudgetForm(prev => ({ ...prev, limit: e.target.value }))}
-                                        />
-                                    </div>
-                                </div>
-                                <DialogFooter>
-                                    <Button variant="outline" onClick={() => setIsBudgetDialogOpen(false)}>Cancel</Button>
-                                    <Button onClick={handleSaveBudget}>Save Budget</Button>
-                                </DialogFooter>
-                            </DialogContent>
-                        </Dialog>
-                    </div>
 
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        {budgets.map(budget => {
-                            const spent = monthlyStats.expensesByCategory[budget.category] || 0;
-                            const percentage = (spent / budget.limit) * 100;
-                            const remaining = budget.limit - spent;
-                            const Icon = getCategoryIcon(budget.category, 'expense');
-
-                            return (
-                                <Card key={budget.category} className={percentage > 100 ? 'border-red-500/50' : ''}>
-                                    <CardHeader className="pb-2">
-                                        <CardTitle className="flex items-center justify-between text-base">
-                                            <div className="flex items-center gap-2">
-                                                <Icon className="h-4 w-4" />
-                                                {getCategoryLabel(budget.category)}
-                                            </div>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => setBudgets(prev => prev.filter(b => b.category !== budget.category))}
-                                            >
-                                                <Trash2 className="h-4 w-4 text-muted-foreground" />
-                                            </Button>
-                                        </CardTitle>
-                                    </CardHeader>
-                                    <CardContent className="space-y-3">
-                                        <div className="flex justify-between text-sm">
-                                            <span className="text-muted-foreground">Spent</span>
-                                            <span className={`font-bold ${percentage > 100 ? 'text-red-500' : ''}`}>
-                                                {formatCurrency(spent)} / {formatCurrency(budget.limit)}
-                                            </span>
-                                        </div>
-                                        <Progress
-                                            value={Math.min(percentage, 100)}
-                                            className={`h-3 ${percentage > 100 ? '[&>div]:bg-red-500' : percentage > 80 ? '[&>div]:bg-amber-500' : '[&>div]:bg-green-500'}`}
-                                        />
-                                        <p className={`text-sm ${remaining >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                            {remaining >= 0 ? `${formatCurrency(remaining)} remaining` : `${formatCurrency(Math.abs(remaining))} over budget!`}
-                                        </p>
-                                    </CardContent>
-                                </Card>
-                            );
-                        })}
-
-                        {budgets.length === 0 && (
-                            <Card className="col-span-full">
-                                <CardContent className="text-center py-12 text-muted-foreground">
-                                    <PiggyBank className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                                    <p className="text-lg font-medium">No budgets set</p>
-                                    <p className="text-sm">Set spending limits to track your habits!</p>
-                                </CardContent>
-                            </Card>
-                        )}
-                    </div>
-                </TabsContent>
-
-                {/* ==================== RECEIVABLES TAB ==================== */}
-                <TabsContent value="receivables" className="space-y-6 mt-6">
-                    <div className="flex justify-between items-center">
-                        <h2 className="text-lg font-semibold">Money Owed to You</h2>
-                        <Dialog open={isReceivableDialogOpen} onOpenChange={(open) => { setIsReceivableDialogOpen(open); if (!open) resetReceivableForm(); }}>
-                            <DialogTrigger asChild>
-                                <Button>
-                                    <Plus className="mr-2 h-4 w-4" />
-                                    Add Receivable
-                                </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                                <DialogHeader>
-                                    <DialogTitle>{editingReceivableId ? "Edit Receivable" : "Add Receivable"}</DialogTitle>
-                                    <DialogDescription>Track money owed to you</DialogDescription>
-                                </DialogHeader>
-                                <div className="grid gap-4 py-4">
-                                    <div className="grid gap-2">
-                                        <Label>From (Source) *</Label>
-                                        <Input
-                                            placeholder="e.g., John Doe, Client Name"
-                                            value={receivableForm.source}
-                                            onChange={(e) => setReceivableForm(prev => ({ ...prev, source: e.target.value }))}
-                                        />
-                                    </div>
-                                    <div className="grid gap-2">
-                                        <Label>Category</Label>
-                                        <Select value={receivableForm.category} onValueChange={(v) => setReceivableForm(prev => ({ ...prev, category: v }))}>
-                                            <SelectTrigger><SelectValue /></SelectTrigger>
-                                            <SelectContent>
-                                                {receivableCategories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="grid gap-2">
-                                        <Label>Description</Label>
-                                        <Input
-                                            placeholder="Optional notes"
-                                            value={receivableForm.description}
-                                            onChange={(e) => setReceivableForm(prev => ({ ...prev, description: e.target.value }))}
-                                        />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="grid gap-2">
-                                            <Label>Amount *</Label>
-                                            <Input
-                                                type="number"
-                                                placeholder="0.00"
-                                                value={receivableForm.amount}
-                                                onChange={(e) => setReceivableForm(prev => ({ ...prev, amount: e.target.value }))}
-                                            />
-                                        </div>
-                                        <div className="grid gap-2">
-                                            <Label>Due Date</Label>
-                                            <Input
-                                                type="date"
-                                                value={receivableForm.dueDate}
-                                                onChange={(e) => setReceivableForm(prev => ({ ...prev, dueDate: e.target.value }))}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                                <DialogFooter>
-                                    <Button variant="outline" onClick={() => { setIsReceivableDialogOpen(false); resetReceivableForm(); }}>Cancel</Button>
-                                    <Button onClick={handleSaveReceivable}>{editingReceivableId ? "Update" : "Add"}</Button>
-                                </DialogFooter>
-                            </DialogContent>
-                        </Dialog>
-                    </div>
-
-                    {/* Summary Cards */}
-                    <div className="grid gap-6 md:grid-cols-2">
-                        <Card className="glass border-0">
-                            <CardHeader className="flex flex-row items-center justify-between pb-2">
-                                <CardTitle className="text-sm font-medium text-muted-foreground">Pending</CardTitle>
-                                <Clock className="h-5 w-5 text-amber-500" />
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold text-amber-500">{formatCurrency(pendingReceivables)}</div>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                    {receivables.filter(r => r.status === 'pending').length} items
-                                </p>
-                            </CardContent>
-                        </Card>
-                        <Card className="glass border-0">
-                            <CardHeader className="flex flex-row items-center justify-between pb-2">
-                                <CardTitle className="text-sm font-medium text-muted-foreground">Collected</CardTitle>
-                                <CheckCircle2 className="h-5 w-5 text-green-500" />
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold text-green-500">{formatCurrency(paidReceivables)}</div>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                    {receivables.filter(r => r.status === 'paid').length} items
-                                </p>
-                            </CardContent>
-                        </Card>
-                    </div>
-
-                    <Card>
-                        <CardContent className="pt-6">
-                            {receivables.length === 0 ? (
-                                <div className="text-center py-12 text-muted-foreground">
-                                    <HandCoins className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                                    <p className="text-lg font-medium">No receivables</p>
-                                    <p className="text-sm">Track money that others owe you!</p>
-                                </div>
-                            ) : (
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Source</TableHead>
-                                            <TableHead>Category</TableHead>
-                                            <TableHead>Due Date</TableHead>
-                                            <TableHead>Status</TableHead>
-                                            <TableHead className="text-right">Amount</TableHead>
-                                            <TableHead className="text-right">Actions</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {receivables.map((r) => (
-                                            <TableRow key={r.id}>
-                                                <TableCell>
-                                                    <div>
-                                                        <div className="font-medium">{r.source}</div>
-                                                        {r.description && <div className="text-xs text-muted-foreground">{r.description}</div>}
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell><Badge variant="outline">{r.category}</Badge></TableCell>
-                                                <TableCell className="text-muted-foreground">{format(new Date(r.dueDate), "MMM d, yyyy")}</TableCell>
-                                                <TableCell>{getStatusBadge(r.status)}</TableCell>
-                                                <TableCell className="text-right font-bold text-green-500">+{formatCurrency(r.amount)}</TableCell>
-                                                <TableCell className="text-right">
-                                                    <div className="flex justify-end gap-1">
-                                                        {r.status === 'pending' && (
-                                                            <Button variant="ghost" size="sm" className="text-green-500" onClick={() => handleMarkReceivablePaid(r.id)}>
-                                                                <CheckCircle2 className="h-4 w-4" />
-                                                            </Button>
-                                                        )}
-                                                        <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDeleteReceivable(r.id)}>
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
-                                                    </div>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            )}
-                        </CardContent>
-                    </Card>
-                </TabsContent>
             </Tabs>
         </div>
     );

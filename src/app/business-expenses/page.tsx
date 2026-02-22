@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Building2, Truck, Users, Plus, PlusCircle, Search, Calendar as CalendarIcon, DollarSign, BarChart3, ChevronLeft, ChevronRight, PieChart as PieChartIcon, BarChart2, Clock, Edit2, Trash2, X } from "lucide-react";
-import { format, isWithinInterval, startOfDay, endOfDay } from "date-fns";
+import { format, isWithinInterval, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
 import { StandaloneExpense, ExpenseCategory } from "@/lib/types";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { type DateRange } from "react-day-picker";
@@ -45,6 +45,7 @@ export default function BusinessExpensesPage() {
     const [searchTerm, setSearchTerm] = useState("");
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isCustomCategory, setIsCustomCategory] = useState(false);
+    const [dateFilterType, setDateFilterType] = useState<"week" | "month" | "year" | "range">("month");
     const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
 
     const [customCategories, setCustomCategories] = useState<Record<string, string[]>>(() => {
@@ -119,16 +120,31 @@ export default function BusinessExpensesPage() {
             if (activeTab === 'payroll' && e.category !== 'Payroll') return false;
 
             // 3. Date Range
-            if (dateRange?.from) {
+            const now = new Date();
+            let start: Date | undefined, end: Date | undefined;
+
+            if (dateFilterType === 'week') {
+                start = startOfWeek(now, { weekStartsOn: 1 });
+                end = endOfWeek(now, { weekStartsOn: 1 });
+            } else if (dateFilterType === 'month') {
+                start = startOfMonth(now);
+                end = endOfMonth(now);
+            } else if (dateFilterType === 'year') {
+                start = startOfYear(now);
+                end = endOfYear(now);
+            } else if (dateFilterType === 'range' && dateRange?.from) {
+                start = startOfDay(dateRange.from);
+                end = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
+            }
+
+            if (start && end) {
                 const expenseDate = new Date(e.date);
-                const start = startOfDay(dateRange.from);
-                const end = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
-                if (!isWithinInterval(expenseDate, { start, end })) return false;
+                if (!isWithinInterval(expenseDate, { start: start!, end: end! })) return false;
             }
 
             return true;
         }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [expenses, activeTab, searchTerm, dateRange]);
+    }, [expenses, activeTab, searchTerm, dateRange, dateFilterType]);
 
     const totalPages = Math.ceil(filteredExpenses.length / itemsPerPage);
     const paginatedExpenses = useMemo(() => {
@@ -139,7 +155,7 @@ export default function BusinessExpensesPage() {
     // Reset pagination when filters change
     useMemo(() => {
         setCurrentPage(1);
-    }, [activeTab, searchTerm, dateRange]);
+    }, [activeTab, searchTerm, dateRange, dateFilterType]);
 
     // --- Clean Summary Logic (Standalone Only) ---
     const summaryData = useMemo(() => {
@@ -399,11 +415,8 @@ export default function BusinessExpensesPage() {
                         </Card>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-4 mb-6">
-                        <div className="w-[250px]">
-                            <DateRangePicker date={dateRange} onDateChange={setDateRange} />
-                        </div>
-                        <div className="relative flex-1 max-w-[400px]">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                        <div className="relative w-full max-w-sm">
                             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                             <Input
                                 placeholder="Search all expenses..."
@@ -411,6 +424,24 @@ export default function BusinessExpensesPage() {
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
+                        </div>
+                        <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-full w-full sm:w-auto overflow-x-auto">
+                            {(['week', 'month', 'year', 'range'] as const).map(type => (
+                                <Button
+                                    key={type}
+                                    variant={dateFilterType === type ? "default" : "ghost"}
+                                    size="sm"
+                                    className={cn("rounded-full capitalize", dateFilterType === type ? "shadow-sm" : "")}
+                                    onClick={() => setDateFilterType(type)}
+                                >
+                                    {type}
+                                </Button>
+                            ))}
+                            {dateFilterType === 'range' && (
+                                <div className="ml-2 w-[220px]">
+                                    <DateRangePicker date={dateRange} onDateChange={setDateRange} />
+                                </div>
+                            )}
                         </div>
                     </div>
 
