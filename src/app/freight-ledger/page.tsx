@@ -572,31 +572,24 @@ export default function FreightLedgerPage() {
                   <div>
                     <h3 className="font-headline text-lg mb-3 flex items-center justify-between">
                       <span>Expenses</span>
-                      <Badge variant={viewingFreight.expenses.filter(e => !e.isDeleted).length > 0 ? "destructive" : "outline"}>
-                        {viewingFreight.expenses.filter(e => !e.isDeleted).length} active
+                      <Badge variant={viewingFreight.expenses.length > 0 ? "destructive" : "outline"}>
+                        {viewingFreight.expenses.length} active
                       </Badge>
                     </h3>
                     <div className="bg-muted/30 rounded-xl border overflow-hidden max-h-[200px] overflow-y-auto">
                       {viewingFreight.expenses.length > 0 ? (
                         <div className="divide-y">
                           {viewingFreight.expenses.map(exp => (
-                            <div
-                              key={exp.id}
-                              className={cn(
-                                "flex justify-between items-center p-3 hover:bg-white/5",
-                                exp.isDeleted && "opacity-50 bg-muted/50"
-                              )}
-                            >
+                            <div key={exp.id} className="flex justify-between items-center p-3 hover:bg-white/5">
                               <div>
-                                <p className={cn("font-medium text-sm", exp.isDeleted && "line-through text-muted-foreground")}>
+                                <p className="font-medium text-sm">
                                   {exp.description}
                                 </p>
-                                <p className={cn("text-xs text-muted-foreground", exp.isDeleted && "line-through")}>
+                                <p className="text-xs text-muted-foreground">
                                   {exp.category}
-                                  {exp.isDeleted && <Badge variant="outline" className="ml-2 text-[10px] text-destructive border-destructive/30">DELETED</Badge>}
                                 </p>
                               </div>
-                              <p className={cn("font-semibold text-sm", exp.isDeleted ? "line-through text-muted-foreground" : "text-destructive")}>
+                              <p className="font-semibold text-sm text-destructive">
                                 {formatCurrency(exp.amount)}
                               </p>
                             </div>
@@ -663,9 +656,9 @@ export default function FreightLedgerPage() {
         <Table>
           <TableCaption>
             {
-              freight.filter(f => !f.isDeleted).length === 0 ? "No freight entries yet."
+              freight.length === 0 ? "No freight entries yet."
                 : filteredFreight.length === 0 ? "No freight entries match the current filters."
-                  : `Displaying ${paginatedFreight.length} of ${filteredFreight.length} matched loads (Total: ${freight.filter(f => !f.isDeleted).length})`
+                  : `Displaying ${paginatedFreight.length} of ${filteredFreight.length} matched loads (Total: ${freight.length})`
             }
           </TableCaption>
           <TableHeader>

@@ -23,8 +23,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-
-
+const expenseSchema = z.object({
+  id: z.string(),
+  category: z.string().min(1, "Category is required."),
+  description: z.string().min(1, "Description is required."),
+  amount: z.coerce.number().min(0, "Amount must be positive."),
+});
 
 const commentSchema = z.object({
   id: z.string(),
@@ -95,7 +99,7 @@ const formSchema = z.object({
   unloading: z.coerce.number().min(0, "Unloading charge cannot be negative.").optional().default(0),
   accessorials: z.coerce.number().min(0, "Accessorials cannot be negative.").optional().default(0),
   ownerPercentage: z.coerce.number().min(0).max(100).default(100),
-
+  expenses: z.array(expenseSchema).optional().default([]),
   comments: z.array(commentSchema).optional(),
 
 });
@@ -117,6 +121,7 @@ interface FreightFormProps {
 
 const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit, onDelete, initialData, drivers, assets }, ref) => {
   const [newComment, setNewComment] = useState("");
+  const [activeTab, setActiveTab] = useState("details");
 
   const form = useForm<FreightFormValues>({
     resolver: zodResolver(formSchema),
@@ -124,6 +129,7 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
       ...initialData,
       date: initialData.date ? new Date(initialData.date) : new Date(),
 
+      expenses: (initialData.expenses || []).map(e => ({ ...e, amount: e.amount })),
       comments: initialData.comments || [],
     } : {
       date: new Date(),
@@ -135,9 +141,15 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
       accessorials: 0,
       ownerPercentage: 100, // Default to 100% split
 
+      expenses: [],
       comments: [],
       status: 'Draft',
     },
+  });
+
+  const { fields: expenseFields, append: appendExpense, remove: removeExpense } = useFieldArray({
+    control: form.control,
+    name: "expenses",
   });
 
   // Subscribe to isDirty to ensure updates
@@ -152,6 +164,7 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
         ...initialData,
         date: initialData.date ? new Date(initialData.date) : new Date(),
 
+        expenses: (initialData.expenses || []).map(e => ({ ...e, amount: e.amount })),
         comments: initialData.comments || [],
       });
     } else {
@@ -171,8 +184,6 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
       setNewComment("");
     }
   }, [initialData, form]);
-
-  const [activeTab, setActiveTab] = useState("details");
 
   useImperativeHandle(ref, () => ({
     isDirty: () => form.formState.isDirty || newComment.length > 0,
@@ -259,14 +270,16 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
       type: 'system'
     });
 
+    const totalExpenses = (values.expenses || []).reduce((sum, e) => sum + (e.amount || 0), 0);
+
     // Cast values to Freight (loose cast due to form values shape match)
     const submissionData: any = {
       ...values,
-      expenses: [], // Default to empty since we removed the feature
+      expenses: values.expenses,
       comments: finalComments,
       revenue: (values.lineHaul || 0) + (values.fuelSurcharge || 0) + (values.accessorials || 0) + (values.loading || 0) + (values.unloading || 0),
-      totalExpenses: 0,
-      netProfit: ownerAmount,
+      totalExpenses,
+      netProfit: ownerAmount - totalExpenses,
       ownerAmount,
       driverName: drivers.find(d => d.id === values.driverId)?.name,
       assetName: assets.find(a => a.id === values.assetId)?.identifier,
@@ -594,6 +607,110 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
               </CardContent>
             </Card>
 
+            {/* LOAD EXPENSES */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-base text-destructive">Load-Specific Expenses</CardTitle>
+                  <p className="text-xs text-muted-foreground mt-1 tracking-tight italic">Enter expenses directly linked to this specific load (e.g. tolls, specific fuel stop, lumper fees).</p>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 border-destructive/20 text-destructive hover:bg-destructive/10"
+                  onClick={() => appendExpense({ id: Math.random().toString(36).substr(2, 9), category: "Fuel", description: "", amount: 0 })}
+                >
+                  <PlusCircle className="mr-2 h-4 w-4" /> Add Line
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {expenseFields.length === 0 ? (
+                  <div className="text-center py-6 border-2 border-dashed rounded-lg bg-muted/20">
+                    <p className="text-sm text-muted-foreground">No load-specific expenses added.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {expenseFields.map((field, index) => (
+                      <div key={field.id} className="flex gap-4 items-start bg-muted/30 p-4 rounded-lg relative group border border-transparent hover:border-destructive/10 transition-all">
+                        <div className="flex-none w-32">
+                          <FormField
+                            control={form.control}
+                            name={`expenses.${index}.category`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Category</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger className="h-9">
+                                      <SelectValue placeholder="Cat" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    {['Fuel', 'Tolls', 'Lumper', 'Parking', 'Scales', 'Maintenance', 'Other'].map(cat => (
+                                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <FormField
+                            control={form.control}
+                            name={`expenses.${index}.description`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Description / Detail</FormLabel>
+                                <FormControl>
+                                  <Input className="h-9 focus-visible:ring-destructive" placeholder="Vendor, Location, or Reason" {...field} />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        <div className="flex-none w-28">
+                          <FormField
+                            control={form.control}
+                            name={`expenses.${index}.amount`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Amount</FormLabel>
+                                <FormControl>
+                                  <div className="relative">
+                                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">$</span>
+                                    <Input type="number" step="0.01" className="h-9 pl-5 pr-2 focus-visible:ring-destructive" placeholder="0.00" {...field} />
+                                  </div>
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="mt-6 h-9 w-9 text-muted-foreground hover:text-destructive transition-colors rounded-full"
+                          onClick={() => removeExpense(index)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="bg-destructive/5 border-destructive/20 shadow-none">
+              <CardContent className="p-4 flex justify-between items-center">
+                <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground italic">Total Load Deductions (Expenses)</span>
+                <span className="text-xl font-mono font-bold text-destructive">
+                  -${(form.watch("expenses") || []).reduce((sum, e) => sum + (Number(e.amount) || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </span>
+              </CardContent>
+            </Card>
 
           </TabsContent>
 
