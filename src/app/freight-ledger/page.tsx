@@ -386,7 +386,7 @@ export default function FreightLedgerPage() {
             )}
           </div>
 
-          <div className="flex-1 overflow-y-auto p-8 pt-6 custom-scrollbar">
+          <div className="flex-1 overflow-y-auto p-4 pt-2 custom-scrollbar">
             <FreightForm
               ref={formRef}
               onSubmit={handleSaveFreight}

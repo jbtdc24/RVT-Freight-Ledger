@@ -313,8 +313,8 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleFormSubmit, handleFormError)} className="space-y-6 pb-20">
-        <div className="flex flex-col gap-2 mb-4">
+      <form onSubmit={form.handleSubmit(handleFormSubmit, handleFormError)} className="space-y-2 pb-6">
+        <div className="flex flex-col gap-1 mb-2">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <h1 className="text-xl font-black tracking-tight text-foreground">
@@ -366,14 +366,14 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
           {/* COLUMN 1: LOGISTICS (4 cols) */}
-          <div className="lg:col-span-4 space-y-4">
+          <div className="lg:col-span-4 space-y-2">
             {/* Route Details */}
             <Card className="shadow-sm border-muted/40 overflow-hidden ring-1 ring-black/5">
-              <CardHeader className="py-2 bg-muted/20 border-b border-muted/30 flex flex-row items-center gap-2 space-y-0">
+              <CardHeader className="py-1.5 bg-muted/20 border-b border-muted/30 flex flex-row items-center gap-2 space-y-0">
                 <MapPin className="h-3 w-3 text-primary" />
                 <CardTitle className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/80">Route Details</CardTitle>
               </CardHeader>
-              <CardContent className="pt-4 space-y-4">
+              <CardContent className="pt-2 pb-3 space-y-2">
                 <div className="relative pl-6 space-y-4 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-primary/10">
                   <div className="relative">
                     <div className="absolute -left-[17px] top-1.5 h-2 w-2 rounded-full bg-blue-500 border border-background shadow-[0_0_0_4px_rgba(59,130,246,0.05)]" />
@@ -439,11 +439,11 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
 
             {/* Cargo & Eqpt */}
             <Card className="shadow-sm border-muted/40 overflow-hidden ring-1 ring-black/5">
-              <CardHeader className="py-2 bg-muted/20 border-b border-muted/30 flex flex-row items-center gap-2 space-y-0">
+              <CardHeader className="py-1.5 bg-muted/20 border-b border-muted/30 flex flex-row items-center gap-2 space-y-0">
                 <Package className="h-3 w-3 text-primary" />
                 <CardTitle className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/80">Cargo & Eqpt</CardTitle>
               </CardHeader>
-              <CardContent className="pt-4 space-y-3">
+              <CardContent className="pt-2 pb-3 space-y-2">
                 <FormField control={form.control} name="commodity" render={({ field }) => (
                   <FormItem className="space-y-0.5">
                     <FormLabel className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-tighter">Commodity</FormLabel>
@@ -523,13 +523,13 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
           </div>
 
           {/* COLUMN 2: FINANCIALS (5 cols) */}
-          <div className="lg:col-span-5 space-y-4">
+          <div className="lg:col-span-5 space-y-2">
             <Card className="shadow-sm border-muted/40 overflow-hidden ring-1 ring-black/5">
-              <CardHeader className="py-2 bg-muted/20 border-b border-muted/30 flex flex-row items-center gap-2 space-y-0">
+              <CardHeader className="py-1.5 bg-muted/20 border-b border-muted/30 flex flex-row items-center gap-2 space-y-0">
                 <Wallet className="h-3 w-3 text-primary" />
                 <CardTitle className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/80">Financial Details</CardTitle>
               </CardHeader>
-              <CardContent className="pt-4 space-y-4">
+              <CardContent className="pt-2 pb-3 space-y-2">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
                   <FormField control={form.control} name="lineHaul" render={({ field }) => (
                     <FormItem className="space-y-0.5">
@@ -573,25 +573,25 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
                   )} />
                 </div>
 
-                <div className="pt-4 border-t-2 border-dashed border-muted/80 space-y-2">
-                  <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-widest text-muted-foreground/40 px-1">
+                <div className="pt-2 border-t-2 border-dashed border-muted/80 space-y-1.5">
+                  <div className="flex justify-between items-center text-[8px] font-black uppercase tracking-widest text-muted-foreground/40 px-1">
                     <span>Broker Bill:</span>
-                    <span className="font-mono text-xs">{formatCurrency(brokerPay)}</span>
+                    <span className="font-mono text-[10px]">{formatCurrency(brokerPay)}</span>
                   </div>
-                  <div className="flex justify-between items-center px-4 py-2 bg-blue-50/50 rounded-xl border border-blue-100/50">
-                    <span className="text-[10px] font-black text-blue-700/70 uppercase tracking-widest">Gross Share</span>
-                    <span className="text-base font-black text-blue-900 font-mono">{formatCurrency(ownerShare)}</span>
+                  <div className="flex justify-between items-center px-3 py-1.5 bg-blue-50/50 rounded-lg border border-blue-100/50">
+                    <span className="text-[9px] font-black text-blue-700/70 uppercase tracking-widest">Gross Share</span>
+                    <span className="text-sm font-black text-blue-900 font-mono">{formatCurrency(ownerShare)}</span>
                   </div>
-                  <div className="flex justify-between items-center px-4 py-1.5 bg-destructive/5 rounded-xl border border-destructive/10">
-                    <span className="text-[10px] font-black text-destructive/60 uppercase tracking-widest">Deductions</span>
-                    <span className="text-base font-black text-destructive font-mono">({formatCurrency(totalLoadExpenses)})</span>
+                  <div className="flex justify-between items-center px-3 py-1 bg-destructive/5 rounded-lg border border-destructive/10">
+                    <span className="text-[9px] font-black text-destructive/60 uppercase tracking-widest">Deductions</span>
+                    <span className="text-sm font-black text-destructive font-mono">({formatCurrency(totalLoadExpenses)})</span>
                   </div>
                   <div className={cn(
-                    "flex justify-between items-center px-4 py-3 rounded-xl border-2 shadow-sm",
+                    "flex justify-between items-center px-3 py-2 rounded-lg border-2 shadow-sm",
                     loadNetProfit >= 0 ? "bg-success/5 border-success/20" : "bg-destructive/5 border-destructive/20"
                   )}>
-                    <span className="text-xs font-black uppercase tracking-[0.2em] opacity-50">Net Profit</span>
-                    <span className={cn("text-2xl font-black font-mono", loadNetProfit >= 0 ? "text-success" : "text-destructive")}>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-50">Net Profit</span>
+                    <span className={cn("text-xl font-black font-mono", loadNetProfit >= 0 ? "text-success" : "text-destructive")}>
                       {formatCurrency(loadNetProfit)}
                     </span>
                   </div>
@@ -601,11 +601,11 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
 
             {/* Reference */}
             <Card className="shadow-sm border-muted/40 overflow-hidden ring-1 ring-black/5">
-              <CardHeader className="py-2 bg-muted/20 border-b border-muted/30 flex flex-row items-center gap-2 space-y-0">
+              <CardHeader className="py-1.5 bg-muted/20 border-b border-muted/30 flex flex-row items-center gap-2 space-y-0">
                 <PenTool className="h-3 w-3 text-primary" />
                 <CardTitle className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/80">Documentation</CardTitle>
               </CardHeader>
-              <CardContent className="pt-4 grid grid-cols-2 gap-x-4 gap-y-3">
+              <CardContent className="pt-2 pb-3 grid grid-cols-2 gap-x-4 gap-y-2">
                 <FormField control={form.control} name="freightBillNumber" render={({ field }) => (
                   <FormItem className="space-y-0.5">
                     <FormLabel className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-tighter">Bill #</FormLabel>
@@ -653,9 +653,9 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
           </div>
 
           {/* COLUMN 3: SIDEBAR (3 cols) */}
-          <div className="lg:col-span-3 space-y-4">
+          <div className="lg:col-span-3 space-y-2">
             {/* Expenses */}
-            <div className="space-y-4">
+            <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2">
                   <div className="h-1 w-3 bg-destructive rounded-full" /> Expenses
@@ -664,26 +664,26 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
                   {expenseFields.length}
                 </Badge>
               </div>
-              <div className="space-y-3 max-h-[450px] overflow-y-auto pr-2 custom-scrollbar">
+              <div className="space-y-1.5 max-h-[450px] overflow-y-auto pr-1 custom-scrollbar">
                 {expenseFields.map((field, index) => (
-                  <div key={field.id} className="bg-background border border-muted/30 p-3 rounded-xl relative group hover:border-destructive/30 hover:shadow-md transition-all">
-                    <div className="flex flex-col gap-2">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1 mr-6">
+                  <div key={field.id} className="bg-background border border-muted/20 p-1.5 rounded-lg relative group transition-all">
+                    <div className="flex flex-col gap-1">
+                      <div className="flex justify-between items-center">
+                        <div className="flex-1 mr-4">
                           <FormField control={form.control} name={`expenses.${index}.description`} render={({ field }) => (
-                            <Input className="h-5 border-none bg-transparent p-0 text-[13px] font-black text-foreground placeholder-muted-foreground/30 focus-visible:ring-0" placeholder="Description..." {...field} />
+                            <Input className="h-5 border-none bg-transparent p-0 text-[11px] font-bold text-foreground placeholder-muted-foreground/30 focus-visible:ring-0" placeholder="Description..." {...field} />
                           )} />
                         </div>
-                        <Button type="button" variant="ghost" size="icon" className="h-5 w-5 rounded-full bg-destructive/10 text-destructive hover:bg-destructive hover:text-white transition-all shadow-sm" onClick={() => removeExpense(index)}>
-                          <X className="h-2.5 w-2.5" />
+                        <Button type="button" variant="ghost" size="icon" className="h-4 w-4 rounded-full bg-destructive/5 text-destructive hover:bg-destructive hover:text-white transition-all" onClick={() => removeExpense(index)}>
+                          <X className="h-2 w-2" />
                         </Button>
                       </div>
 
-                      <div className="flex items-center justify-between gap-2 pt-1 border-t border-muted/20">
+                      <div className="flex items-center justify-between gap-2">
                         <FormField control={form.control} name={`expenses.${index}.category`} render={({ field }) => (
                           <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl>
-                              <SelectTrigger className="h-5 text-[9px] font-black uppercase tracking-widest text-muted-foreground/70 border-none bg-transparent p-0 focus:ring-0 w-min hover:text-primary transition-colors">
+                              <SelectTrigger className="h-4 text-[8px] font-black uppercase tracking-widest text-muted-foreground/50 border-none bg-transparent p-0 focus:ring-0 w-min hover:text-primary transition-colors">
                                 <SelectValue />
                               </SelectTrigger>
                             </FormControl>
@@ -695,10 +695,10 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
                           </Select>
                         )} />
 
-                        <div className="flex items-center gap-1 group/amt">
-                          <span className="text-xs font-black text-destructive opacity-30">$</span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] font-black text-destructive opacity-30">$</span>
                           <FormField control={form.control} name={`expenses.${index}.amount`} render={({ field }) => (
-                            <Input type="number" className="h-7 w-24 border-none bg-destructive/5 rounded-lg px-2 text-right font-black text-destructive focus-visible:ring-destructive" {...field} />
+                            <Input type="number" className="h-5 w-16 border-none bg-destructive/5 rounded px-1.5 text-right text-[11px] font-black text-destructive focus-visible:ring-destructive" {...field} />
                           )} />
                         </div>
                       </div>
@@ -709,40 +709,40 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
                 <Button
                   type="button"
                   variant="outline"
-                  className="w-full h-10 border-dashed border-2 bg-muted/5 hover:bg-primary/5 hover:border-primary/40 text-muted-foreground/60 hover:text-primary transition-all rounded-xl group flex items-center justify-center gap-2 py-2"
+                  className="w-full h-8 border-dashed border bg-muted/5 hover:bg-primary/5 hover:border-primary/40 text-muted-foreground/60 hover:text-primary transition-all rounded-lg group flex items-center justify-center gap-2"
                   onClick={() => appendExpense({ id: Math.random().toString(36).substr(2, 9), category: "Other", description: "", amount: 0 })}
                 >
-                  <PlusCircle className="h-3.5 w-3.5" />
-                  <span className="text-[9px] font-black uppercase tracking-widest">New Expense</span>
+                  <PlusCircle className="h-3 w-3" />
+                  <span className="text-[8px] font-black uppercase tracking-widest">Add Expense</span>
                 </Button>
               </div>
             </div>
 
             {/* Comments */}
-            <div className="space-y-3">
+            <div className="space-y-2">
               <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2">
                 <div className="h-1 w-3 bg-primary/40 rounded-full" /> Notes & Log
               </h3>
-              <div className="bg-muted/10 border border-muted/30 rounded-2xl p-4 flex flex-col gap-4">
-                <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+              <div className="bg-muted/10 border border-muted/30 rounded-xl p-2 flex flex-col gap-3">
+                <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
                   {comments.length === 0 && (
-                    <div className="text-center py-10 opacity-20">
-                      <MessageSquare className="h-8 w-8 mx-auto mb-2" />
-                      <p className="text-[10px] font-bold uppercase tracking-widest">No history yet</p>
+                    <div className="text-center py-6 opacity-20">
+                      <MessageSquare className="h-6 w-6 mx-auto mb-1" />
+                      <p className="text-[9px] font-bold uppercase tracking-widest">No history yet</p>
                     </div>
                   )}
                   {comments.map((comment) => (
                     <div key={comment.id} className={cn(
-                      "p-3 rounded-xl text-xs border transition-all",
+                      "p-2 rounded-lg text-[11px] border transition-all",
                       comment.type === 'system'
-                        ? "bg-muted/30 border-muted/50 text-muted-foreground opacity-60"
-                        : "bg-background border-border shadow-sm hover:shadow-md"
+                        ? "bg-muted/20 border-muted/30 text-muted-foreground opacity-60"
+                        : "bg-background border-border shadow-sm"
                     )}>
-                      <div className="flex items-center justify-between mb-1.5 opacity-50">
-                        <span className="font-black text-[9px] uppercase tracking-tighter">{comment.author}</span>
-                        <span className="text-[8px] font-medium">{format(new Date(comment.timestamp), "MMM d, h:mm a")}</span>
+                      <div className="flex items-center justify-between mb-1 opacity-50">
+                        <span className="font-black text-[8px] uppercase tracking-tighter">{comment.author}</span>
+                        <span className="text-[7px] font-medium">{format(new Date(comment.timestamp), "MMM d, h:mm a")}</span>
                       </div>
-                      <p className="leading-relaxed font-medium">{comment.text}</p>
+                      <p className="leading-tight font-medium">{comment.text}</p>
                     </div>
                   ))}
                 </div>
@@ -775,7 +775,7 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
             </div>
 
             {/* ACTION BUTTONS UNDER LOGS */}
-            <div className="pt-4 mt-2 border-t border-muted/40 space-y-2">
+            <div className="pt-2 mt-1 border-t border-muted/40 space-y-2">
               <Button
                 type="submit"
                 className="w-full h-10 rounded-full bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 text-xs font-black uppercase tracking-[0.2em] flex items-center justify-center gap-2 transition-all active:scale-95"
