@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useData } from "@/lib/data-context";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Building2, Truck, Users, Plus, Search, Calendar as CalendarIcon, DollarSign, BarChart3, ChevronLeft, ChevronRight, PieChart as PieChartIcon, BarChart2, Clock, Edit2, Trash2 } from "lucide-react";
+import { Building2, Truck, Users, Plus, PlusCircle, Search, Calendar as CalendarIcon, DollarSign, BarChart3, ChevronLeft, ChevronRight, PieChart as PieChartIcon, BarChart2, Clock, Edit2, Trash2, X } from "lucide-react";
 import { format, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { StandaloneExpense, ExpenseCategory } from "@/lib/types";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
@@ -20,7 +20,12 @@ import { cn } from "@/lib/utils";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Pie, PieChart, Cell } from "recharts";
 
-const expenseCategories: ExpenseCategory[] = ['Maintenance', 'Fuel', 'Repairs', 'Tolls', 'Scale Ticket', 'Other'];
+const CATEGORIES = {
+    truck: ['Parking', 'Ticket', 'Cleaning supply', 'Tolls', 'Maintenance', 'Repair', 'Other'],
+    office: ['Other'],
+    driver: ['Other'],
+    payroll: ['Other'],
+};
 
 const chartConfig = {
     amount: {
@@ -39,7 +44,28 @@ export default function BusinessExpensesPage() {
     const [activeTab, setActiveTab] = useState("truck");
     const [searchTerm, setSearchTerm] = useState("");
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [isCustomCategory, setIsCustomCategory] = useState(false);
     const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+
+    const [customCategories, setCustomCategories] = useState<Record<string, string[]>>(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('rvt_custom_categories_v2');
+            if (saved) return JSON.parse(saved);
+        }
+        return { truck: [], office: [], driver: [], payroll: [] };
+    });
+
+    useEffect(() => {
+        localStorage.setItem('rvt_custom_categories_v2', JSON.stringify(customCategories));
+    }, [customCategories]);
+
+    const removeCustomCategory = (tab: string, cat: string) => {
+        if (!window.confirm(`Delete custom category "${cat}"?`)) return;
+        setCustomCategories(prev => ({
+            ...prev,
+            [tab]: (prev[tab] || []).filter(c => c !== cat)
+        }));
+    };
 
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1);
@@ -62,14 +88,35 @@ export default function BusinessExpensesPage() {
             if (e.isDeleted) return false;
 
             // 1. Search
-            const matchesSearch = e.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                e.amount.toString().includes(searchTerm);
+            const searchLower = searchTerm.toLowerCase();
+            const dateStr1 = format(new Date(e.date), "MMM d, yyyy").toLowerCase();
+            const dateStr2 = format(new Date(e.date), "MM/dd/yyyy").toLowerCase();
+            const matchesSearch =
+                e.description.toLowerCase().includes(searchLower) ||
+                e.amount.toString().includes(searchLower) ||
+                e.category.toLowerCase().includes(searchLower) ||
+                dateStr1.includes(searchLower) ||
+                dateStr2.includes(searchLower) ||
+                (e.assetName || "").toLowerCase().includes(searchLower) ||
+                (e.driverName || "").toLowerCase().includes(searchLower);
             if (!matchesSearch) return false;
 
             // 2. Tab Filter
-            if (activeTab === 'truck' && !e.assetId) return false;
-            if (activeTab === 'driver' && !e.driverId) return false;
-            if (activeTab === 'office' && (e.assetId || e.driverId)) return false;
+            if (activeTab === 'truck' && !e.assetId && !e.driverId && e.category !== 'Payroll') {
+                if (!e.assetId) return false;
+            } else if (activeTab === 'driver' && !e.driverId && e.category !== 'Payroll') {
+                if (!e.driverId) return false;
+            } else if (activeTab === 'office' && (e.assetId || e.driverId || e.category === 'Payroll')) {
+                return false;
+            } else if (activeTab === 'payroll' && e.category !== 'Payroll') {
+                return false;
+            }
+
+            // Also ensure we only show payroll in payroll tab and truck/office/driver based on assets/etc.
+            if (activeTab === 'truck' && (!e.assetId || e.category === 'Payroll')) return false;
+            if (activeTab === 'driver' && (!e.driverId || e.category === 'Payroll')) return false;
+            if (activeTab === 'office' && (e.assetId || e.driverId || e.category === 'Payroll')) return false;
+            if (activeTab === 'payroll' && e.category !== 'Payroll') return false;
 
             // 3. Date Range
             if (dateRange?.from) {
@@ -101,6 +148,7 @@ export default function BusinessExpensesPage() {
         let truckSub = 0;
         let officeSub = 0;
         let driverSub = 0;
+        let payrollSub = 0;
         const categories: Record<string, number> = {};
 
         expenses.forEach(e => {
@@ -116,7 +164,8 @@ export default function BusinessExpensesPage() {
             count += 1;
             categories[e.category] = (categories[e.category] || 0) + e.amount;
 
-            if (e.assetId) truckSub += e.amount;
+            if (e.category === 'Payroll') payrollSub += e.amount;
+            else if (e.assetId) truckSub += e.amount;
             else if (e.driverId) driverSub += e.amount;
             else officeSub += e.amount;
         });
@@ -129,6 +178,7 @@ export default function BusinessExpensesPage() {
             truckSub,
             officeSub,
             driverSub,
+            payrollSub,
             topCategory: topCatEntry ? topCatEntry[0] : "N/A",
             topCategoryAmount: topCatEntry ? topCatEntry[1] : 0
         };
@@ -156,11 +206,23 @@ export default function BusinessExpensesPage() {
         if (activeTab === 'truck' && !newExpense.assetId) return; // Must select asset
         if (activeTab === 'driver' && !newExpense.driverId) return; // Must select driver
 
+        const finalCategory = activeTab === 'payroll' ? 'Payroll' : (newExpense.category.trim() || 'Other');
+
+        if (activeTab !== 'payroll') {
+            const predefined = CATEGORIES[activeTab as keyof typeof CATEGORIES] || [];
+            if (!predefined.includes(finalCategory) && !(customCategories[activeTab] || []).includes(finalCategory)) {
+                setCustomCategories(prev => ({
+                    ...prev,
+                    [activeTab]: [...(prev[activeTab] || []), finalCategory]
+                }));
+            }
+        }
+
         if (editingId) {
             // UPDATE
             setExpenses(prev => prev.map(e => e.id === editingId ? {
                 ...e,
-                category: newExpense.category,
+                category: finalCategory,
                 description: newExpense.description,
                 amount: amount,
                 date: new Date(newExpense.date).toISOString(),
@@ -173,8 +235,8 @@ export default function BusinessExpensesPage() {
             // CREATE
             const expense: StandaloneExpense = {
                 id: Math.random().toString(36).substr(2, 9),
-                category: newExpense.category,
-                description: newExpense.description || (activeTab === 'truck' ? 'Truck Expense' : activeTab === 'driver' ? 'Driver Expense' : 'Office Expense'),
+                category: finalCategory,
+                description: newExpense.description || (activeTab === 'truck' ? 'Truck Expense' : activeTab === 'driver' ? 'Driver Expense' : activeTab === 'payroll' ? 'Payroll Expense' : 'Office Expense'),
                 amount: amount,
                 date: new Date(newExpense.date).toISOString(),
                 assetId: activeTab === 'truck' ? newExpense.assetId : undefined,
@@ -196,6 +258,7 @@ export default function BusinessExpensesPage() {
 
         setIsDialogOpen(false);
         setEditingId(null);
+        setIsCustomCategory(false);
 
         // Reset form
         setNewExpense({
@@ -220,6 +283,9 @@ export default function BusinessExpensesPage() {
             driverId: expense.driverId || "",
             id: expense.id
         });
+        setIsCustomCategory(
+            !CATEGORIES[activeTab as keyof typeof CATEGORIES].includes(expense.category) && expense.category !== 'Payroll'
+        );
         setIsDialogOpen(true);
     };
 
@@ -234,6 +300,7 @@ export default function BusinessExpensesPage() {
             driverId: "",
             id: ""
         });
+        setIsCustomCategory(activeTab === 'office' || activeTab === 'driver' || activeTab === 'payroll'); // Default to open text input if tab has no specific defaults
         setIsDialogOpen(true);
     };
 
@@ -242,16 +309,19 @@ export default function BusinessExpensesPage() {
     return (
         <>
             <PageHeader title="Business Expenses">
-                <p className="text-muted-foreground">Manage overhead costs for trucks, office, and drivers.</p>
+                <Button onClick={openDialog}>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Manual Entry
+                </Button>
             </PageHeader>
 
             <div className="flex flex-col gap-6">
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-                        <TabsList className="grid w-full max-w-[650px] grid-cols-3">
+                        <TabsList className="grid w-full max-w-[800px] grid-cols-4">
                             <TabsTrigger value="truck" className="flex items-center gap-2">
                                 <Truck className="h-4 w-4" />
-                                Truck expenses ( by assets )
+                                Truck expenses
                             </TabsTrigger>
                             <TabsTrigger value="office" className="flex items-center gap-2">
                                 <Building2 className="h-4 w-4" />
@@ -259,30 +329,16 @@ export default function BusinessExpensesPage() {
                             </TabsTrigger>
                             <TabsTrigger value="driver" className="flex items-center gap-2">
                                 <Users className="h-4 w-4" />
-                                Drivers expenses ( by Driver )
+                                Driver expenses
+                            </TabsTrigger>
+                            <TabsTrigger value="payroll" className="flex items-center gap-2">
+                                <DollarSign className="h-4 w-4" />
+                                Payroll
                             </TabsTrigger>
                         </TabsList>
-                        <div className="flex flex-wrap items-center gap-2">
-                            <div className="w-[240px]">
-                                <DateRangePicker date={dateRange} onDateChange={setDateRange} />
-                            </div>
-                            <div className="relative w-[200px]">
-                                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                                <Input
-                                    placeholder="Search..."
-                                    className="pl-8"
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                />
-                            </div>
-                            <Button onClick={openDialog} className="gap-2">
-                                <Plus className="h-4 w-4" />
-                                Add Expense
-                            </Button>
-                        </div>
                     </div>
 
-                    <div className="grid gap-6 md:grid-cols-3 mb-8">
+                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
                         {/* TOTAL OVERHEAD */}
                         <Card className="glass-card flex flex-col justify-center border-l-4 border-l-destructive">
                             <CardHeader className="pb-2">
@@ -312,6 +368,10 @@ export default function BusinessExpensesPage() {
                                     <span className="text-muted-foreground">Office</span>
                                     <span className="font-bold">{formatCurrency(summaryData.officeSub)}</span>
                                 </div>
+                                <div className="flex justify-between text-[11px]">
+                                    <span className="text-muted-foreground">Payroll</span>
+                                    <span className="font-bold">{formatCurrency(summaryData.payrollSub)}</span>
+                                </div>
                             </CardContent>
                         </Card>
 
@@ -325,16 +385,35 @@ export default function BusinessExpensesPage() {
                                 <p className="text-[10px] text-muted-foreground mt-1">{formatCurrency(summaryData.topCategoryAmount)} spent</p>
                             </CardContent>
                         </Card>
+
+                        {/* ACTIVE TAB SUBTOTAL */}
+                        <Card className="glass-card flex flex-col justify-center">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{activeTab} Expenses Subtotal</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold tracking-tight text-destructive">
+                                    {formatCurrency(filteredExpenses.reduce((sum, e) => sum + e.amount, 0))}
+                                </div>
+                            </CardContent>
+                        </Card>
                     </div>
 
-                    <div className="bg-muted/30 rounded-xl p-4 mb-6 flex justify-between items-center border border-white/5">
-                        <div>
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">{activeTab} expenses subtotal</p>
-                            <div className="text-2xl font-bold text-destructive">
-                                {formatCurrency(filteredExpenses.reduce((sum, e) => sum + e.amount, 0))}
-                            </div>
+                    <div className="flex flex-wrap items-center gap-4 mb-6">
+                        <div className="w-[250px]">
+                            <DateRangePicker date={dateRange} onDateChange={setDateRange} />
+                        </div>
+                        <div className="relative flex-1 max-w-[400px]">
+                            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                placeholder="Search all expenses..."
+                                className="pl-9"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
                         </div>
                     </div>
+
                     <div className="flex justify-between items-center mb-4">
                         <p className="text-sm text-muted-foreground">
                             Showing {paginatedExpenses.length} of {filteredExpenses.length} entries
@@ -352,6 +431,7 @@ export default function BusinessExpensesPage() {
                                         <TableHead>Category</TableHead>
                                         {activeTab === 'truck' && <TableHead>Asset</TableHead>}
                                         {activeTab === 'driver' && <TableHead>Driver</TableHead>}
+                                        {activeTab === 'payroll' && <TableHead>Driver/Staff</TableHead>}
                                         <TableHead className="text-right">Amount</TableHead>
                                         <TableHead className="text-right">Actions</TableHead>
                                     </TableRow>
@@ -379,6 +459,9 @@ export default function BusinessExpensesPage() {
                                                     <TableCell className="text-muted-foreground">{expense.assetName || "Unassigned"}</TableCell>
                                                 )}
                                                 {activeTab === 'driver' && (
+                                                    <TableCell className="text-muted-foreground">{expense.driverName || "Unassigned"}</TableCell>
+                                                )}
+                                                {activeTab === 'payroll' && (
                                                     <TableCell className="text-muted-foreground">{expense.driverName || "Unassigned"}</TableCell>
                                                 )}
                                                 <TableCell className="text-right font-mono text-destructive font-bold">
@@ -461,7 +544,7 @@ export default function BusinessExpensesPage() {
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Add {activeTab === 'truck' ? 'Truck' : activeTab === 'office' ? 'Office' : 'Driver'} Expense</DialogTitle>
+                        <DialogTitle>Add {activeTab === 'truck' ? 'Truck' : activeTab === 'office' ? 'Office' : activeTab === 'payroll' ? 'Payroll' : 'Driver'} Entry</DialogTitle>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <div className="grid grid-cols-2 gap-4">
@@ -492,22 +575,49 @@ export default function BusinessExpensesPage() {
                             </div>
                         </div>
 
-                        <div className="space-y-2">
-                            <Label>Category</Label>
-                            <Select
-                                value={newExpense.category}
-                                onValueChange={(v) => setNewExpense({ ...newExpense, category: v as ExpenseCategory })}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {expenseCategories.map(c => (
-                                        <SelectItem key={c} value={c}>{c}</SelectItem>
+                        {activeTab !== 'payroll' && (
+                            <div className="space-y-3">
+                                <Label>Category</Label>
+                                <Input
+                                    value={newExpense.category}
+                                    onChange={(e) => setNewExpense({ ...newExpense, category: e.target.value })}
+                                    placeholder="Type or select a category below..."
+                                />
+                                <div className="flex flex-wrap gap-2">
+                                    {(CATEGORIES[activeTab as keyof typeof CATEGORIES] || []).filter(c => c !== 'Other').map(c => (
+                                        <div
+                                            key={c}
+                                            onClick={() => setNewExpense({ ...newExpense, category: c })}
+                                            className={cn(
+                                                "px-3 py-1 text-[11px] font-semibold rounded-full cursor-pointer transition-colors border select-none",
+                                                newExpense.category === c ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground border-transparent hover:bg-muted/80"
+                                            )}
+                                        >
+                                            {c}
+                                        </div>
                                     ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
+                                    {(customCategories[activeTab] || []).map(c => (
+                                        <div
+                                            key={c}
+                                            className={cn(
+                                                "flex items-center gap-1.5 px-3 py-1 text-[11px] font-semibold rounded-full cursor-pointer transition-colors border select-none group",
+                                                newExpense.category === c ? "bg-primary/20 text-primary border-primary" : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
+                                            )}
+                                            onClick={() => setNewExpense({ ...newExpense, category: c })}
+                                        >
+                                            {c}
+                                            <X
+                                                className="h-3 w-3 text-muted-foreground group-hover:text-destructive transition-colors opacity-70 group-hover:opacity-100"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    removeCustomCategory(activeTab, c);
+                                                }}
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         {activeTab === 'truck' && (
                             <div className="space-y-2">
@@ -528,15 +638,15 @@ export default function BusinessExpensesPage() {
                             </div>
                         )}
 
-                        {activeTab === 'driver' && (
+                        {(activeTab === 'driver' || activeTab === 'payroll') && (
                             <div className="space-y-2">
-                                <Label>Select Driver</Label>
+                                <Label>Select Driver / Staff</Label>
                                 <Select
                                     value={newExpense.driverId}
                                     onValueChange={(v) => setNewExpense({ ...newExpense, driverId: v })}
                                 >
                                     <SelectTrigger>
-                                        <SelectValue placeholder="Which driver?" />
+                                        <SelectValue placeholder="Which driver/staff?" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {drivers.map(d => (

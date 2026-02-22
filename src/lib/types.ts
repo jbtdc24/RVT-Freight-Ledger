@@ -1,4 +1,4 @@
-export type ExpenseCategory = 'Maintenance' | 'Fuel' | 'Repairs' | 'Tolls' | 'Scale Ticket' | 'Other';
+export type ExpenseCategory = string;
 
 export type LoadExpense = {
   id: string;
