@@ -54,7 +54,7 @@ export default function AssetsPage() {
     setEditingAsset(null);
   };
 
-  const activeAssets = assets.filter(a => !a.isDeleted);
+  const activeAssets = assets;
 
   return (
     <>

@@ -19,7 +19,6 @@ const navItems = [
   { href: "/drivers", label: "Drivers", icon: Users },
   { href: "/business-expenses", label: "Business Expenses", icon: Building2 },
   { href: "/home-management", label: "Home Management", icon: Home },
-  { href: "/recycle-bin", label: "Recycle Bin", icon: Trash2 },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {

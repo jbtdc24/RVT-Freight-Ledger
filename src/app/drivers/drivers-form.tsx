@@ -116,7 +116,11 @@ export function DriverForm({ onSubmit, initialData, onDelete }: DriverFormProps)
               type="button"
               variant="destructive"
               className="flex-1"
-              onClick={() => onDelete(initialData.id)}
+              onClick={() => {
+                if (confirm("Are you sure you want to PERMANENTLY delete this driver? This action cannot be undone.")) {
+                  onDelete(initialData.id);
+                }
+              }}
             >
               <Trash2 className="mr-2 h-4 w-4" />
               Delete Driver

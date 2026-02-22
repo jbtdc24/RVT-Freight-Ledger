@@ -86,8 +86,6 @@ export default function BusinessExpensesPage() {
     // Filter Logic
     const filteredExpenses = useMemo(() => {
         return expenses.filter(e => {
-            if (e.isDeleted) return false;
-
             // 1. Search
             const searchLower = searchTerm.toLowerCase();
             const dateStr1 = format(new Date(e.date), "MMM d, yyyy").toLowerCase();
@@ -168,7 +166,6 @@ export default function BusinessExpensesPage() {
         const categories: Record<string, number> = {};
 
         expenses.forEach(e => {
-            if (e.isDeleted) return;
             if (dateRange?.from) {
                 const d = new Date(e.date);
                 const start = startOfDay(dateRange.from);
@@ -513,7 +510,7 @@ export default function BusinessExpensesPage() {
                                                             size="icon"
                                                             className="h-7 w-7 hover:text-destructive transition-colors"
                                                             onClick={() => {
-                                                                if (window.confirm("Move this business overhead expense to the Recycle Bin?")) {
+                                                                if (window.confirm("Are you sure you want to PERMANENTLY delete this business overhead expense? This action cannot be undone.")) {
                                                                     deleteItem('expense', expense.id);
                                                                 }
                                                             }}

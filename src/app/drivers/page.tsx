@@ -53,7 +53,7 @@ export default function DriversPage() {
     setEditingDriver(null);
   };
 
-  const activeDrivers = drivers.filter(d => !d.isDeleted);
+  const activeDrivers = drivers;
 
   const formatPayRate = (driver: Driver) => {
     if (driver.payType === 'per-mile') {

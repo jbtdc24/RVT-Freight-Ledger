@@ -117,7 +117,6 @@ interface FreightFormProps {
 
 const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit, onDelete, initialData, drivers, assets }, ref) => {
   const [newComment, setNewComment] = useState("");
-  const [activeTab, setActiveTab] = useState("details");
 
   const form = useForm<FreightFormValues>({
     resolver: zodResolver(formSchema),
@@ -170,14 +169,14 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
         status: 'Draft',
       });
       setNewComment("");
-      setActiveTab("details");
     }
   }, [initialData, form]);
+
+  const [activeTab, setActiveTab] = useState("details");
 
   useImperativeHandle(ref, () => ({
     isDirty: () => form.formState.isDirty || newComment.length > 0,
     submit: () => {
-      setActiveTab("logs");
       setTimeout(() => {
         const commentInput = document.getElementById('comment-input');
         if (commentInput) commentInput.focus();
@@ -232,13 +231,11 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
     // Enforce Comment Requirement for EDITS
     if (initialData && !hasAnyNewComment) {
       form.setError("comments", { type: "manual", message: "PLEASE ADD A NOTE explaining changes." });
-      setActiveTab("logs");
       return;
     }
     // Enforce initial note for NEW loads
     if (!initialData && !hasNewCommentInInput) {
       form.setError("comments", { type: "manual", message: "Please add an initial note." });
-      setActiveTab("logs");
       return;
     }
 
@@ -282,25 +279,8 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
   // Handler for form validation errors
   const handleFormError = (errors: any) => {
     console.error("Form validation errors:", errors);
-    // Find the first error and switch to that tab
     const errorKeys = Object.keys(errors);
     if (errorKeys.length > 0) {
-      const firstError = errorKeys[0];
-      // Map field to tab
-      const detailFields = ['agencyName', 'postingCode', 'contactName', 'contactPhone', 'contactEmail', 'contactFax', 'operatingEntity', 'freightId', 'freightBillNumber', 'customerReferenceNumber', 'status', 'date', 'driverId', 'assetId'];
-      const routeFields = ['origin', 'destination', 'distance', 'pickup', 'drop', 'weight', 'commodity', 'pieces', 'dimensions', 'nmfcCode', 'freightClass', 'temperatureControl', 'trailerNumber', 'equipmentType', 'hazardousMaterial', 'bcoSpecialInstructions'];
-      const financialFields = ['lineHaul', 'fuelSurcharge', 'loading', 'unloading', 'accessorials', 'ownerPercentage'];
-
-      if (detailFields.includes(firstError)) {
-        setActiveTab('details');
-      } else if (routeFields.includes(firstError)) {
-        setActiveTab('route');
-      } else if (financialFields.includes(firstError)) {
-        setActiveTab('financials');
-      } else {
-        setActiveTab('logs');
-      }
-
       // Show alert with error summary
       const errorMessages = errorKeys.map(key => `${key}: ${errors[key]?.message || 'Invalid'}`).join('\n');
       alert(`Please fix the following errors:\n\n${errorMessages}`);
@@ -437,10 +417,10 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
                     <FormItem><FormLabel>City, State</FormLabel><FormControl><Input placeholder="e.g. Chicago, IL" {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="pickup.companyName" render={({ field }) => (
-                    <FormItem><FormLabel>Company Name</FormLabel><FormControl><Input placeholder="Shipper Name" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Company Name</FormLabel><FormControl><Input placeholder="Shipper Name" {...field} /></FormControl></FormItem>
                   )} />
                   <FormField control={form.control} name="pickup.address" render={({ field }) => (
-                    <FormItem><FormLabel>Address</FormLabel><FormControl><Input placeholder="Street Address" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Address</FormLabel><FormControl><Input placeholder="Street Address" {...field} /></FormControl></FormItem>
                   )} />
                   <div className="grid grid-cols-2 gap-2">
                     <FormField control={form.control} name="pickup.appointmentTime" render={({ field }) => (
@@ -474,7 +454,7 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
                     <FormItem><FormLabel>Company Name</FormLabel><FormControl><Input placeholder="Consignee Name" {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="drop.address" render={({ field }) => (
-                    <FormItem><FormLabel>Address</FormLabel><FormControl><Input placeholder="Street Address" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Address</FormLabel><FormControl><Input placeholder="Street Address" {...field} /></FormControl></FormItem>
                   )} />
                   <div className="grid grid-cols-2 gap-2">
                     <FormField control={form.control} name="drop.appointmentTime" render={({ field }) => (
@@ -505,25 +485,25 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <FormField control={form.control} name="pieces" render={({ field }) => (
-                    <FormItem><FormLabel>Pieces / Qty</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Pieces / Qty</FormLabel><FormControl><Input type="number" {...field} /></FormControl></FormItem>
                   )} />
                   <FormField control={form.control} name="dimensions" render={({ field }) => (
-                    <FormItem><FormLabel>Dims (LxWxH)</FormLabel><FormControl><Input placeholder="e.g. 40x48x96" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Dims (LxWxH)</FormLabel><FormControl><Input placeholder="e.g. 40x48x96" {...field} /></FormControl></FormItem>
                   )} />
                   <FormField control={form.control} name="nmfcCode" render={({ field }) => (
-                    <FormItem><FormLabel>NMFC</FormLabel><FormControl><Input placeholder="NMFC" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>NMFC</FormLabel><FormControl><Input placeholder="NMFC" {...field} /></FormControl></FormItem>
                   )} />
                   <FormField control={form.control} name="freightClass" render={({ field }) => (
-                    <FormItem><FormLabel>Class</FormLabel><FormControl><Input placeholder="e.g. 70.0" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Class</FormLabel><FormControl><Input placeholder="e.g. 70.0" {...field} /></FormControl></FormItem>
                   )} />
                   <FormField control={form.control} name="temperatureControl" render={({ field }) => (
-                    <FormItem><FormLabel>Temp</FormLabel><FormControl><Input placeholder="e.g. -10 F" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Temp</FormLabel><FormControl><Input placeholder="e.g. -10 F" {...field} /></FormControl></FormItem>
                   )} />
                   <FormField control={form.control} name="trailerNumber" render={({ field }) => (
-                    <FormItem><FormLabel>Trailer #</FormLabel><FormControl><Input placeholder="e.g. 672677" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Trailer #</FormLabel><FormControl><Input placeholder="e.g. 672677" {...field} /></FormControl></FormItem>
                   )} />
                   <FormField control={form.control} name="equipmentType" render={({ field }) => (
-                    <FormItem><FormLabel>Equip Type</FormLabel><FormControl><Input placeholder="e.g. VANL" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Equip Type</FormLabel><FormControl><Input placeholder="e.g. VANL" {...field} /></FormControl></FormItem>
                   )} />
                 </div>
                 <div className="mt-4 flex items-center space-x-2 border p-3 rounded-md bg-muted/20">
@@ -657,7 +637,16 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
 
             <div className="flex gap-4">
               {initialData && onDelete && (
-                <Button type="button" variant="destructive" className="flex-1" onClick={() => onDelete(initialData.id)}>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  className="flex-1"
+                  onClick={() => {
+                    if (confirm("Are you sure you want to PERMANENTLY delete this load? This action cannot be undone.")) {
+                      onDelete(initialData.id);
+                    }
+                  }}
+                >
                   <Trash2 className="mr-2 h-4 w-4" /> Delete Load
                 </Button>
               )}

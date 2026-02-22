@@ -193,8 +193,6 @@ export default function FreightLedgerPage() {
 
   const filteredFreight = useMemo(() => {
     return freight.filter(item => {
-      if (item.isDeleted) return false;
-
       const { freightId, route, textSearch, revenue, expenses, netProfit, dateRange, dateFilterType } = filters;
 
       if (freightId && !item.freightId.toLowerCase().includes(freightId.toLowerCase())) {
