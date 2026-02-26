@@ -40,7 +40,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             setAssets([]);
             setDrivers([]);
             setExpenses([]);
-            setIsLoaded(false);
+
+            // If we are definitely not loading auth anymore, signal that context data gathering is done
+            if (!authLoading) {
+                setIsLoaded(true);
+            }
             return;
         }
 

@@ -23,8 +23,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { format } from "date-fns";
+import { format, parse } from "date-fns";
 import { LocationSelect } from "@/components/ui/location-select";
+import { useAuthContext } from "@/lib/contexts/auth-context";
 
 const expenseSchema = z.object({
   id: z.string(),
@@ -125,6 +126,7 @@ interface FreightFormProps {
 
 const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit, onDelete, onCancel, initialData, drivers, assets }, ref) => {
   const [newComment, setNewComment] = useState("");
+  const { userData } = useAuthContext();
 
   const form = useForm<FreightFormValues>({
     resolver: zodResolver(formSchema),
@@ -194,8 +196,6 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
       form.handleSubmit(handleFormSubmit, handleFormError)();
     }
   }));
-
-
 
   const comments = form.watch("comments") || [];
 
@@ -318,9 +318,11 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
         <div className="flex flex-col gap-1 mb-2">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <h1 className="text-xl font-black tracking-tight text-foreground">
-                Load <span className="text-primary">#{watchAll.freightId || "----"}</span>
-              </h1>
+              <div className="flex flex-col items-start gap-1">
+                <h1 className="text-xl font-black tracking-tight text-foreground flex items-center gap-3">
+                  Load <span className="text-primary">#{watchAll.freightId || "----"}</span>
+                </h1>
+              </div>
               <div className="w-32">
                 <FormField control={form.control} name="status" render={({ field }) => (
                   <Select onValueChange={field.onChange} defaultValue={field.value}>

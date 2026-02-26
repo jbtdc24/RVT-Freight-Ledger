@@ -8,7 +8,7 @@ import {
     signInWithPopup,
     signOut as firebaseSignOut
 } from "firebase/auth";
-import { auth, db, isMockMode } from "@/lib/firebase/config";
+import { auth, db } from "@/lib/firebase/config";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 
 // Determine the structure of the data we'll expose
@@ -47,21 +47,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     // Sync user profile with Firestore database whenever Auth changes
     useEffect(() => {
-        if (isMockMode) {
-            console.log("MOCK MODE ENABLED - Bypassing Firebase Auth");
-            const demoUser = { uid: "demo-123", email: "demo@example.com", displayName: "Demo User" } as User;
-            setUser(demoUser);
-            setUserData({
-                uid: "demo-123",
-                email: "demo@example.com",
-                displayName: "Demo User",
-                subscriptionTier: "Pro",
-                role: "admin",
-                createdAt: Date.now(),
-            });
-            setLoading(false);
-            return;
-        }
 
         // Fallback timeout: If Firebase auth hangs (e.g., missing API keys), stop loading after 5 seconds.
         const timeoutId = setTimeout(() => {
@@ -113,10 +98,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }, []);
 
     const signInWithGoogle = async () => {
-        if (isMockMode) {
-            console.log("MOCK MODE - Pseudo sign in");
-            return;
-        }
         try {
             const provider = new GoogleAuthProvider();
             await signInWithPopup(auth, provider);
@@ -128,11 +109,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     const signOut = async () => {
-        if (isMockMode) {
-            setUser(null);
-            setUserData(null);
-            return;
-        }
         try {
             await firebaseSignOut(auth);
         } catch (error) {

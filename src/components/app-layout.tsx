@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { RvtLogo } from "@/components/icons";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { SettingsModal } from "@/components/settings-modal";
 
 import { useData } from "@/lib/data-context";
 import { useAuthContext } from "@/lib/contexts/auth-context";
@@ -39,7 +40,6 @@ const defaultNavItems = [
   { href: "/drivers", label: "Drivers", icon: Users },
   { href: "/business-expenses", label: "Business Expenses", icon: Building2 },
   { href: "/home-management", label: "Home Management", icon: Home },
-  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 function SortableNavItem({ item, pathname }: { item: any; pathname: string }) {
@@ -95,6 +95,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { isLoaded } = useData();
   const { user, userData, loading, signOut } = useAuthContext();
   const [navItems, setNavItems] = useState(defaultNavItems);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -152,6 +153,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Public routes should render immediately without waiting for context or showing the dashboard spinner
+  if (pathname === "/" || pathname === "/login") {
+    return <>{children}</>;
+  }
+
   if (!isLoaded || loading) {
     return (
       <div className="flex min-h-screen w-full items-center justify-center bg-background">
@@ -166,9 +172,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // If the user isn't logged in OR they are on the landing page, don't show the dashboard shell (sidebar/header)
-  // Instead, just render the children (which will be the Landing/Login pages that handles its own layout)
-  if (!user || pathname === "/") {
+  // Fallback for unauthorized pages matching dashboard routes
+  if (!user) {
     return <>{children}</>;
   }
 
@@ -188,21 +193,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           ))}
         </SortableContext>
       </DndContext>
-
-      {userData?.role === 'admin' && (
-        <div className="mt-4 pt-4 border-t border-border">
-          <Link
-            href="/admin"
-            className={`flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-all duration-300 ${pathname === "/admin"
-              ? "bg-destructive/10 text-destructive font-bold"
-              : "text-muted-foreground hover:bg-muted/50 hover:text-foreground font-semibold"
-              }`}
-          >
-            <ShieldAlert className="h-4 w-4" />
-            Admin Dashboard
-          </Link>
-        </div>
-      )}
     </nav>
   );
 
@@ -229,24 +219,30 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </Button>
           </div>
         </div>
-        <div className="p-6">
-          <div className="glass-card !p-4 flex items-center justify-between gap-3 group relative cursor-pointer">
+        <div className="p-6 pb-2">
+          <div
+            className="glass-card !p-3 flex items-center justify-between gap-3 group relative cursor-pointer hover:bg-white/5 transition-colors border-white/5 shadow-sm"
+            onClick={() => setIsSettingsOpen(true)}
+          >
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-primary to-accent flex items-center justify-center text-[10px] text-white font-bold">
+              <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-primary to-accent flex items-center justify-center text-xs text-white font-bold shadow-inner">
                 {userData?.displayName?.charAt(0).toUpperCase() || "U"}
               </div>
               <div className="flex flex-col">
-                <span className="text-xs font-bold truncate max-w-[100px]">
+                <span className="text-sm font-bold truncate max-w-[120px] text-foreground">
                   {userData?.displayName || user.email?.split('@')[0] || "User"}
                 </span>
-                <span className="text-[10px] text-primary font-medium">{userData?.subscriptionTier || "Free"}</span>
+                <span className="text-[11px] text-primary font-bold uppercase tracking-wider">{userData?.subscriptionTier || "Free"}</span>
               </div>
             </div>
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-              onClick={signOut}
+              className="h-8 w-8 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-all hover:scale-110 hover:bg-destructive/10 shrink-0"
+              onClick={(e) => {
+                e.stopPropagation();
+                signOut();
+              }}
               title="Sign out"
             >
               <LogOut className="h-4 w-4" />
@@ -254,6 +250,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </aside>
+
+      <SettingsModal open={isSettingsOpen} onOpenChange={setIsSettingsOpen} />
 
       <div className="flex flex-col flex-1 min-w-0">
         <header className="flex h-16 items-center gap-4 bg-transparent px-6 border-b border-white/5">

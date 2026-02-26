@@ -43,13 +43,17 @@ import { Badge } from "@/components/ui/badge";
 import { useAuthContext } from "@/lib/contexts/auth-context";
 import { saveFreight } from "@/lib/firebase/firestore";
 import { FilterBar, type FiltersState } from "./filter-bar";
+import { FreightForm } from "@/components/freight-form";
+import { AIScanButton } from "@/components/ai-scan-button";
 import { isBefore, isAfter, startOfDay, endOfDay, format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, isWithinInterval } from 'date-fns';
+import { useToast } from "@/hooks/use-toast";
 
 const ITEMS_PER_PAGE = 12;
 
 export default function FreightLedgerPage() {
   const { freight, drivers, assets, deleteItem } = useData();
-  const { user } = useAuthContext();
+  const { user, userData } = useAuthContext();
+  const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingFreight, setEditingFreight] = useState<Freight | null>(null);
 
@@ -99,9 +103,58 @@ export default function FreightLedgerPage() {
     setCurrentPage(1);
   }, [filters]);
 
-  const handleOpenDialog = (freight?: Freight) => {
-    setEditingFreight(freight || null);
+  const handleOpenDialog = (freightToEdit?: Freight) => {
+    // If opening for NEW load (not editing) and user is Free, check limits
+    if (!freightToEdit && (userData?.subscriptionTier === 'Free' || !userData?.subscriptionTier)) {
+      if (freight.length >= 10) {
+        toast({
+          title: "Upgrade to Pro Required",
+          description: "You have reached the maximum limit of 10 loads for the Basic plan. Upgrade in Settings.",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+    setEditingFreight(freightToEdit || null);
     setIsDialogOpen(true);
+  };
+
+  const handleScanComplete = (extractedData: any) => {
+    // We create a partial/mock Freight object with the extracted data
+    // Then call handleOpenDialog(scannedFreight)
+    const mappedDate: Date = extractedData.date && !isNaN(new Date(extractedData.date).getTime())
+      ? new Date(extractedData.date)
+      : new Date();
+
+    const mappedFreight: Partial<Freight> = {
+      freightId: extractedData.freightId || extractedData.pro || "",
+      date: mappedDate,
+      origin: extractedData.origin || extractedData.pickup || "",
+      destination: extractedData.destination || extractedData.delivery || "",
+      weight: Number(extractedData.weight) || 0,
+      pieces: Number(extractedData.pieces) || 0,
+      distance: Number(extractedData.miles) || 0,
+      lineHaul: Number(extractedData.rate) || 0,
+      agencyName: extractedData.broker || extractedData.customer || "",
+      customerReferenceNumber: extractedData.reference || "",
+      bcoSpecialInstructions: extractedData.notes || "",
+      // Some required defaults
+      status: 'Draft',
+      ownerPercentage: 100,
+      expenses: [],
+      comments: [
+        {
+          id: Math.random().toString(36).substr(2, 9),
+          text: "Form auto-filled by AI PDF Scan. Please review.",
+          author: "System - AI",
+          timestamp: new Date().toISOString(),
+          type: 'system'
+        }
+      ]
+    };
+
+    // Pass it as Freight so it loads neatly into the edit form
+    handleOpenDialog(mappedFreight as Freight);
   };
 
   const handleSaveFreight = async (values: Omit<Freight, "id"> & { id?: string }) => {
@@ -340,6 +393,10 @@ export default function FreightLedgerPage() {
   return (
     <>
       <PageHeader title="Freight Ledger">
+        {/* Only show AI Scan button for PRO users */}
+        {userData?.subscriptionTier !== 'Free' && (
+          <AIScanButton onScanComplete={handleScanComplete} />
+        )}
         <Button onClick={() => handleOpenDialog()}>
           <PlusCircle className="mr-2 h-4 w-4" />
           Manual Entry
