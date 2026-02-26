@@ -104,6 +104,7 @@ export type Freight = {
 
   // Status
   status: 'Draft' | 'For Pickup' | 'In Route' | 'Delivered' | 'Cancelled';
+  pinned?: boolean;
 };
 
 export type StopDetail = {
