@@ -1,8 +1,9 @@
 "use client";
 
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Gauge, Truck, Warehouse, Calculator, Menu, Users, Trash2, FileText, Building2, Home, ClipboardList, HandCoins } from "lucide-react";
+import { Gauge, Truck, Warehouse, Calculator, Menu, Users, Trash2, FileText, Building2, Home, ClipboardList, HandCoins, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { RvtLogo } from "@/components/icons";
@@ -12,7 +13,25 @@ import { useData } from "@/lib/data-context";
 import { appConfig } from "@/lib/config";
 import { Loader2 } from "lucide-react";
 
-const navItems = [
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
+const defaultNavItems = [
   { href: "/", label: "Dashboard", icon: Gauge },
   { href: "/freight-ledger", label: "Freight Ledger", icon: Truck },
   { href: "/assets", label: "Assets", icon: Warehouse },
@@ -21,9 +40,107 @@ const navItems = [
   { href: "/home-management", label: "Home Management", icon: Home },
 ];
 
+function SortableNavItem({ item, pathname }: { item: any; pathname: string }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id: item.href });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : 1,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  const Icon = item.icon;
+
+  return (
+    <div ref={setNodeRef} style={style} className="flex items-center gap-1 group/item relative">
+      {/* drag handle */}
+      <div
+        {...attributes}
+        {...listeners}
+        className="absolute -left-4 opacity-0 group-hover/item:opacity-100 p-1 cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-foreground transition-opacity z-10 hidden md:block"
+        title="Drag to rearrange"
+      >
+        <GripVertical className="h-4 w-4" />
+      </div>
+      <Link
+        href={item.href}
+        className={`flex-1 flex items-center gap-3 rounded-xl px-4 py-3 transition-all duration-300 group ${pathname === item.href
+          ? "bg-primary text-primary-foreground shadow-[0_0_15px_rgba(var(--primary),0.3)]"
+          : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
+          }`}
+      >
+        <Icon className={`h-4 w-4 transition-transform duration-300 group-hover:scale-110 ${pathname === item.href ? "" : "text-primary/70"}`} />
+        <span className="font-medium">{item.label}</span>
+        {pathname === item.href && (
+          <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary-foreground animate-pulse" />
+        )}
+      </Link>
+    </div>
+  );
+}
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { isLoaded } = useData();
+  const [navItems, setNavItems] = useState(defaultNavItems);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5, // minimum distance to move before triggering drag, helps avoid accidental drags when clicking links
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  useEffect(() => {
+    if (isLoaded) {
+      const savedOrder = localStorage.getItem("rvt_nav_order");
+      if (savedOrder) {
+        try {
+          const order = JSON.parse(savedOrder);
+          const sorted = [...defaultNavItems].sort((a, b) => {
+            const indexA = order.indexOf(a.href);
+            const indexB = order.indexOf(b.href);
+            if (indexA === -1 && indexB === -1) return 0;
+            if (indexA === -1) return 1;
+            if (indexB === -1) return -1;
+            return indexA - indexB;
+          });
+          setNavItems(sorted);
+        } catch (e) {
+          console.error("Failed to parsed saved nav order", e);
+        }
+      }
+    }
+  }, [isLoaded]);
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (active.id !== over?.id) {
+      setNavItems((items) => {
+        const oldIndex = items.findIndex((i) => i.href === active.id);
+        const newIndex = items.findIndex((i) => i.href === over?.id);
+        const newOrder = arrayMove(items, oldIndex, newIndex);
+
+        // Save new order to local storage
+        localStorage.setItem("rvt_nav_order", JSON.stringify(newOrder.map(i => i.href)));
+
+        return newOrder;
+      });
+    }
+  };
 
   if (!isLoaded) {
     return (
@@ -39,27 +156,22 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  const navLinks = (
-    <nav className="grid gap-2 px-4 py-4">
-      {navItems.map((item) => {
-        const { href, label, icon: Icon } = item;
-        return (
-          <Link
-            key={href}
-            href={href}
-            className={`flex items-center gap-3 rounded-xl px-4 py-3 transition-all duration-300 group ${pathname === href
-              ? "bg-primary text-primary-foreground shadow-[0_0_15px_rgba(var(--primary),0.3)]"
-              : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
-              }`}
-          >
-            <Icon className={`h-4 w-4 transition-transform duration-300 group-hover:scale-110 ${pathname === href ? "" : "text-primary/70"}`} />
-            <span className="font-medium">{label}</span>
-            {pathname === href && (
-              <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary-foreground animate-pulse" />
-            )}
-          </Link>
-        );
-      })}
+  const renderNavLinks = () => (
+    <nav className="flex flex-col gap-2 px-4 py-4 ml-2">
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext
+          items={navItems.map(i => i.href)}
+          strategy={verticalListSortingStrategy}
+        >
+          {navItems.map((item) => (
+            <SortableNavItem key={item.href} item={item} pathname={pathname} />
+          ))}
+        </SortableContext>
+      </DndContext>
     </nav>
   );
 
@@ -79,7 +191,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </Link>
         </div>
         <div className="flex-1 overflow-auto">
-          {navLinks}
+          {renderNavLinks()}
+          <div className="mx-6 mt-4">
+            <Button variant="ghost" className="w-full text-xs text-muted-foreground/60 hover:text-foreground justify-start gap-2 h-10 border border-dashed border-muted/50 hidden">
+              {/* Plus icon here if they wanted to add new static tabs, but these are tied to pages so keeping it hidden for now */}
+            </Button>
+          </div>
         </div>
         <div className="p-6">
           <div className="glass-card !p-4 flex items-center gap-3">
@@ -109,7 +226,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </Link>
               </div>
               <div className="overflow-auto flex-1">
-                {navLinks}
+                {renderNavLinks()}
               </div>
             </SheetContent>
           </Sheet>
@@ -125,3 +242,4 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+
