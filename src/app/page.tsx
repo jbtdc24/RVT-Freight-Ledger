@@ -46,7 +46,7 @@ export default function DashboardPage() {
   const [showInvalidLoads, setShowInvalidLoads] = useState(false);
   const [loadListDialog, setLoadListDialog] = useState<{ title: string; loads: Freight[] } | null>(null);
 
-  const activeFreight = useMemo(() => freight.filter(item => !item.isDeleted), [freight]);
+  const activeFreight = freight;
   const validFreight = useMemo(() => activeFreight.filter(f => f.driverName && f.comments && f.comments.length > 0 && f.status !== 'Cancelled'), [activeFreight]);
 
   const filteredFreight = useMemo(() => {
@@ -103,11 +103,10 @@ export default function DashboardPage() {
       start = startOfDay(customRange.from);
       end = endOfDay(customRange.to);
     } else {
-      return expenses.filter(e => !e.isDeleted);
+      return expenses;
     }
 
     return expenses.filter(e => {
-      if (e.isDeleted) return false;
       const d = new Date(e.date);
       return isWithinInterval(d, { start, end });
     });
@@ -202,7 +201,6 @@ export default function DashboardPage() {
       });
 
       const intervalExpenses = expenses.filter(e => {
-        if (e.isDeleted) return false;
         const d = new Date(e.date);
         return d >= item.range[0] && d <= item.range[1];
       });

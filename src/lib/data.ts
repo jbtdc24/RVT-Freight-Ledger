@@ -2,12 +2,12 @@ import type { Freight, LoadExpense, Asset, Driver, LoadComment } from "./types";
 
 // Drivers
 export const initialDrivers: Driver[] = [
-  { id: 'drv-1', name: 'Mike Wilson', payRate: 0.65, payType: 'per-mile' },
+  { id: 'drv-1', name: 'Mike Wilson', payRate: 0.65, payType: 'per-mile', idImages: [], comments: [] },
 ];
 
 // Assets
 export const initialAssets: Asset[] = [
-  { id: 'ast-1', type: 'Truck', identifier: 'Unit 101', description: '2022 Volvo VNL 760' },
+  { id: 'ast-1', type: 'Truck', identifier: 'Unit 101', description: '2022 Volvo VNL 760', idImages: [], comments: [] },
 ];
 
 // Freight Load #1

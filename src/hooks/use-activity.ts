@@ -69,51 +69,22 @@ export function useActivity(freight: Freight[], expenses: StandaloneExpense[]) {
                 });
             }
 
-            // D. Deletions (if freight is soft-deleted, it might still be in the list depending on how context serves it)
-            // The context serves `freight` which includes everything.
-            if (item.isDeleted && item.deletedAt) {
-                activity.push({
-                    id: `del-${item.id}`,
-                    type: 'deletion',
-                    title: `DELETED: Load #${item.freightId}`,
-                    date: new Date(item.deletedAt),
-                    amount: 0,
-                    status: 'Removed',
-                    link: '/recycle-bin',
-                    color: 'muted',
-                    iconType: 'delete'
-                });
-            }
         });
 
         // 2. Standalone Expenses
         expenses.forEach(exp => {
-            if (exp.isDeleted && exp.deletedAt) {
-                activity.push({
-                    id: `del-exp-${exp.id}`,
-                    type: 'deletion',
-                    title: `DELETED: Expense ${exp.description}`,
-                    date: new Date(exp.deletedAt),
-                    amount: 0,
-                    status: 'Removed',
-                    link: '/recycle-bin',
-                    color: 'muted',
-                    iconType: 'delete'
-                });
-            } else {
-                // Active Expense
-                activity.push({
-                    id: `std-exp-${exp.id}`,
-                    type: 'expense',
-                    title: `${exp.category}: ${exp.description} (${exp.driverName ? 'Driver: ' + exp.driverName : exp.assetName ? 'Asset: ' + exp.assetName : 'Overhead'})`,
-                    date: new Date(exp.date),
-                    amount: -exp.amount,
-                    status: 'Paid',
-                    link: '/expenses', // Note: Deep linking to edit standalone expense might require more work, sticking to page for now
-                    color: 'destructive',
-                    iconType: 'expense'
-                });
-            }
+            // Active Expense
+            activity.push({
+                id: `std-exp-${exp.id}`,
+                type: 'expense',
+                title: `${exp.category}: ${exp.description} (${exp.driverName ? 'Driver: ' + exp.driverName : exp.assetName ? 'Asset: ' + exp.assetName : 'Overhead'})`,
+                date: new Date(exp.date),
+                amount: -exp.amount,
+                status: 'Paid',
+                link: '/expenses', // Note: Deep linking to edit standalone expense might require more work, sticking to page for now
+                color: 'destructive',
+                iconType: 'expense'
+            });
 
             // Standalone Expense Comments
             if (exp.comments) {

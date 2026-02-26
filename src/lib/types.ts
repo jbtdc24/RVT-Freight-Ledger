@@ -1,4 +1,4 @@
-export type ExpenseCategory = 'Maintenance' | 'Fuel' | 'Repairs' | 'Tolls' | 'Scale Ticket' | 'Other';
+export type ExpenseCategory = string;
 
 export type LoadExpense = {
   id: string;
@@ -6,10 +6,7 @@ export type LoadExpense = {
   description: string;
   amount: number;
   date?: string; // ISO string
-  isDeleted?: boolean;
-  deletedAt?: string;
   loadId?: string; // Back-reference
-  loadNumber?: string; // For display in Recycle Bin
 };
 
 export type StandaloneExpense = {
@@ -27,9 +24,6 @@ export type StandaloneExpense = {
 
   // History
   comments?: LoadComment[];
-
-  isDeleted?: boolean;
-  deletedAt?: string;
 };
 
 export type LoadComment = {
@@ -37,6 +31,7 @@ export type LoadComment = {
   text: string;
   author: string; // e.g., "System", "John Doe"
   timestamp: string; // ISO string
+  date?: string; // Optional custom event date (ISO string)
   type: 'manual' | 'system';
 };
 
@@ -107,10 +102,6 @@ export type Freight = {
   ownerPercentage: number;
   ownerAmount: number;
 
-  // Soft delete
-  isDeleted?: boolean;
-  deletedAt?: string;
-
   // Status
   status: 'Draft' | 'For Pickup' | 'In Route' | 'Delivered' | 'Cancelled';
 };
@@ -131,8 +122,8 @@ export type Asset = {
   type: 'Truck' | 'Business Car';
   identifier: string;
   description?: string;
-  isDeleted?: boolean;
-  deletedAt?: string;
+  idImages?: string[]; // Array of base64 or URLs
+  comments?: LoadComment[];
 };
 
 export type Driver = {
@@ -140,6 +131,6 @@ export type Driver = {
   name: string;
   payRate: number; // can be $/mile or % of revenue
   payType: 'per-mile' | 'percentage';
-  isDeleted?: boolean;
-  deletedAt?: string;
+  idImages?: string[]; // Array of base64 or URLs
+  comments?: LoadComment[];
 };

@@ -16,11 +16,8 @@ type DataContextType = {
     setAssets: React.Dispatch<React.SetStateAction<Asset[]>>;
     setDrivers: React.Dispatch<React.SetStateAction<Driver[]>>;
     setExpenses: React.Dispatch<React.SetStateAction<StandaloneExpense[]>>;
-    restoreItem: (type: 'freight' | 'asset' | 'driver' | 'expense', id: string) => void;
-    permanentlyDeleteItem: (type: 'freight' | 'asset' | 'driver' | 'expense', id: string) => void;
     deleteItem: (type: 'freight' | 'asset' | 'driver' | 'expense', id: string) => void;
-    restoreLoadExpense: (loadId: string, expenseId: string) => void;
-    permanentlyDeleteLoadExpense: (loadId: string, expenseId: string) => void;
+    deleteLoadExpense: (loadId: string, expenseId: string) => void;
     isLoaded: boolean;
 };
 
@@ -97,31 +94,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }, [expenses, isLoaded]);
 
     const deleteItem = (type: 'freight' | 'asset' | 'driver' | 'expense', id: string) => {
-        const deletedAt = new Date().toISOString();
-        if (type === 'freight') {
-            setFreight(prev => prev.map(f => f.id === id ? { ...f, isDeleted: true, deletedAt } : f));
-        } else if (type === 'asset') {
-            setAssets(prev => prev.map(a => a.id === id ? { ...a, isDeleted: true, deletedAt } : a));
-        } else if (type === 'driver') {
-            setDrivers(prev => prev.map(d => d.id === id ? { ...d, isDeleted: true, deletedAt } : d));
-        } else if (type === 'expense') {
-            setExpenses(prev => prev.map(e => e.id === id ? { ...e, isDeleted: true, deletedAt } : e));
-        }
-    };
-
-    const restoreItem = (type: 'freight' | 'asset' | 'driver' | 'expense', id: string) => {
-        if (type === 'freight') {
-            setFreight(prev => prev.map(f => f.id === id ? { ...f, isDeleted: false, deletedAt: undefined } : f));
-        } else if (type === 'asset') {
-            setAssets(prev => prev.map(a => a.id === id ? { ...a, isDeleted: false, deletedAt: undefined } : a));
-        } else if (type === 'driver') {
-            setDrivers(prev => prev.map(d => d.id === id ? { ...d, isDeleted: false, deletedAt: undefined } : d));
-        } else if (type === 'expense') {
-            setExpenses(prev => prev.map(e => e.id === id ? { ...e, isDeleted: false, deletedAt: undefined } : e));
-        }
-    };
-
-    const permanentlyDeleteItem = (type: 'freight' | 'asset' | 'driver' | 'expense', id: string) => {
         if (type === 'freight') {
             setFreight(prev => prev.filter(f => f.id !== id));
         } else if (type === 'asset') {
@@ -133,17 +105,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
-    const permanentlyDeleteLoadExpense = (loadId: string, expenseId: string) => {
+    const deleteLoadExpense = (loadId: string, expenseId: string) => {
         setFreight(prev => prev.map(f => f.id === loadId ? {
             ...f,
             expenses: f.expenses.filter(e => e.id !== expenseId)
-        } : f));
-    };
-
-    const restoreLoadExpense = (loadId: string, expenseId: string) => {
-        setFreight(prev => prev.map(f => f.id === loadId ? {
-            ...f,
-            expenses: f.expenses.map(e => e.id === expenseId ? { ...e, isDeleted: false, deletedAt: undefined } : e)
         } : f));
     };
 
@@ -157,11 +122,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             setAssets,
             setDrivers,
             setExpenses,
-            restoreItem,
-            permanentlyDeleteItem,
             deleteItem,
-            restoreLoadExpense,
-            permanentlyDeleteLoadExpense,
+            deleteLoadExpense,
             isLoaded
         }}>
             {children}
