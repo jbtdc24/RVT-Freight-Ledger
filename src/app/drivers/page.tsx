@@ -26,9 +26,12 @@ import { useData } from "@/lib/data-context";
 import type { Driver } from "@/lib/types";
 import { DriverForm } from "./drivers-form";
 import { Badge } from "@/components/ui/badge";
+import { useAuthContext } from "@/lib/contexts/auth-context";
+import { saveDriver } from "@/lib/firebase/firestore";
 
 export default function DriversPage() {
-  const { drivers, setDrivers, deleteItem } = useData();
+  const { drivers, deleteItem } = useData();
+  const { user } = useAuthContext();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
 
@@ -37,12 +40,13 @@ export default function DriversPage() {
     setIsDialogOpen(true);
   };
 
-  const handleSaveDriver = (values: any) => {
+  const handleSaveDriver = async (values: any) => {
+    if (!user) return;
     if (editingDriver) {
-      setDrivers(prev => prev.map(d => d.id === editingDriver.id ? { ...d, ...values } : d));
+      await saveDriver(user.uid, { ...editingDriver, ...values });
     } else {
       const newDriver = { ...values, id: Math.random().toString(36).substr(2, 9) };
-      setDrivers(prev => [newDriver, ...prev]);
+      await saveDriver(user.uid, newDriver);
     }
     setIsDialogOpen(false);
     setEditingDriver(null);

@@ -3,8 +3,8 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import AppLayout from '@/components/app-layout';
 import { ThemeProvider } from '@/components/theme-provider';
-
 import { DataProvider } from '@/lib/data-context';
+import { AuthProvider } from '@/lib/contexts/auth-context';
 
 export const metadata: Metadata = {
   title: 'RVT Accounting',
@@ -30,11 +30,14 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <DataProvider>
-            <AppLayout>
-              {children}
-            </AppLayout>
-          </DataProvider>
+          <AuthProvider>
+            <DataProvider>
+              {/* Only render AppLayout if they are essentially 'in' the app, handled later. For now wrap all */}
+              <AppLayout>
+                {children}
+              </AppLayout>
+            </DataProvider>
+          </AuthProvider>
           <Toaster />
         </ThemeProvider>
       </body>

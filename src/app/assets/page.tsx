@@ -25,9 +25,12 @@ import { useData } from "@/lib/data-context";
 import type { Asset } from "@/lib/types";
 import { AssetForm } from "./assets-form";
 import { Badge } from "@/components/ui/badge";
+import { useAuthContext } from "@/lib/contexts/auth-context";
+import { saveAsset } from "@/lib/firebase/firestore";
 
 export default function AssetsPage() {
-  const { assets, setAssets, deleteItem } = useData();
+  const { assets, deleteItem } = useData();
+  const { user } = useAuthContext();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
 
@@ -36,12 +39,14 @@ export default function AssetsPage() {
     setIsDialogOpen(true);
   };
 
-  const handleSaveAsset = (values: any) => {
+  const handleSaveAsset = async (values: any) => {
+    if (!user) return;
+
     if (editingAsset) {
-      setAssets(prev => prev.map(a => a.id === editingAsset.id ? { ...a, ...values } : a));
+      await saveAsset(user.uid, { ...editingAsset, ...values });
     } else {
       const newAsset = { ...values, id: Math.random().toString(36).substr(2, 9) };
-      setAssets(prev => [newAsset, ...prev]);
+      await saveAsset(user.uid, newAsset);
     }
     setIsDialogOpen(false);
     setEditingAsset(null);

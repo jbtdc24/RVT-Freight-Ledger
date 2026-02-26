@@ -2,16 +2,17 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Gauge, Truck, Warehouse, Calculator, Menu, Users, Trash2, FileText, Building2, Home, ClipboardList, HandCoins, GripVertical } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Gauge, Truck, Warehouse, Calculator, Menu, Users, Trash2, FileText, Building2, Home, ClipboardList, HandCoins, GripVertical, Settings, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { RvtLogo } from "@/components/icons";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 import { useData } from "@/lib/data-context";
+import { useAuthContext } from "@/lib/contexts/auth-context";
 import { appConfig } from "@/lib/config";
-import { Loader2 } from "lucide-react";
+import { Loader2, LogOut } from "lucide-react";
 
 import {
   DndContext,
@@ -32,12 +33,13 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 
 const defaultNavItems = [
-  { href: "/", label: "Dashboard", icon: Gauge },
+  { href: "/dashboard", label: "Dashboard", icon: Gauge },
   { href: "/freight-ledger", label: "Freight Ledger", icon: Truck },
   { href: "/assets", label: "Assets", icon: Warehouse },
   { href: "/drivers", label: "Drivers", icon: Users },
   { href: "/business-expenses", label: "Business Expenses", icon: Building2 },
   { href: "/home-management", label: "Home Management", icon: Home },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 function SortableNavItem({ item, pathname }: { item: any; pathname: string }) {
@@ -89,7 +91,9 @@ function SortableNavItem({ item, pathname }: { item: any; pathname: string }) {
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { isLoaded } = useData();
+  const { user, userData, loading, signOut } = useAuthContext();
   const [navItems, setNavItems] = useState(defaultNavItems);
 
   const sensors = useSensors(
@@ -102,6 +106,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+
+  useEffect(() => {
+    if (user && pathname === "/") {
+      router.push("/dashboard");
+    }
+  }, [user, pathname, router]);
 
   useEffect(() => {
     if (isLoaded) {
@@ -142,7 +152,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
   };
 
-  if (!isLoaded) {
+  if (!isLoaded || loading) {
     return (
       <div className="flex min-h-screen w-full items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
@@ -154,6 +164,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       </div>
     );
+  }
+
+  // If the user isn't logged in OR they are on the landing page, don't show the dashboard shell (sidebar/header)
+  // Instead, just render the children (which will be the Landing/Login pages that handles its own layout)
+  if (!user || pathname === "/") {
+    return <>{children}</>;
   }
 
   const renderNavLinks = () => (
@@ -172,6 +188,21 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           ))}
         </SortableContext>
       </DndContext>
+
+      {userData?.role === 'admin' && (
+        <div className="mt-4 pt-4 border-t border-border">
+          <Link
+            href="/admin"
+            className={`flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-all duration-300 ${pathname === "/admin"
+              ? "bg-destructive/10 text-destructive font-bold"
+              : "text-muted-foreground hover:bg-muted/50 hover:text-foreground font-semibold"
+              }`}
+          >
+            <ShieldAlert className="h-4 w-4" />
+            Admin Dashboard
+          </Link>
+        </div>
+      )}
     </nav>
   );
 
@@ -199,12 +230,27 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
         <div className="p-6">
-          <div className="glass-card !p-4 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-primary to-accent" />
-            <div className="flex flex-col">
-              <span className="text-xs font-bold">{appConfig.ownerName}</span>
-              <span className="text-[10px] text-muted-foreground">{appConfig.accountType}</span>
+          <div className="glass-card !p-4 flex items-center justify-between gap-3 group relative cursor-pointer">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-primary to-accent flex items-center justify-center text-[10px] text-white font-bold">
+                {userData?.displayName?.charAt(0).toUpperCase() || "U"}
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xs font-bold truncate max-w-[100px]">
+                  {userData?.displayName || user.email?.split('@')[0] || "User"}
+                </span>
+                <span className="text-[10px] text-primary font-medium">{userData?.subscriptionTier || "Free"}</span>
+              </div>
             </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={signOut}
+              title="Sign out"
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
           </div>
         </div>
       </aside>

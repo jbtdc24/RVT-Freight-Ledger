@@ -37,17 +37,19 @@ import {
 import { Card } from "@/components/ui/card";
 import { useData } from "@/lib/data-context";
 import type { Freight, Driver } from "@/lib/types";
-import { FreightForm } from "./freight-form";
 import { StatusDialog } from "@/components/status-dialog";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { useAuthContext } from "@/lib/contexts/auth-context";
+import { saveFreight } from "@/lib/firebase/firestore";
 import { FilterBar, type FiltersState } from "./filter-bar";
 import { isBefore, isAfter, startOfDay, endOfDay, format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, isWithinInterval } from 'date-fns';
 
 const ITEMS_PER_PAGE = 12;
 
 export default function FreightLedgerPage() {
-  const { freight, setFreight, drivers, assets, deleteItem } = useData();
+  const { freight, drivers, assets, deleteItem } = useData();
+  const { user } = useAuthContext();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingFreight, setEditingFreight] = useState<Freight | null>(null);
 
@@ -102,30 +104,23 @@ export default function FreightLedgerPage() {
     setIsDialogOpen(true);
   };
 
-  const handleSaveFreight = (values: Omit<Freight, "id"> & { id?: string }) => {
+  const handleSaveFreight = async (values: Omit<Freight, "id"> & { id?: string }) => {
+    if (!user) return;
     console.log("handleSaveFreight called with:", values);
 
     if (values.id) {
       // EDITING existing freight
       console.log("Updating freight with id:", values.id);
-      setFreight(prev => {
-        const updated = prev.map(f => {
-          if (f.id === values.id) {
-            // Merge the existing freight with new values, ensuring all fields are updated
-            const merged = {
-              ...f,
-              ...values,
-              id: f.id, // Keep original ID
-              date: values.date, // Ensure date is updated
-            };
-            console.log("Merged freight:", merged);
-            return merged;
-          }
-          return f;
-        });
-        console.log("Updated freight array:", updated);
-        return updated;
-      });
+      const existingFreight = freight.find(f => f.id === values.id);
+      if (existingFreight) {
+        const merged: Freight = {
+          ...existingFreight,
+          ...values,
+          id: existingFreight.id,
+          date: values.date,
+        };
+        await saveFreight(user.uid, merged);
+      }
     } else {
       // CREATING new freight
       const newFreight: Freight = {
@@ -133,8 +128,9 @@ export default function FreightLedgerPage() {
         id: Math.random().toString(36).substr(2, 9),
       } as Freight;
       console.log("Creating new freight:", newFreight);
-      setFreight(prev => [newFreight, ...prev]);
+      await saveFreight(user.uid, newFreight);
     }
+
     setIsDialogOpen(false);
     setEditingFreight(null);
     clearEditParam();
@@ -146,41 +142,46 @@ export default function FreightLedgerPage() {
     setEditingFreight(null);
   };
 
-  const handleUpdateStatus = (id: string, newStatus: Freight['status'], comment: string) => {
-    setFreight(prev => prev.map(f => {
-      if (f.id === id) {
-        // Create change comment
-        const statusComment = {
-          id: Math.random().toString(36).substr(2, 9),
-          text: `Status changed: ${f.status} -> ${newStatus}`,
-          author: "System",
-          timestamp: new Date().toISOString(),
-          type: 'system' as const
-        };
+  const handleUpdateStatus = async (id: string, newStatus: Freight['status'], comment: string) => {
+    if (!user) return;
+    const existingFreight = freight.find(f => f.id === id);
+    if (existingFreight) {
+      // Create change comment
+      const statusComment = {
+        id: Math.random().toString(36).substr(2, 9),
+        text: `Status changed: ${existingFreight.status} -> ${newStatus}`,
+        author: "System",
+        timestamp: new Date().toISOString(),
+        type: 'system' as const
+      };
 
-        // Create user note comment
-        const userComment = {
-          id: Math.random().toString(36).substr(2, 9),
-          text: comment,
-          author: "User",
-          timestamp: new Date().toISOString(),
-          type: 'manual' as const
-        };
+      // Create user note comment
+      const userComment = {
+        id: Math.random().toString(36).substr(2, 9),
+        text: comment,
+        author: "User",
+        timestamp: new Date().toISOString(),
+        type: 'manual' as const
+      };
 
-        const currentComments = f.comments || [];
+      const currentComments = existingFreight.comments || [];
 
-        return {
-          ...f,
-          status: newStatus,
-          comments: [userComment, statusComment, ...currentComments]
-        };
-      }
-      return f;
-    }));
+      const updatedFreight: Freight = {
+        ...existingFreight,
+        status: newStatus,
+        comments: [userComment, statusComment, ...currentComments]
+      };
+
+      await saveFreight(user.uid, updatedFreight);
+    }
   };
 
-  const handleTogglePin = (id: string, currentPinStatus: boolean) => {
-    setFreight(prev => prev.map(f => f.id === id ? { ...f, pinned: !currentPinStatus } : f));
+  const handleTogglePin = async (id: string, currentPinStatus: boolean) => {
+    if (!user) return;
+    const existingFreight = freight.find(f => f.id === id);
+    if (existingFreight) {
+      await saveFreight(user.uid, { ...existingFreight, pinned: !currentPinStatus });
+    }
   };
 
   const formatCurrency = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
