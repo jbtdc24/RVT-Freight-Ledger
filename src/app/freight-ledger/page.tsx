@@ -3,7 +3,7 @@
 "use client";
 
 import { useState, Fragment, useMemo, useEffect, useRef } from "react";
-import { PlusCircle, Pencil, Wallet, ArrowRight, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, MessageSquare, PenTool, X, MapPin, Trash2 } from "lucide-react";
+import { PlusCircle, Pencil, Wallet, ArrowRight, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, MessageSquare, PenTool, X, MapPin, Trash2, Pin } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
@@ -179,6 +179,10 @@ export default function FreightLedgerPage() {
     }));
   };
 
+  const handleTogglePin = (id: string, currentPinStatus: boolean) => {
+    setFreight(prev => prev.map(f => f.id === id ? { ...f, pinned: !currentPinStatus } : f));
+  };
+
   const formatCurrency = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
 
   const handleRowClick = (item: Freight) => {
@@ -309,6 +313,10 @@ export default function FreightLedgerPage() {
 
       return true;
     }).sort((a, b) => {
+      // Prioritize pinned loads
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+
       // Logic for "Invalid" loads: Missing Driver OR Missing Comments
       const isInvalidA = !a.driverName || !a.comments || a.comments.length === 0;
       const isInvalidB = !b.driverName || !b.comments || b.comments.length === 0;
@@ -733,11 +741,22 @@ export default function FreightLedgerPage() {
                     )}
                   >
                     <TableCell>
-                      {isInvalid && (
-                        <span className="text-[10px] font-bold text-destructive uppercase tracking-wider bg-destructive/10 border border-destructive/20 px-1 py-0.5 rounded">
-                          Invalid
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className={cn("h-6 w-6 rounded-full hover:bg-muted-foreground/10", item.pinned && "text-primary")}
+                          onClick={(e) => { e.stopPropagation(); handleTogglePin(item.id, !!item.pinned); }}
+                          title={item.pinned ? "Unpin Load" : "Pin Load to Top"}
+                        >
+                          <Pin className={cn("h-3 w-3", item.pinned && "fill-current")} />
+                        </Button>
+                        {isInvalid && (
+                          <span className="text-[10px] font-bold text-destructive uppercase tracking-wider bg-destructive/10 border border-destructive/20 px-1 py-0.5 rounded">
+                            Invalid
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="hidden sm:table-cell">{format(item.date, 'MM/dd/yyyy')}</TableCell>
                     <TableCell className="font-medium">
