@@ -24,6 +24,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { LocationSelect } from "@/components/ui/location-select";
 
 const expenseSchema = z.object({
   id: z.string(),
@@ -380,7 +381,14 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
                     <FormField control={form.control} name="origin" render={({ field }) => (
                       <FormItem className="space-y-0.5">
                         <FormLabel className="text-[9px] uppercase font-black text-blue-500/70">Pickup</FormLabel>
-                        <FormControl><Input className="h-8 text-sm font-semibold border-muted-foreground/20" placeholder="Origin" {...field} /></FormControl>
+                        <FormControl>
+                          <LocationSelect
+                            value={field.value}
+                            onChange={field.onChange}
+                            placeholder="Select Origin"
+                            className="bg-transparent border-t-0 border-r-0 border-l-0 border-b border-muted-foreground/20 rounded-none px-0 h-8 shadow-none focus-visible:ring-0 text-sm font-semibold"
+                          />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )} />
@@ -390,7 +398,14 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
                     <FormField control={form.control} name="destination" render={({ field }) => (
                       <FormItem className="space-y-0.5">
                         <FormLabel className="text-[9px] uppercase font-black text-orange-500/70">Drop</FormLabel>
-                        <FormControl><Input className="h-8 text-sm font-semibold border-muted-foreground/20" placeholder="Destination" {...field} /></FormControl>
+                        <FormControl>
+                          <LocationSelect
+                            value={field.value}
+                            onChange={field.onChange}
+                            placeholder="Select Destination"
+                            className="bg-transparent border-t-0 border-r-0 border-l-0 border-b border-muted-foreground/20 rounded-none px-0 h-8 shadow-none focus-visible:ring-0 text-sm font-semibold"
+                          />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )} />
