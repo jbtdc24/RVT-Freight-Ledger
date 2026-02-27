@@ -14,6 +14,7 @@ import { User, Settings2, Briefcase, Database, Save, Activity, Trash2, CheckCirc
 import { useToast } from "@/hooks/use-toast";
 import { db } from "@/lib/firebase/config";
 import { doc, updateDoc } from "firebase/firestore";
+import { useTheme } from "next-themes";
 
 interface SettingsModalProps {
     open: boolean;
@@ -27,24 +28,36 @@ export function SettingsModal({ open, onOpenChange, children }: SettingsModalPro
     const [loading, setLoading] = useState(false);
     const [isUpgrading, setIsUpgrading] = useState(false);
 
-    // Dummy state for preferences to show UI
+    const { theme, setTheme } = useTheme();
+
+    // Preferences state to show UI
     const [preferences, setPreferences] = useState({
         currency: "USD",
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         dateFormat: "MM/DD/YYYY",
-        theme: "system",
         lineHaulPercent: "65"
     });
 
-    const handleSave = () => {
+    const handleSave = async () => {
         setLoading(true);
-        setTimeout(() => {
-            setLoading(false);
-            toast({
-                title: "Settings Saved",
-                description: "Your preferences have been updated successfully.",
-            });
-        }, 500);
+        if (user) {
+            try {
+                await updateDoc(doc(db, "users", user.uid), {
+                    themePreference: theme === 'dark' ? 'dark' : 'light'
+                });
+                toast({
+                    title: "Settings Saved",
+                    description: "Your preferences have been updated successfully.",
+                });
+            } catch (err) {
+                toast({
+                    title: "Settings Save Failed",
+                    description: "There was a problem saving your preferences.",
+                    variant: "destructive"
+                });
+            }
+        }
+        setLoading(false);
     };
 
     const handleSimulatedUpgrade = async () => {
@@ -239,7 +252,10 @@ export function SettingsModal({ open, onOpenChange, children }: SettingsModalPro
                                             <Label className="text-base">Dark Mode UI</Label>
                                             <p className="text-xs text-muted-foreground">Enforce dark mode globally across the application.</p>
                                         </div>
-                                        <Switch defaultChecked={true} />
+                                        <Switch
+                                            checked={theme === 'dark'}
+                                            onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
+                                        />
                                     </div>
                                 </section>
                             </TabsContent>

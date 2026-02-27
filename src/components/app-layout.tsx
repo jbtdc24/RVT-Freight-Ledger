@@ -109,14 +109,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   );
 
   useEffect(() => {
-    if (user && pathname === "/") {
+    // Redirect unauthenticated users trying to access dashboard routes to home
+    if (!loading && !user && pathname !== "/" && pathname !== "/login") {
+      router.push("/");
+    }
+    // Redirect authenticated users away from home to the dashboard
+    if (!loading && user && (pathname === "/" || pathname === "/login")) {
       router.push("/dashboard");
     }
-  }, [user, pathname, router]);
+  }, [user, pathname, router, loading]);
 
   useEffect(() => {
-    if (isLoaded) {
-      const savedOrder = localStorage.getItem("rvt_nav_order");
+    if (isLoaded && user) {
+      const savedOrder = localStorage.getItem(`rvt_nav_order_${user.uid}`);
       if (savedOrder) {
         try {
           const order = JSON.parse(savedOrder);
@@ -134,7 +139,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         }
       }
     }
-  }, [isLoaded]);
+  }, [isLoaded, user]);
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -145,8 +150,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         const newIndex = items.findIndex((i) => i.href === over?.id);
         const newOrder = arrayMove(items, oldIndex, newIndex);
 
-        // Save new order to local storage
-        localStorage.setItem("rvt_nav_order", JSON.stringify(newOrder.map(i => i.href)));
+        // Save new order to local storage with user namespace
+        if (user?.uid) {
+          localStorage.setItem(`rvt_nav_order_${user.uid}`, JSON.stringify(newOrder.map(i => i.href)));
+        }
 
         return newOrder;
       });
@@ -172,9 +179,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Fallback for unauthorized pages matching dashboard routes
-  if (!user) {
-    return <>{children}</>;
+  // Fallback for unauthorized pages matching dashboard routes (already handled by router above, but catch-all blocker)
+  if (!user && pathname !== "/" && pathname !== "/login") {
+    return null; // Return null instead of children so protected content never flashes
   }
 
   const renderNavLinks = () => (
@@ -256,8 +263,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   {userData?.displayName?.charAt(0).toUpperCase() || "U"}
                 </div>
                 <div className="flex flex-col pr-2">
-                  <span className="text-sm font-bold truncate max-w-[120px] text-foreground leading-tight">
-                    {userData?.displayName || user.email?.split('@')[0] || "User"}
+                  <span className="text-secondary-foreground font-semibold inline-block truncate max-w-[120px]">
+                    {userData?.displayName || user?.email?.split('@')[0] || "User"}
                   </span>
                   <span className="text-[10px] text-primary font-bold uppercase tracking-wider leading-tight">{userData?.subscriptionTier || "Free"}</span>
                 </div>

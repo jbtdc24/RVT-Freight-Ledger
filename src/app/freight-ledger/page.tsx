@@ -128,6 +128,7 @@ export default function FreightLedgerPage() {
 
     const mappedFreight: Partial<Freight> = {
       freightId: extractedData.freightId || extractedData.pro || "",
+      freightBillNumber: extractedData.freightBillNumber || "",
       date: mappedDate,
       origin: extractedData.origin || extractedData.pickup || "",
       destination: extractedData.destination || extractedData.delivery || "",
@@ -135,8 +136,19 @@ export default function FreightLedgerPage() {
       pieces: Number(extractedData.pieces) || 0,
       distance: Number(extractedData.miles) || 0,
       lineHaul: Number(extractedData.rate) || 0,
-      agencyName: extractedData.broker || extractedData.customer || "",
+      fuelSurcharge: Number(extractedData.fuelSurcharge) || 0,
+      loading: Number(extractedData.loading) || 0,
+      unloading: Number(extractedData.unloading) || 0,
+      commodity: extractedData.commodity || "",
+      agencyName: extractedData.agencyName || "",
       customerReferenceNumber: extractedData.reference || "",
+      contactName: extractedData.contactName || "",
+      contactPhone: extractedData.contactPhone || "",
+      contactEmail: extractedData.contactEmail || "",
+      contactFax: extractedData.contactFax || "",
+      trailerNumber: extractedData.trailerNumber || "",
+      equipmentType: extractedData.equipmentType || "",
+      hazardousMaterial: Boolean(extractedData.hazardousMaterial),
       bcoSpecialInstructions: extractedData.notes || "",
       // Some required defaults
       status: 'Draft',
@@ -393,10 +405,7 @@ export default function FreightLedgerPage() {
   return (
     <>
       <PageHeader title="Freight Ledger">
-        {/* Only show AI Scan button for PRO users */}
-        {userData?.subscriptionTier !== 'Free' && (
-          <AIScanButton onScanComplete={handleScanComplete} />
-        )}
+        <AIScanButton onScanComplete={handleScanComplete} />
         <Button onClick={() => handleOpenDialog()}>
           <PlusCircle className="mr-2 h-4 w-4" />
           Manual Entry
@@ -445,7 +454,7 @@ export default function FreightLedgerPage() {
                 {editingFreight ? "Edit Freight Load" : "New Freight Entry"}
               </DialogTitle>
             </div>
-            {editingFreight && (
+            {editingFreight?.id && (
               <Badge variant="outline" className="text-[10px] font-mono opacity-50 px-3 py-1 bg-white/50">
                 INTERNAL ID: {editingFreight.id.slice(0, 8)}
               </Badge>
