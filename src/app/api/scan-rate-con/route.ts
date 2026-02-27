@@ -1,32 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GoogleGenAI } from "@google/genai";
 const pdfParse = require("pdf-parse");
 
-// 1. Initialize Gemini
 // We rely on process.env.GOOGLE_GEMINI_API_KEY being set in .env.local
-const ai = new GoogleGenAI({});
+// The user provided an OpenRouter key, so we will use the fetch api directly.
 
 export async function POST(req: NextRequest) {
     try {
-        console.log("Received PDF scan request");
+        console.log("Received PDF scan request via Base64 payload");
 
-        // 2. Extract fileUrl from request JSON
+        // 2. Extract base64 from request JSON
         const body = await req.json();
-        const fileUrl = body.fileUrl;
+        const fileBase = body.fileBase;
 
-        if (!fileUrl) {
-            return NextResponse.json({ error: "No file URL provided" }, { status: 400 });
+        if (!fileBase) {
+            return NextResponse.json({ error: "No file content provided" }, { status: 400 });
         }
 
-        console.log(`Fetching file from Storage URL: ${fileUrl}`);
-
-        // 3. Fetch the file arrayBuffer from Firebase Storage
-        const fetchRes = await fetch(fileUrl);
-        if (!fetchRes.ok) {
-            throw new Error(`Failed to fetch file from storage. Status: ${fetchRes.status}`);
-        }
-        const arrayBuffer = await fetchRes.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
+        // 3. Decode Base64 to Buffer
+        const buffer = Buffer.from(fileBase, 'base64');
 
         // 4. Parse PDF text
         const pdfData = await pdfParse(buffer);
@@ -51,39 +42,58 @@ export async function POST(req: NextRequest) {
             """
         `;
 
-        // 6. Call Gemini API
-        // Using gemini-2.5-flash as it's the recommended default for fast, multimodal/text tasks
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: prompt,
-            config: {
-                // Force JSON output matching our Freight interface
-                responseMimeType: "application/json",
-                // Provide a strict schema string reflecting the Freight object we want
-                // Note: the GenAI SDK config.responseSchema expects a specific format if used, 
-                // but setting responseMimeType to application/json normally instructs the model to just return JSON.
-                // We'll enforce the structure in the prompt.
-                systemInstruction: `Extract the data into this EXACT JSON structure. If a field is not found, leave it as an empty string ("") or 0 for numbers. Return ONLY this JSON.
+        const systemInstructionSchema = `
+        {
+            "date": "YYYY-MM-DD string, the date of the load or today if not found",
+            "broker": "string, the name of the broker or customer",
+            "customer": "string, alias for broker name",
+            "pro": "string, PRO number or Load ID",
+            "reference": "string, any secondary reference numbers",
+            "pickup": "string, City, ST of pickup. (e.g. 'Dallas, TX')",
+            "delivery": "string, City, ST of delivery. (e.g. 'Austin, TX')",
+            "pickupDate": "string, Date of pickup (e.g. 'Oct 24, 2023')",
+            "deliveryDate": "string, Date of delivery",
+            "weight": 0, // number, total weight in lbs
+            "pieces": 0, // number, total pieces/pallets
+            "miles": 0, // number, total distance/miles (estimate if necessary or extract)
+            "rate": 0.00, // number, the total pay or gross rate
+            "notes": "string, any special instructions, temps, or notes"
+        }`;
+        // 6. Call OpenRouter API using standard fetch
+        const apiKey = process.env.GOOGLE_GEMINI_API_KEY; // Reusing the same env var name but it's an OpenRouter key
+
+        const openRouterPayload = {
+            model: "google/gemini-2.5-flash",
+            messages: [
                 {
-                    "date": "YYYY-MM-DD string, the date of the load or today if not found",
-                    "broker": "string, the name of the broker or customer",
-                    "customer": "string, alias for broker name",
-                    "pro": "string, PRO number or Load ID",
-                    "reference": "string, any secondary reference numbers",
-                    "pickup": "string, City, ST of pickup. (e.g. 'Dallas, TX')",
-                    "delivery": "string, City, ST of delivery. (e.g. 'Austin, TX')",
-                    "pickupDate": "string, Date of pickup (e.g. 'Oct 24, 2023')",
-                    "deliveryDate": "string, Date of delivery",
-                    "weight": 0, // number, total weight in lbs
-                    "pieces": 0, // number, total pieces/pallets
-                    "miles": 0, // number, total distance/miles (estimate if necessary or extract)
-                    "rate": 0.00, // number, the total pay or gross rate
-                    "notes": "string, any special instructions, temps, or notes"
-                }`
-            }
+                    role: "developer",
+                    content: `Extract the data into this EXACT JSON structure. If a field is not found, leave it as an empty string ("") or 0 for numbers. Return ONLY this JSON. Do not include markdown formatting.\n${systemInstructionSchema}`
+                },
+                {
+                    role: "user",
+                    content: prompt
+                }
+            ],
+            response_format: { type: "json_object" }
+        };
+
+        console.log("Calling OpenRouter API...");
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${apiKey}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(openRouterPayload)
         });
 
-        const resultText = response.text;
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`OpenRouter API Error: ${response.status} - ${errorText}`);
+        }
+
+        const responseData = await response.json();
+        let resultText = responseData.choices?.[0]?.message?.content;
 
         if (!resultText) {
             throw new Error("Gemini returned an empty response.");

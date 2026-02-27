@@ -2,11 +2,9 @@
 
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { FileText, Loader2, Sparkles, AlertCircle } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuthContext } from "@/lib/contexts/auth-context";
-import { storage } from "@/lib/firebase/config";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 interface AIScanButtonProps {
     onScanComplete: (extractedData: any) => void;
@@ -53,27 +51,31 @@ export function AIScanButton({ onScanComplete, className }: AIScanButtonProps) {
         try {
             setIsScanning(true);
             toast({
-                title: "Uploading Document",
-                description: "Saving document to secure cloud storage...",
+                title: "Preparing Document",
+                description: "Encoding document for AI extraction...",
             });
 
-            // 1. Upload to Firebase Storage
-            const storageRef = ref(storage, `users/${user.uid}/scans/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`);
-            const uploadResult = await uploadBytes(storageRef, file);
-            const downloadURL = await getDownloadURL(uploadResult.ref);
+            // Read file as Base64 string
+            const reader = new FileReader();
+
+            const fileBase64 = await new Promise<string>((resolve, reject) => {
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve((reader.result as string).split(',')[1]);
+                reader.onerror = error => reject(error);
+            });
 
             toast({
                 title: "Scanning Document",
                 description: "Gemini AI is extracting load details. This may take a few seconds...",
             });
 
-            // 2. Send the URL to our backend to parse
+            // Send base64 to our backend to parse
             const response = await fetch("/api/scan-rate-con", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify({ fileUrl: downloadURL }),
+                body: JSON.stringify({ fileBase: fileBase64, fileName: file.name }),
             });
 
             const result = await response.json();
