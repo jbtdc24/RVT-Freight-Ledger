@@ -10,6 +10,7 @@ import {
 } from "firebase/auth";
 import { auth, db } from "@/lib/firebase/config";
 import { doc, getDoc, setDoc } from "firebase/firestore";
+import { useTheme } from "next-themes";
 
 // Determine the structure of the data we'll expose
 interface AuthContextType {
@@ -27,6 +28,7 @@ export interface UserData {
     displayName: string | null;
     subscriptionTier: "Free" | "Pro" | "Fleet";
     role?: "admin" | "user";
+    themePreference?: "light" | "dark" | "system";
     createdAt: number;
 }
 
@@ -44,6 +46,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [user, setUser] = useState<User | null>(null);
     const [userData, setUserData] = useState<UserData | null>(null);
     const [loading, setLoading] = useState(true);
+    const { setTheme } = useTheme();
 
     // Sync user profile with Firestore database whenever Auth changes
     useEffect(() => {
@@ -67,7 +70,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                     const userDoc = await getDoc(userDocRef);
 
                     if (userDoc.exists()) {
-                        setUserData(userDoc.data() as UserData);
+                        const data = userDoc.data() as UserData;
+                        setUserData(data);
+                        if (data.themePreference && data.themePreference !== "system") {
+                            setTheme(data.themePreference);
+                        }
                     } else {
                         // If they don't exist in Firestore yet (new signup), create their record
                         const newUserData: UserData = {

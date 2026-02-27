@@ -1,11 +1,13 @@
-import { NextRequest, NextResponse } from "next/server";
-const pdfParse = require("pdf-parse");
+
 
 // We rely on process.env.GOOGLE_GEMINI_API_KEY being set in .env.local
 // The user provided an OpenRouter key, so we will use the fetch api directly.
 
+import { NextRequest, NextResponse } from "next/server";
+
 export async function POST(req: NextRequest) {
     try {
+        const pdfParse = require("pdf-parse");
         console.log("Received PDF scan request via Base64 payload");
 
         // 2. Extract base64 from request JSON
@@ -45,25 +47,36 @@ export async function POST(req: NextRequest) {
         const systemInstructionSchema = `
         {
             "date": "YYYY-MM-DD string, the date of the load or today if not found",
-            "broker": "string, the name of the broker or customer",
-            "customer": "string, alias for broker name",
+            "agencyName": "string, the Operating Entity, Agency Name, or broker name",
             "pro": "string, PRO number or Load ID",
-            "reference": "string, any secondary reference numbers",
+            "freightBillNumber": "string, Freight Bill # if available",
+            "reference": "string, any secondary reference numbers or Customer Reference",
             "pickup": "string, City, ST of pickup. (e.g. 'Dallas, TX')",
             "delivery": "string, City, ST of delivery. (e.g. 'Austin, TX')",
             "pickupDate": "string, Date of pickup (e.g. 'Oct 24, 2023')",
             "deliveryDate": "string, Date of delivery",
+            "commodity": "string, description of the cargo, item, or commodity",
             "weight": 0, // number, total weight in lbs
-            "pieces": 0, // number, total pieces/pallets
+            "pieces": 0, // number, total pieces/pallets or Qty
             "miles": 0, // number, total distance/miles (estimate if necessary or extract)
-            "rate": 0.00, // number, the total pay or gross rate
-            "notes": "string, any special instructions, temps, or notes"
+            "rate": 0.00, // number, the main Linehaul pay or gross flat rate
+            "fuelSurcharge": 0.00, // number, Fuel Surcharge amount
+            "loading": 0.00, // number, Loading charge
+            "unloading": 0.00, // number, Unloading charge
+            "notes": "string, any special instructions, temps, or bco special instructions",
+            "contactName": "string, name of the contact person",
+            "contactPhone": "string, contact phone number",
+            "contactEmail": "string, contact email address",
+            "contactFax": "string, contact fax number",
+            "trailerNumber": "string, trailer number",
+            "equipmentType": "string, equipment type (e.g. VANL, REEFER)",
+            "hazardousMaterial": false // boolean, true if hazardous material is 'true' or indicated
         }`;
         // 6. Call OpenRouter API using standard fetch
         const apiKey = process.env.GOOGLE_GEMINI_API_KEY; // Reusing the same env var name but it's an OpenRouter key
 
         const openRouterPayload = {
-            model: "google/gemini-2.5-flash",
+            model: "google/gemini-2.0-flash-001",
             messages: [
                 {
                     role: "developer",
