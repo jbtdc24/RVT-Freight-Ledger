@@ -8,11 +8,14 @@ import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { useAuthContext } from "@/lib/contexts/auth-context";
+import { saveDriver } from "@/lib/firebase/firestore";
 
 export default function DriverDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
     const router = useRouter();
-    const { drivers, setDrivers, deleteItem } = useData();
+    const { drivers, deleteItem } = useData();
+    const { user } = useAuthContext();
 
     const driver = drivers.find(d => d.id === id);
 
@@ -25,8 +28,9 @@ export default function DriverDetailPage({ params }: { params: Promise<{ id: str
         );
     }
 
-    const handleSaveDriver = (values: any) => {
-        setDrivers(prev => prev.map(d => d.id === id ? { ...d, ...values } : d));
+    const handleSaveDriver = async (values: any) => {
+        if (!user || !driver) return;
+        await saveDriver(user.uid, { ...driver, ...values });
         router.push('/drivers');
     };
 

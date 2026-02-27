@@ -37,17 +37,23 @@ import {
 import { Card } from "@/components/ui/card";
 import { useData } from "@/lib/data-context";
 import type { Freight, Driver } from "@/lib/types";
-import { FreightForm } from "./freight-form";
 import { StatusDialog } from "@/components/status-dialog";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { useAuthContext } from "@/lib/contexts/auth-context";
+import { saveFreight } from "@/lib/firebase/firestore";
 import { FilterBar, type FiltersState } from "./filter-bar";
+import { FreightForm } from "@/components/freight-form";
+import { AIScanButton } from "@/components/ai-scan-button";
 import { isBefore, isAfter, startOfDay, endOfDay, format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, isWithinInterval } from 'date-fns';
+import { useToast } from "@/hooks/use-toast";
 
 const ITEMS_PER_PAGE = 12;
 
 export default function FreightLedgerPage() {
-  const { freight, setFreight, drivers, assets, deleteItem } = useData();
+  const { freight, drivers, assets, deleteItem } = useData();
+  const { user, userData } = useAuthContext();
+  const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingFreight, setEditingFreight] = useState<Freight | null>(null);
 
@@ -97,35 +103,89 @@ export default function FreightLedgerPage() {
     setCurrentPage(1);
   }, [filters]);
 
-  const handleOpenDialog = (freight?: Freight) => {
-    setEditingFreight(freight || null);
+  const handleOpenDialog = (freightToEdit?: Freight) => {
+    // If opening for NEW load (not editing) and user is Free, check limits
+    if (!freightToEdit && (userData?.subscriptionTier === 'Free' || !userData?.subscriptionTier)) {
+      if (freight.length >= 10) {
+        toast({
+          title: "Upgrade to Pro Required",
+          description: "You have reached the maximum limit of 10 loads for the Basic plan. Upgrade in Settings.",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+    setEditingFreight(freightToEdit || null);
     setIsDialogOpen(true);
   };
 
-  const handleSaveFreight = (values: Omit<Freight, "id"> & { id?: string }) => {
+  const handleScanComplete = (extractedData: any) => {
+    // We create a partial/mock Freight object with the extracted data
+    // Then call handleOpenDialog(scannedFreight)
+    const mappedDate: Date = extractedData.date && !isNaN(new Date(extractedData.date).getTime())
+      ? new Date(extractedData.date)
+      : new Date();
+
+    const mappedFreight: Partial<Freight> = {
+      freightId: extractedData.freightId || extractedData.pro || "",
+      freightBillNumber: extractedData.freightBillNumber || "",
+      date: mappedDate,
+      origin: extractedData.origin || extractedData.pickup || "",
+      destination: extractedData.destination || extractedData.delivery || "",
+      weight: Number(extractedData.weight) || 0,
+      pieces: Number(extractedData.pieces) || 0,
+      distance: Number(extractedData.miles) || 0,
+      lineHaul: Number(extractedData.rate) || 0,
+      fuelSurcharge: Number(extractedData.fuelSurcharge) || 0,
+      loading: Number(extractedData.loading) || 0,
+      unloading: Number(extractedData.unloading) || 0,
+      commodity: extractedData.commodity || "",
+      agencyName: extractedData.agencyName || "",
+      customerReferenceNumber: extractedData.reference || "",
+      contactName: extractedData.contactName || "",
+      contactPhone: extractedData.contactPhone || "",
+      contactEmail: extractedData.contactEmail || "",
+      contactFax: extractedData.contactFax || "",
+      trailerNumber: extractedData.trailerNumber || "",
+      equipmentType: extractedData.equipmentType || "",
+      hazardousMaterial: Boolean(extractedData.hazardousMaterial),
+      bcoSpecialInstructions: extractedData.notes || "",
+      // Some required defaults
+      status: 'Draft',
+      ownerPercentage: 100,
+      expenses: [],
+      comments: [
+        {
+          id: Math.random().toString(36).substr(2, 9),
+          text: "Form auto-filled by AI PDF Scan. Please review.",
+          author: "System - AI",
+          timestamp: new Date().toISOString(),
+          type: 'system'
+        }
+      ]
+    };
+
+    // Pass it as Freight so it loads neatly into the edit form
+    handleOpenDialog(mappedFreight as Freight);
+  };
+
+  const handleSaveFreight = async (values: Omit<Freight, "id"> & { id?: string }) => {
+    if (!user) return;
     console.log("handleSaveFreight called with:", values);
 
     if (values.id) {
       // EDITING existing freight
       console.log("Updating freight with id:", values.id);
-      setFreight(prev => {
-        const updated = prev.map(f => {
-          if (f.id === values.id) {
-            // Merge the existing freight with new values, ensuring all fields are updated
-            const merged = {
-              ...f,
-              ...values,
-              id: f.id, // Keep original ID
-              date: values.date, // Ensure date is updated
-            };
-            console.log("Merged freight:", merged);
-            return merged;
-          }
-          return f;
-        });
-        console.log("Updated freight array:", updated);
-        return updated;
-      });
+      const existingFreight = freight.find(f => f.id === values.id);
+      if (existingFreight) {
+        const merged: Freight = {
+          ...existingFreight,
+          ...values,
+          id: existingFreight.id,
+          date: values.date,
+        };
+        await saveFreight(user.uid, merged);
+      }
     } else {
       // CREATING new freight
       const newFreight: Freight = {
@@ -133,8 +193,9 @@ export default function FreightLedgerPage() {
         id: Math.random().toString(36).substr(2, 9),
       } as Freight;
       console.log("Creating new freight:", newFreight);
-      setFreight(prev => [newFreight, ...prev]);
+      await saveFreight(user.uid, newFreight);
     }
+
     setIsDialogOpen(false);
     setEditingFreight(null);
     clearEditParam();
@@ -146,41 +207,46 @@ export default function FreightLedgerPage() {
     setEditingFreight(null);
   };
 
-  const handleUpdateStatus = (id: string, newStatus: Freight['status'], comment: string) => {
-    setFreight(prev => prev.map(f => {
-      if (f.id === id) {
-        // Create change comment
-        const statusComment = {
-          id: Math.random().toString(36).substr(2, 9),
-          text: `Status changed: ${f.status} -> ${newStatus}`,
-          author: "System",
-          timestamp: new Date().toISOString(),
-          type: 'system' as const
-        };
+  const handleUpdateStatus = async (id: string, newStatus: Freight['status'], comment: string) => {
+    if (!user) return;
+    const existingFreight = freight.find(f => f.id === id);
+    if (existingFreight) {
+      // Create change comment
+      const statusComment = {
+        id: Math.random().toString(36).substr(2, 9),
+        text: `Status changed: ${existingFreight.status} -> ${newStatus}`,
+        author: "System",
+        timestamp: new Date().toISOString(),
+        type: 'system' as const
+      };
 
-        // Create user note comment
-        const userComment = {
-          id: Math.random().toString(36).substr(2, 9),
-          text: comment,
-          author: "User",
-          timestamp: new Date().toISOString(),
-          type: 'manual' as const
-        };
+      // Create user note comment
+      const userComment = {
+        id: Math.random().toString(36).substr(2, 9),
+        text: comment,
+        author: "User",
+        timestamp: new Date().toISOString(),
+        type: 'manual' as const
+      };
 
-        const currentComments = f.comments || [];
+      const currentComments = existingFreight.comments || [];
 
-        return {
-          ...f,
-          status: newStatus,
-          comments: [userComment, statusComment, ...currentComments]
-        };
-      }
-      return f;
-    }));
+      const updatedFreight: Freight = {
+        ...existingFreight,
+        status: newStatus,
+        comments: [userComment, statusComment, ...currentComments]
+      };
+
+      await saveFreight(user.uid, updatedFreight);
+    }
   };
 
-  const handleTogglePin = (id: string, currentPinStatus: boolean) => {
-    setFreight(prev => prev.map(f => f.id === id ? { ...f, pinned: !currentPinStatus } : f));
+  const handleTogglePin = async (id: string, currentPinStatus: boolean) => {
+    if (!user) return;
+    const existingFreight = freight.find(f => f.id === id);
+    if (existingFreight) {
+      await saveFreight(user.uid, { ...existingFreight, pinned: !currentPinStatus });
+    }
   };
 
   const formatCurrency = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
@@ -339,6 +405,7 @@ export default function FreightLedgerPage() {
   return (
     <>
       <PageHeader title="Freight Ledger">
+        <AIScanButton onScanComplete={handleScanComplete} />
         <Button onClick={() => handleOpenDialog()}>
           <PlusCircle className="mr-2 h-4 w-4" />
           Manual Entry
@@ -387,7 +454,7 @@ export default function FreightLedgerPage() {
                 {editingFreight ? "Edit Freight Load" : "New Freight Entry"}
               </DialogTitle>
             </div>
-            {editingFreight && (
+            {editingFreight?.id && (
               <Badge variant="outline" className="text-[10px] font-mono opacity-50 px-3 py-1 bg-white/50">
                 INTERNAL ID: {editingFreight.id.slice(0, 8)}
               </Badge>

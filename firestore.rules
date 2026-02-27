@@ -1,0 +1,44 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to verify if the user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if the user is accessing their own data
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Helper function to check if the user is an admin
+    function isAdmin() {
+      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Match any document in the users collection
+    match /users/{userId} {
+      // Allow read/write only if the authenticated user matches the userId or is an admin
+      allow read, write: if isOwner(userId) || isAdmin();
+      
+      // Match all subcollections under the specific user
+      match /freight/{document=**} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      match /assets/{document=**} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      match /drivers/{document=**} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      match /expenses/{document=**} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+  }
+}

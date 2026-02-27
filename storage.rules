@@ -1,0 +1,11 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /users/{userId}/{allPaths=**} {
+      // Only the authenticated user who owns the directory can read/write their files
+      // This protects the /users/{uid}/scans/ PDF files
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
