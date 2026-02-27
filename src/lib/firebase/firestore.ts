@@ -1,6 +1,6 @@
 import { collection, doc, query, getDocs, setDoc, deleteDoc, onSnapshot, serverTimestamp } from "firebase/firestore";
 import { db } from "./config";
-import { Freight, Asset, Driver, StandaloneExpense } from "@/lib/types";
+import { Freight, Asset, Driver, StandaloneExpense, HomeTransaction, UserMetadata } from "@/lib/types";
 
 // Helper generic function to get a user's collection reference
 const getUserCollection = (userId: string, collectionName: string) => {
@@ -118,4 +118,56 @@ export const deleteExpense = async (userId: string, expenseId: string) => {
     if (!userId) return;
     const docRef = doc(getUserCollection(userId, "expenses"), expenseId);
     await deleteDoc(docRef);
+};
+
+/**
+ * HOME TRANSACTIONS
+ */
+export const subscribeToHomeTransactions = (userId: string, callback: (data: HomeTransaction[]) => void) => {
+    if (!userId) return () => { };
+    const q = query(getUserCollection(userId, "homeTransactions"));
+    return onSnapshot(q, (snapshot) => {
+        const homeData: HomeTransaction[] = [];
+        snapshot.forEach((doc) => {
+            const data = doc.data();
+            homeData.push({
+                ...data,
+                id: doc.id,
+            } as HomeTransaction);
+        });
+        callback(homeData);
+    });
+};
+
+export const saveHomeTransaction = async (userId: string, transaction: HomeTransaction) => {
+    if (!userId) return;
+    const docRef = doc(getUserCollection(userId, "homeTransactions"), transaction.id);
+    await setDoc(docRef, { ...transaction, updatedAt: serverTimestamp() }, { merge: true });
+};
+
+export const deleteHomeTransaction = async (userId: string, transactionId: string) => {
+    if (!userId) return;
+    const docRef = doc(getUserCollection(userId, "homeTransactions"), transactionId);
+    await deleteDoc(docRef);
+};
+
+/**
+ * USER METADATA (Custom Categories, etc.)
+ */
+export const subscribeToUserMetadata = (userId: string, callback: (data: UserMetadata) => void) => {
+    if (!userId) return () => { };
+    const docRef = doc(getUserCollection(userId, "metadata"), "settings");
+    return onSnapshot(docRef, (doc) => {
+        if (doc.exists()) {
+            callback(doc.data() as UserMetadata);
+        } else {
+            callback({});
+        }
+    });
+};
+
+export const saveUserMetadata = async (userId: string, metadata: UserMetadata) => {
+    if (!userId) return;
+    const docRef = doc(getUserCollection(userId, "metadata"), "settings");
+    await setDoc(docRef, { ...metadata, updatedAt: serverTimestamp() }, { merge: true });
 };

@@ -40,7 +40,15 @@ const chartConfig = {
 };
 
 export default function BusinessExpensesPage() {
-    const { expenses, assets, drivers, deleteItem } = useData();
+    const {
+        expenses,
+        assets,
+        drivers,
+        userMetadata,
+        updateCustomCategories,
+        deleteItem,
+        isLoaded
+    } = useData();
     const { user } = useAuthContext();
     const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -51,24 +59,12 @@ export default function BusinessExpensesPage() {
     const [dateFilterType, setDateFilterType] = useState<"week" | "month" | "year" | "range">("month");
     const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
 
-    const [customCategories, setCustomCategories] = useState<Record<string, string[]>>(() => {
-        if (typeof window !== 'undefined') {
-            const saved = localStorage.getItem('rvt_custom_categories_v2');
-            if (saved) return JSON.parse(saved);
-        }
-        return { truck: [], office: [], driver: [], payroll: [] };
-    });
+    const customCategories = userMetadata?.customCategories?.business || {};
 
-    useEffect(() => {
-        localStorage.setItem('rvt_custom_categories_v2', JSON.stringify(customCategories));
-    }, [customCategories]);
-
-    const removeCustomCategory = (tab: string, cat: string) => {
+    const removeCustomCategory = (type: string, cat: string) => {
         if (!window.confirm(`Delete custom category "${cat}"?`)) return;
-        setCustomCategories(prev => ({
-            ...prev,
-            [tab]: (prev[tab] || []).filter(c => c !== cat)
-        }));
+        const updated = (customCategories[type] || []).filter(c => c !== cat);
+        updateCustomCategories('business', type, updated);
     };
 
     // Pagination State
@@ -227,11 +223,9 @@ export default function BusinessExpensesPage() {
 
         if (activeTab !== 'payroll') {
             const predefined = CATEGORIES[activeTab as keyof typeof CATEGORIES] || [];
-            if (!predefined.includes(finalCategory) && !(customCategories[activeTab] || []).includes(finalCategory)) {
-                setCustomCategories(prev => ({
-                    ...prev,
-                    [activeTab]: [...(prev[activeTab] || []), finalCategory]
-                }));
+            const currentCustoms = customCategories[activeTab] || [];
+            if (!predefined.includes(finalCategory) && !currentCustoms.includes(finalCategory)) {
+                updateCustomCategories('business', activeTab, [...currentCustoms, finalCategory]);
             }
         }
 
@@ -706,8 +700,10 @@ export default function BusinessExpensesPage() {
                         <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
                         <Button onClick={handleSave} disabled={
                             !newExpense.amount ||
+                            parseFloat(newExpense.amount) <= 0 ||
                             (activeTab === 'truck' && !newExpense.assetId) ||
-                            (activeTab === 'driver' && !newExpense.driverId)
+                            (activeTab === 'driver' && !newExpense.driverId) ||
+                            (activeTab !== 'payroll' && !newExpense.category.trim())
                         }>Save Expense</Button>
                     </DialogFooter>
                 </DialogContent>

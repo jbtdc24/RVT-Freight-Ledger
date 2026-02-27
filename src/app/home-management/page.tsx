@@ -58,11 +58,21 @@ const expenseCategories = [
 ];
 
 
+import { useData } from "@/lib/data-context";
+import { useAuthContext } from "@/lib/contexts/auth-context";
+
 export default function HomeManagementPage() {
     const [activeTab, setActiveTab] = useState("overview");
+    const {
+        homeTransactions: transactions,
+        userMetadata,
+        saveHomeTransaction,
+        deleteHomeTransaction,
+        updateCustomCategories
+    } = useData();
+    const { user } = useAuthContext();
 
-    // Transactions State
-    const [transactions, setTransactions] = useState<Transaction[]>([]);
+    // Transactions State logic
     const [isTransactionDialogOpen, setIsTransactionDialogOpen] = useState(false);
     const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
     const [transactionForm, setTransactionForm] = useState({
@@ -72,24 +82,13 @@ export default function HomeManagementPage() {
         description: "",
         date: format(new Date(), "yyyy-MM-dd"),
     });
-    const [customCategories, setCustomCategories] = useState<Record<string, string[]>>(() => {
-        if (typeof window !== 'undefined') {
-            const saved = localStorage.getItem('rvt_home_categories_v2');
-            if (saved) return JSON.parse(saved);
-        }
-        return { income: [], expense: [] };
-    });
 
-    useEffect(() => {
-        localStorage.setItem('rvt_home_categories_v2', JSON.stringify(customCategories));
-    }, [customCategories]);
+    const customCategories = userMetadata?.customCategories?.home || { income: [], expense: [] };
 
     const removeCustomCategory = (type: string, cat: string) => {
         if (!window.confirm(`Delete custom category "${cat}"?`)) return;
-        setCustomCategories(prev => ({
-            ...prev,
-            [type]: (prev[type] || []).filter(c => c !== cat)
-        }));
+        const updated = (customCategories[type] || []).filter(c => c !== cat);
+        updateCustomCategories('home', type, updated);
     };
 
 
@@ -205,32 +204,22 @@ export default function HomeManagementPage() {
 
         const finalCategory = transactionForm.category.trim() || 'Other';
         const predefined = transactionForm.type === 'income' ? incomeCategories.map(c => c.value) : expenseCategories.map(c => c.value);
-        if (!predefined.includes(finalCategory) && !(customCategories[transactionForm.type] || []).includes(finalCategory)) {
-            setCustomCategories(prev => ({
-                ...prev,
-                [transactionForm.type]: [...(prev[transactionForm.type] || []), finalCategory]
-            }));
+        const currentCustoms = customCategories[transactionForm.type] || [];
+
+        if (!predefined.includes(finalCategory) && !currentCustoms.includes(finalCategory)) {
+            updateCustomCategories('home', transactionForm.type, [...currentCustoms, finalCategory]);
         }
 
-        if (editingTransactionId) {
-            setTransactions(prev => prev.map(t => t.id === editingTransactionId ? {
-                ...t,
-                type: transactionForm.type,
-                amount,
-                category: finalCategory,
-                description: transactionForm.description,
-                date: new Date(transactionForm.date).toISOString(),
-            } : t));
-        } else {
-            setTransactions(prev => [{
-                id: Math.random().toString(36).substr(2, 9),
-                type: transactionForm.type,
-                amount,
-                category: finalCategory,
-                description: transactionForm.description,
-                date: new Date(transactionForm.date).toISOString(),
-            }, ...prev]);
-        }
+        const transaction: Transaction = {
+            id: editingTransactionId || Math.random().toString(36).substr(2, 9),
+            type: transactionForm.type,
+            amount,
+            category: finalCategory,
+            description: transactionForm.description,
+            date: new Date(transactionForm.date).toISOString(),
+        };
+
+        saveHomeTransaction(transaction);
 
         resetTransactionForm();
         setIsTransactionDialogOpen(false);
@@ -250,7 +239,7 @@ export default function HomeManagementPage() {
 
     const handleDeleteTransaction = (id: string) => {
         if (window.confirm("Delete this transaction?")) {
-            setTransactions(prev => prev.filter(t => t.id !== id));
+            deleteHomeTransaction(id);
         }
     };
 
