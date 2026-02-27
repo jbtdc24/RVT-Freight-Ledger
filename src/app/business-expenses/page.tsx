@@ -298,11 +298,16 @@ export default function BusinessExpensesPage() {
                 driverId: "",
                 id: ""
             });
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to save expense:", error);
+
+            // Detailed message for developer console
+            const errorMessage = error?.message || "Unknown error";
+            const errorCode = error?.code || "no-code";
+
             toast({
                 title: "Error saving expense",
-                description: "There was a problem saving to the cloud. Please try again.",
+                description: `Problem saving to cloud (${errorCode}). ${errorMessage.substring(0, 50)}...`,
                 variant: "destructive"
             });
         }

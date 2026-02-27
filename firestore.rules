@@ -36,7 +36,16 @@ service cloud.firestore {
         allow read, write: if isOwner(userId);
       }
       
+      
       match /expenses/{document=**} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /homeTransactions/{document=**} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /metadata/{document=**} {
         allow read, write: if isOwner(userId);
       }
     }

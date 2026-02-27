@@ -244,11 +244,15 @@ export default function HomeManagementPage() {
 
             resetTransactionForm();
             setIsTransactionDialogOpen(false);
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to save transaction:", error);
+
+            const errorMessage = error?.message || "Unknown error";
+            const errorCode = error?.code || "no-code";
+
             toast({
                 title: "Save failed",
-                description: "There was a problem syncing with the cloud. Please try again.",
+                description: `Problem syncing with cloud (${errorCode}). ${errorMessage.substring(0, 50)}...`,
                 variant: "destructive"
             });
         }
