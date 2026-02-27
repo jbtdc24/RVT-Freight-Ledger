@@ -132,7 +132,9 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
     freightId: "", freightBillNumber: "", customerReferenceNumber: "",
     agencyName: "", postingCode: "", contactName: "", contactPhone: "", contactEmail: "", contactFax: "", operatingEntity: "",
     origin: "", destination: "", commodity: "", dimensions: "", nmfcCode: "", freightClass: "", temperatureControl: "", trailerNumber: "", equipmentType: "", bcoSpecialInstructions: "",
-    distance: 0, weight: 0, pieces: 0,
+    distance: 0, weight: 0, pieces: 0, lineHaul: 0, fuelSurcharge: 0, accessorials: 0, loading: 0, unloading: 0, ownerPercentage: userData?.defaultOwnerPercentage || 100,
+    hazardousMaterial: false,
+    status: 'Draft',
   };
 
   const form = useForm<FreightFormValues>({
@@ -153,7 +155,7 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
       lineHaul: 0,
       fuelSurcharge: 0,
       accessorials: 0,
-      ownerPercentage: 100, // Default to 100% split
+      ownerPercentage: userData?.defaultOwnerPercentage || 100, // Use global setting or 100
 
       expenses: [],
       comments: [],
@@ -190,7 +192,7 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
         lineHaul: 0,
         fuelSurcharge: 0,
         accessorials: 0,
-        ownerPercentage: 100,
+        ownerPercentage: userData?.defaultOwnerPercentage || 100,
 
         comments: [],
         status: 'Draft',

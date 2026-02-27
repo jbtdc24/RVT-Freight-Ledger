@@ -29,6 +29,7 @@ export interface UserData {
     subscriptionTier: "Free" | "Pro" | "Fleet";
     role?: "admin" | "user";
     themePreference?: "light" | "dark" | "system";
+    defaultOwnerPercentage?: number;
     createdAt: number;
 }
 

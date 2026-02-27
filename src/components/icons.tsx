@@ -1,20 +1,27 @@
 import type { SVGProps } from "react";
 
-export function RvtLogo(props: SVGProps<SVGSVGElement>) {
+export function RvtLogo({ className, ...props }: SVGProps<SVGSVGElement>) {
   return (
     <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
+      viewBox="0 0 120 120"
       fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
       {...props}
     >
-      <path d="M3 17l6-6 4 4 8-8" />
-      <path d="M17 7h4v4" />
-      <path d="M3 3v18h18" />
+      <text
+        x="60"
+        y="65"
+        dominantBaseline="middle"
+        textAnchor="middle"
+        fill="currentColor"
+        fontSize="56"
+        fontWeight="900"
+        fontFamily="system-ui, -apple-system, sans-serif"
+        letterSpacing="-3"
+      >
+        RVT
+      </text>
     </svg>
   );
 }

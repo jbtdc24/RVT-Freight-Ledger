@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuthContext } from "@/lib/contexts/auth-context";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,15 +35,23 @@ export function SettingsModal({ open, onOpenChange, children }: SettingsModalPro
         currency: "USD",
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         dateFormat: "MM/DD/YYYY",
-        lineHaulPercent: "65"
+        lineHaulPercent: userData?.defaultOwnerPercentage?.toString() || "65"
     });
+
+    useEffect(() => {
+        if (userData?.defaultOwnerPercentage) {
+            setPreferences(prev => ({ ...prev, lineHaulPercent: userData.defaultOwnerPercentage.toString() }));
+        }
+    }, [userData]);
 
     const handleSave = async () => {
         setLoading(true);
         if (user) {
             try {
+                const parsedPercent = Number(preferences.lineHaulPercent);
                 await updateDoc(doc(db, "users", user.uid), {
-                    themePreference: theme === 'dark' ? 'dark' : 'light'
+                    themePreference: theme === 'dark' ? 'dark' : 'light',
+                    defaultOwnerPercentage: isNaN(parsedPercent) ? 100 : parsedPercent
                 });
                 toast({
                     title: "Settings Saved",
