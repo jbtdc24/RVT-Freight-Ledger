@@ -60,6 +60,7 @@ const expenseCategories = [
 
 import { useData } from "@/lib/data-context";
 import { useAuthContext } from "@/lib/contexts/auth-context";
+import { useToast } from "@/hooks/use-toast";
 
 export default function HomeManagementPage() {
     const [activeTab, setActiveTab] = useState("overview");
@@ -71,6 +72,7 @@ export default function HomeManagementPage() {
         updateCustomCategories
     } = useData();
     const { user } = useAuthContext();
+    const { toast } = useToast();
 
     // Transactions State logic
     const [isTransactionDialogOpen, setIsTransactionDialogOpen] = useState(false);
@@ -195,10 +197,23 @@ export default function HomeManagementPage() {
         setEditingTransactionId(null);
     };
 
-    const handleSaveTransaction = () => {
+    const handleSaveTransaction = async () => {
+        if (!user) {
+            toast({
+                title: "Authentication required",
+                description: "Please sign in to save your transactions to the cloud.",
+                variant: "destructive"
+            });
+            return;
+        }
+
         const amount = parseFloat(transactionForm.amount);
         if (!amount || amount <= 0 || !transactionForm.category || !transactionForm.description.trim()) {
-            alert("Please fill in all fields with valid values.");
+            toast({
+                title: "Missing information",
+                description: "Please fill in all fields with valid values.",
+                variant: "destructive"
+            });
             return;
         }
 
@@ -206,23 +221,37 @@ export default function HomeManagementPage() {
         const predefined = transactionForm.type === 'income' ? incomeCategories.map(c => c.value) : expenseCategories.map(c => c.value);
         const currentCustoms = customCategories[transactionForm.type] || [];
 
-        if (!predefined.includes(finalCategory) && !currentCustoms.includes(finalCategory)) {
-            updateCustomCategories('home', transactionForm.type, [...currentCustoms, finalCategory]);
+        try {
+            if (!predefined.includes(finalCategory) && !currentCustoms.includes(finalCategory)) {
+                await updateCustomCategories('home', transactionForm.type, [...currentCustoms, finalCategory]);
+            }
+
+            const transaction: Transaction = {
+                id: editingTransactionId || Math.random().toString(36).substr(2, 9),
+                type: transactionForm.type,
+                amount,
+                category: finalCategory,
+                description: transactionForm.description,
+                date: new Date(transactionForm.date).toISOString(),
+            };
+
+            await saveHomeTransaction(transaction);
+
+            toast({
+                title: editingTransactionId ? "Transaction updated" : "Transaction added",
+                description: `Successfully saved ${transactionForm.description} for ${formatCurrency(amount)}.`
+            });
+
+            resetTransactionForm();
+            setIsTransactionDialogOpen(false);
+        } catch (error) {
+            console.error("Failed to save transaction:", error);
+            toast({
+                title: "Save failed",
+                description: "There was a problem syncing with the cloud. Please try again.",
+                variant: "destructive"
+            });
         }
-
-        const transaction: Transaction = {
-            id: editingTransactionId || Math.random().toString(36).substr(2, 9),
-            type: transactionForm.type,
-            amount,
-            category: finalCategory,
-            description: transactionForm.description,
-            date: new Date(transactionForm.date).toISOString(),
-        };
-
-        saveHomeTransaction(transaction);
-
-        resetTransactionForm();
-        setIsTransactionDialogOpen(false);
     };
 
     const handleEditTransaction = (transaction: Transaction) => {

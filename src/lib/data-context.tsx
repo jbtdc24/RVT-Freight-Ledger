@@ -9,7 +9,7 @@ import { initialFreight, initialAssets, initialDrivers, initialExpenses } from '
 import { useAuthContext } from "./contexts/auth-context";
 import {
     subscribeToFreight, subscribeToAssets, subscribeToDrivers, subscribeToExpenses, subscribeToHomeTransactions, subscribeToUserMetadata,
-    saveFreight, saveAsset, saveDriver, saveExpense, saveHomeTransaction as firestoreSaveHome, saveUserMetadata,
+    saveFreight, saveAsset, saveDriver, saveExpense as firestoreSaveExpense, saveHomeTransaction as firestoreSaveHome, saveUserMetadata,
     deleteFreight, deleteAsset, deleteDriver, deleteExpense, deleteHomeTransaction as firestoreDeleteHome
 } from "./firebase/firestore";
 
@@ -24,6 +24,7 @@ type DataContextType = {
     setAssets: React.Dispatch<React.SetStateAction<Asset[]>>;
     setDrivers: React.Dispatch<React.SetStateAction<Driver[]>>;
     setExpenses: React.Dispatch<React.SetStateAction<StandaloneExpense[]>>;
+    saveExpense: (expense: StandaloneExpense) => Promise<void>;
     saveHomeTransaction: (transaction: HomeTransaction) => Promise<void>;
     deleteHomeTransaction: (id: string) => Promise<void>;
     updateCustomCategories: (module: 'business' | 'home', tab: string, categories: string[]) => Promise<void>;
@@ -134,6 +135,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         await saveUserMetadata(user.uid, newMetadata);
     };
 
+    const saveExpense = async (expense: StandaloneExpense) => {
+        if (!user) return;
+        await firestoreSaveExpense(user.uid, expense);
+    };
+
     const deleteLoadExpense = async (loadId: string, expenseId: string) => {
         if (!user) return;
 
@@ -163,6 +169,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             setAssets,
             setDrivers,
             setExpenses,
+            saveExpense,
             saveHomeTransaction,
             deleteHomeTransaction,
             updateCustomCategories,

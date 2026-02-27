@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Pie, PieChart, Cell } from "recharts";
 import { useAuthContext } from "@/lib/contexts/auth-context";
-import { saveExpense } from "@/lib/firebase/firestore";
+import { useToast } from "@/hooks/use-toast";
 
 const CATEGORIES = {
     truck: ['Parking', 'Ticket', 'Cleaning supply', 'Tolls', 'Maintenance', 'Repair', 'Other'],
@@ -45,11 +45,13 @@ export default function BusinessExpensesPage() {
         assets,
         drivers,
         userMetadata,
+        saveExpense,
         updateCustomCategories,
         deleteItem,
         isLoaded
     } = useData();
     const { user } = useAuthContext();
+    const { toast } = useToast();
     const [editingId, setEditingId] = useState<string | null>(null);
 
     const [activeTab, setActiveTab] = useState("truck");
@@ -100,21 +102,18 @@ export default function BusinessExpensesPage() {
             if (!matchesSearch) return false;
 
             // 2. Tab Filter
-            if (activeTab === 'truck' && !e.assetId && !e.driverId && e.category !== 'Payroll') {
-                if (!e.assetId) return false;
-            } else if (activeTab === 'driver' && !e.driverId && e.category !== 'Payroll') {
-                if (!e.driverId) return false;
-            } else if (activeTab === 'office' && (e.assetId || e.driverId || e.category === 'Payroll')) {
-                return false;
-            } else if (activeTab === 'payroll' && e.category !== 'Payroll') {
-                return false;
+            if (activeTab === 'truck') {
+                return (!!e.assetId || CATEGORIES.truck.includes(e.category) || (customCategories.truck || []).includes(e.category)) && e.category !== 'Payroll';
             }
-
-            // Also ensure we only show payroll in payroll tab and truck/office/driver based on assets/etc.
-            if (activeTab === 'truck' && (!e.assetId || e.category === 'Payroll')) return false;
-            if (activeTab === 'driver' && (!e.driverId || e.category === 'Payroll')) return false;
-            if (activeTab === 'office' && (e.assetId || e.driverId || e.category === 'Payroll')) return false;
-            if (activeTab === 'payroll' && e.category !== 'Payroll') return false;
+            if (activeTab === 'driver') {
+                return (!!e.driverId || CATEGORIES.driver.includes(e.category) || (customCategories.driver || []).includes(e.category)) && e.category !== 'Payroll' && !e.assetId;
+            }
+            if (activeTab === 'office') {
+                return !e.assetId && !e.driverId && e.category !== 'Payroll' && !CATEGORIES.truck.includes(e.category) && !CATEGORIES.driver.includes(e.category);
+            }
+            if (activeTab === 'payroll') {
+                return e.category === 'Payroll';
+            }
 
             // 3. Date Range
             const now = new Date();
@@ -211,80 +210,102 @@ export default function BusinessExpensesPage() {
     }, [filteredExpenses, activeTab]);
 
     const handleSave = async () => {
-        if (!user) return;
+        if (!user) {
+            toast({
+                title: "Authentication required",
+                description: "Please sign in to save your expenses to the cloud.",
+                variant: "destructive"
+            });
+            return;
+        }
+
         const amount = parseFloat(newExpense.amount);
         if (isNaN(amount) || amount <= 0) return;
 
         // Validation based on tab
-        if (activeTab === 'truck' && !newExpense.assetId) return; // Must select asset
-        if (activeTab === 'driver' && !newExpense.driverId) return; // Must select driver
+        if (activeTab === 'truck' && !newExpense.assetId) {
+            toast({ title: "Truck required", description: "Please select an asset for this truck expense.", variant: "destructive" });
+            return;
+        }
+        if (activeTab === 'driver' && !newExpense.driverId) {
+            toast({ title: "Driver required", description: "Please select a driver for this expense.", variant: "destructive" });
+            return;
+        }
 
         const finalCategory = activeTab === 'payroll' ? 'Payroll' : (newExpense.category.trim() || 'Other');
 
-        if (activeTab !== 'payroll') {
-            const predefined = CATEGORIES[activeTab as keyof typeof CATEGORIES] || [];
-            const currentCustoms = customCategories[activeTab] || [];
-            if (!predefined.includes(finalCategory) && !currentCustoms.includes(finalCategory)) {
-                updateCustomCategories('business', activeTab, [...currentCustoms, finalCategory]);
+        try {
+            if (activeTab !== 'payroll') {
+                const predefined = CATEGORIES[activeTab as keyof typeof CATEGORIES] || [];
+                const currentCustoms = customCategories[activeTab] || [];
+                if (!predefined.includes(finalCategory) && !currentCustoms.includes(finalCategory)) {
+                    await updateCustomCategories('business', activeTab, [...currentCustoms, finalCategory]);
+                }
             }
-        }
 
-        if (editingId) {
-            // UPDATE
-            const existingExpense = expenses.find(e => e.id === editingId);
-            if (existingExpense) {
-                const updatedExpense: StandaloneExpense = {
-                    ...existingExpense,
+            if (editingId) {
+                const existingExpense = expenses.find(e => e.id === editingId);
+                if (existingExpense) {
+                    const updatedExpense: StandaloneExpense = {
+                        ...existingExpense,
+                        category: finalCategory,
+                        description: newExpense.description,
+                        amount: amount,
+                        date: new Date(newExpense.date).toISOString(),
+                        assetId: activeTab === 'truck' ? newExpense.assetId : undefined,
+                        assetName: activeTab === 'truck' ? assets.find(a => a.id === newExpense.assetId)?.identifier : undefined,
+                        driverId: activeTab === 'driver' ? newExpense.driverId : undefined,
+                        driverName: activeTab === 'driver' ? drivers.find(d => d.id === newExpense.driverId)?.name : undefined,
+                    };
+                    await saveExpense(updatedExpense);
+                }
+            } else {
+                const expense: StandaloneExpense = {
+                    id: Math.random().toString(36).substr(2, 9),
                     category: finalCategory,
-                    description: newExpense.description,
+                    description: newExpense.description || (activeTab === 'truck' ? 'Truck Expense' : activeTab === 'driver' ? 'Driver Expense' : activeTab === 'payroll' ? 'Payroll Expense' : 'Office Expense'),
                     amount: amount,
                     date: new Date(newExpense.date).toISOString(),
                     assetId: activeTab === 'truck' ? newExpense.assetId : undefined,
                     assetName: activeTab === 'truck' ? assets.find(a => a.id === newExpense.assetId)?.identifier : undefined,
                     driverId: activeTab === 'driver' ? newExpense.driverId : undefined,
                     driverName: activeTab === 'driver' ? drivers.find(d => d.id === newExpense.driverId)?.name : undefined,
-                };
-                await saveExpense(user.uid, updatedExpense);
-            }
-        } else {
-            // CREATE
-            const expense: StandaloneExpense = {
-                id: Math.random().toString(36).substr(2, 9),
-                category: finalCategory,
-                description: newExpense.description || (activeTab === 'truck' ? 'Truck Expense' : activeTab === 'driver' ? 'Driver Expense' : activeTab === 'payroll' ? 'Payroll Expense' : 'Office Expense'),
-                amount: amount,
-                date: new Date(newExpense.date).toISOString(),
-                assetId: activeTab === 'truck' ? newExpense.assetId : undefined,
-                assetName: activeTab === 'truck' ? assets.find(a => a.id === newExpense.assetId)?.identifier : undefined,
-                driverId: activeTab === 'driver' ? newExpense.driverId : undefined,
-                driverName: activeTab === 'driver' ? drivers.find(d => d.id === newExpense.driverId)?.name : undefined,
-                comments: [
-                    {
+                    comments: [{
                         id: Math.random().toString(36).substr(2, 9),
                         text: "Expense created via Business Expenses tab.",
                         author: "System",
                         timestamp: new Date().toISOString(),
                         type: 'system'
-                    }
-                ]
-            };
-            await saveExpense(user.uid, expense);
+                    }]
+                };
+                await saveExpense(expense);
+            }
+
+            toast({
+                title: editingId ? "Expense updated" : "Expense added",
+                description: `Successfully saved ${finalCategory} expense of ${formatCurrency(amount)}.`
+            });
+
+            setIsDialogOpen(false);
+            setEditingId(null);
+            setIsCustomCategory(false);
+            setNewExpense({
+                amount: "",
+                description: "",
+                category: "Other",
+                date: format(new Date(), "yyyy-MM-dd"),
+                assetId: "",
+                driverId: "",
+                id: ""
+            });
+        } catch (error) {
+            console.error("Failed to save expense:", error);
+            toast({
+                title: "Error saving expense",
+                description: "There was a problem saving to the cloud. Please try again.",
+                variant: "destructive"
+            });
         }
-
-        setIsDialogOpen(false);
-        setEditingId(null);
-        setIsCustomCategory(false);
-
-        // Reset form
-        setNewExpense({
-            amount: "",
-            description: "",
-            category: "Other",
-            date: format(new Date(), "yyyy-MM-dd"),
-            assetId: "",
-            driverId: "",
-            id: ""
-        });
     };
 
     const handleEdit = (expense: StandaloneExpense) => {
@@ -698,13 +719,7 @@ export default function BusinessExpensesPage() {
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                        <Button onClick={handleSave} disabled={
-                            !newExpense.amount ||
-                            parseFloat(newExpense.amount) <= 0 ||
-                            (activeTab === 'truck' && !newExpense.assetId) ||
-                            (activeTab === 'driver' && !newExpense.driverId) ||
-                            (activeTab !== 'payroll' && !newExpense.category.trim())
-                        }>Save Expense</Button>
+                        <Button onClick={handleSave}>Save Expense</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
