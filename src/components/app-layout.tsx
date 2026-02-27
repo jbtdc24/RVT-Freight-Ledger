@@ -2,16 +2,18 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Gauge, Truck, Warehouse, Calculator, Menu, Users, Trash2, FileText, Building2, Home, ClipboardList, HandCoins, GripVertical } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Gauge, Truck, Warehouse, Calculator, Menu, Users, Trash2, FileText, Building2, Home, ClipboardList, HandCoins, GripVertical, Settings, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { RvtLogo } from "@/components/icons";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { SettingsModal } from "@/components/settings-modal";
 
 import { useData } from "@/lib/data-context";
+import { useAuthContext } from "@/lib/contexts/auth-context";
 import { appConfig } from "@/lib/config";
-import { Loader2 } from "lucide-react";
+import { Loader2, LogOut } from "lucide-react";
 
 import {
   DndContext,
@@ -32,7 +34,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 
 const defaultNavItems = [
-  { href: "/", label: "Dashboard", icon: Gauge },
+  { href: "/dashboard", label: "Dashboard", icon: Gauge },
   { href: "/freight-ledger", label: "Freight Ledger", icon: Truck },
   { href: "/assets", label: "Assets", icon: Warehouse },
   { href: "/drivers", label: "Drivers", icon: Users },
@@ -89,8 +91,11 @@ function SortableNavItem({ item, pathname }: { item: any; pathname: string }) {
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { isLoaded } = useData();
+  const { user, userData, loading, signOut } = useAuthContext();
   const [navItems, setNavItems] = useState(defaultNavItems);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -102,6 +107,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+
+  useEffect(() => {
+    if (user && pathname === "/") {
+      router.push("/dashboard");
+    }
+  }, [user, pathname, router]);
 
   useEffect(() => {
     if (isLoaded) {
@@ -142,7 +153,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
   };
 
-  if (!isLoaded) {
+  // Public routes should render immediately without waiting for context or showing the dashboard spinner
+  if (pathname === "/" || pathname === "/login") {
+    return <>{children}</>;
+  }
+
+  if (!isLoaded || loading) {
     return (
       <div className="flex min-h-screen w-full items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
@@ -154,6 +170,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       </div>
     );
+  }
+
+  // Fallback for unauthorized pages matching dashboard routes
+  if (!user) {
+    return <>{children}</>;
   }
 
   const renderNavLinks = () => (
@@ -198,16 +219,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </Button>
           </div>
         </div>
-        <div className="p-6">
-          <div className="glass-card !p-4 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-primary to-accent" />
-            <div className="flex flex-col">
-              <span className="text-xs font-bold">{appConfig.ownerName}</span>
-              <span className="text-[10px] text-muted-foreground">{appConfig.accountType}</span>
-            </div>
-          </div>
-        </div>
       </aside>
+
+      <SettingsModal open={isSettingsOpen} onOpenChange={setIsSettingsOpen} />
 
       <div className="flex flex-col flex-1 min-w-0">
         <header className="flex h-16 items-center gap-4 bg-transparent px-6 border-b border-white/5">
@@ -231,7 +245,37 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </SheetContent>
           </Sheet>
           <div className="flex-1" />
-          <ThemeToggle />
+          <div className="flex items-center gap-4">
+            <ThemeToggle />
+            <div
+              className="glass-card !p-2 !pr-4 flex items-center justify-between gap-4 group relative cursor-pointer hover:bg-white/5 transition-colors border-white/5 shadow-sm rounded-full"
+              onClick={() => setIsSettingsOpen(true)}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-primary to-accent flex items-center justify-center text-xs text-white font-bold shadow-inner">
+                  {userData?.displayName?.charAt(0).toUpperCase() || "U"}
+                </div>
+                <div className="flex flex-col pr-2">
+                  <span className="text-sm font-bold truncate max-w-[120px] text-foreground leading-tight">
+                    {userData?.displayName || user.email?.split('@')[0] || "User"}
+                  </span>
+                  <span className="text-[10px] text-primary font-bold uppercase tracking-wider leading-tight">{userData?.subscriptionTier || "Free"}</span>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-all hover:scale-110 hover:bg-destructive/10 shrink-0 rounded-full"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  signOut();
+                }}
+                title="Sign out"
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
         </header>
         <main className="flex-1 overflow-auto p-6 md:p-8 lg:p-10 scroll-smooth">
           <div className="max-w-7xl mx-auto space-y-8">

@@ -23,8 +23,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { format } from "date-fns";
+import { format, parse } from "date-fns";
 import { LocationSelect } from "@/components/ui/location-select";
+import { useAuthContext } from "@/lib/contexts/auth-context";
 
 const expenseSchema = z.object({
   id: z.string(),
@@ -125,16 +126,26 @@ interface FreightFormProps {
 
 const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit, onDelete, onCancel, initialData, drivers, assets }, ref) => {
   const [newComment, setNewComment] = useState("");
+  const { userData } = useAuthContext();
+
+  const baseDefaultValues = {
+    freightId: "", freightBillNumber: "", customerReferenceNumber: "",
+    agencyName: "", postingCode: "", contactName: "", contactPhone: "", contactEmail: "", contactFax: "", operatingEntity: "",
+    origin: "", destination: "", commodity: "", dimensions: "", nmfcCode: "", freightClass: "", temperatureControl: "", trailerNumber: "", equipmentType: "", bcoSpecialInstructions: "",
+    distance: 0, weight: 0, pieces: 0,
+  };
 
   const form = useForm<FreightFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: initialData ? {
+      ...baseDefaultValues,
       ...initialData,
       date: initialData.date ? new Date(initialData.date) : new Date(),
 
       expenses: (initialData.expenses || []).map(e => ({ ...e, amount: e.amount })),
       comments: initialData.comments || [],
     } : {
+      ...baseDefaultValues,
       date: new Date(),
       hazardousMaterial: false,
       loading: 0,
@@ -195,8 +206,6 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
     }
   }));
 
-
-
   const comments = form.watch("comments") || [];
 
   const addComment = () => {
@@ -245,7 +254,7 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
       return;
     }
     // Enforce initial note for NEW loads
-    if (!initialData && !hasNewCommentInInput) {
+    if (!initialData && !hasAnyNewComment) {
       form.setError("comments", { type: "manual", message: "Please add an initial note." });
       return;
     }
@@ -318,9 +327,11 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
         <div className="flex flex-col gap-1 mb-2">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <h1 className="text-xl font-black tracking-tight text-foreground">
-                Load <span className="text-primary">#{watchAll.freightId || "----"}</span>
-              </h1>
+              <div className="flex flex-col items-start gap-1">
+                <h1 className="text-xl font-black tracking-tight text-foreground flex items-center gap-3">
+                  Load <span className="text-primary">#{watchAll.freightId || "----"}</span>
+                </h1>
+              </div>
               <div className="w-32">
                 <FormField control={form.control} name="status" render={({ field }) => (
                   <Select onValueChange={field.onChange} defaultValue={field.value}>

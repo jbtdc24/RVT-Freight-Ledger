@@ -6,6 +6,8 @@ import { format, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Freight, Asset, Driver, StandaloneExpense, ExpenseCategory } from "@/lib/types";
 import { initialFreight, initialAssets, initialDrivers, initialExpenses } from './data';
+import { useAuthContext } from "./contexts/auth-context";
+import { subscribeToFreight, subscribeToAssets, subscribeToDrivers, subscribeToExpenses, saveFreight, saveAsset, saveDriver, saveExpense, deleteFreight, deleteAsset, deleteDriver, deleteExpense } from "./firebase/firestore";
 
 type DataContextType = {
     freight: Freight[];
@@ -29,87 +31,81 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const [drivers, setDrivers] = useState<Driver[]>(initialDrivers);
     const [expenses, setExpenses] = useState<StandaloneExpense[]>(initialExpenses);
     const [isLoaded, setIsLoaded] = useState(false);
+    const { user, loading: authLoading } = useAuthContext();
 
-    // Initial load - runs only once
+    // Setup Firestore listeners when a user is authenticated
     useEffect(() => {
-        try {
-            const savedFreight = localStorage.getItem('rvt_freight_v7');
-            const savedAssets = localStorage.getItem('rvt_assets_v7');
-            const savedDrivers = localStorage.getItem('rvt_drivers_v7');
-            const savedExpenses = localStorage.getItem('rvt_expenses_v4');
+        if (!user || authLoading) {
+            setFreight([]);
+            setAssets([]);
+            setDrivers([]);
+            setExpenses([]);
 
-            if (savedFreight) {
-                const parsed = JSON.parse(savedFreight);
-                if (Array.isArray(parsed) && parsed.length > 0) {
-                    setFreight(parsed.map((f: any) => ({
-                        ...f,
-                        date: new Date(f.date),
-                        ownerPercentage: f.ownerPercentage ?? 100,
-                        ownerAmount: f.ownerAmount ?? (f.lineHaul || 0)
-                    })));
-                }
+            // If we are definitely not loading auth anymore, signal that context data gathering is done
+            if (!authLoading) {
+                setIsLoaded(true);
             }
-            if (savedAssets) {
-                const parsed = JSON.parse(savedAssets);
-                if (Array.isArray(parsed) && parsed.length > 0) setAssets(parsed);
-            }
-            if (savedDrivers) {
-                const parsed = JSON.parse(savedDrivers);
-                if (Array.isArray(parsed) && parsed.length > 0) setDrivers(parsed);
-            }
-            if (savedExpenses) {
-                const parsed = JSON.parse(savedExpenses);
-                if (Array.isArray(parsed) && parsed.length > 0) setExpenses(parsed);
-            }
-        } catch (e) {
-            console.error("Failed to load data from localStorage", e);
-        } finally {
-            setIsLoaded(true);
+            return;
         }
-    }, []);
 
-    // Save to localStorage - runs whenever data changes, but only after initial load
-    useEffect(() => {
-        if (isLoaded) {
-            localStorage.setItem('rvt_freight_v7', JSON.stringify(freight));
-        }
-    }, [freight, isLoaded]);
+        let isMounted = true;
 
-    useEffect(() => {
-        if (isLoaded) {
-            localStorage.setItem('rvt_assets_v7', JSON.stringify(assets));
-        }
-    }, [assets, isLoaded]);
+        const unsubFreight = subscribeToFreight(user.uid, (data) => {
+            if (isMounted) setFreight(data);
+        });
 
-    useEffect(() => {
-        if (isLoaded) {
-            localStorage.setItem('rvt_drivers_v7', JSON.stringify(drivers));
-        }
-    }, [drivers, isLoaded]);
+        const unsubAssets = subscribeToAssets(user.uid, (data) => {
+            if (isMounted) setAssets(data);
+        });
 
-    useEffect(() => {
-        if (isLoaded) {
-            localStorage.setItem('rvt_expenses_v4', JSON.stringify(expenses));
-        }
-    }, [expenses, isLoaded]);
+        const unsubDrivers = subscribeToDrivers(user.uid, (data) => {
+            if (isMounted) setDrivers(data);
+        });
 
-    const deleteItem = (type: 'freight' | 'asset' | 'driver' | 'expense', id: string) => {
+        const unsubExpenses = subscribeToExpenses(user.uid, (data) => {
+            if (isMounted) setExpenses(data);
+        });
+
+        setIsLoaded(true);
+
+        return () => {
+            isMounted = false;
+            unsubFreight();
+            unsubAssets();
+            unsubDrivers();
+            unsubExpenses();
+        };
+    }, [user, authLoading]);
+
+    const deleteItem = async (type: 'freight' | 'asset' | 'driver' | 'expense', id: string) => {
+        if (!user) return;
+
         if (type === 'freight') {
-            setFreight(prev => prev.filter(f => f.id !== id));
+            await deleteFreight(user.uid, id);
         } else if (type === 'asset') {
-            setAssets(prev => prev.filter(a => a.id !== id));
+            await deleteAsset(user.uid, id);
         } else if (type === 'driver') {
-            setDrivers(prev => prev.filter(d => d.id !== id));
+            await deleteDriver(user.uid, id);
         } else if (type === 'expense') {
-            setExpenses(prev => prev.filter(e => e.id !== id));
+            await deleteExpense(user.uid, id);
         }
     };
 
-    const deleteLoadExpense = (loadId: string, expenseId: string) => {
-        setFreight(prev => prev.map(f => f.id === loadId ? {
-            ...f,
-            expenses: f.expenses.filter(e => e.id !== expenseId)
-        } : f));
+    const deleteLoadExpense = async (loadId: string, expenseId: string) => {
+        if (!user) return;
+
+        const targetLoad = freight.find(f => f.id === loadId);
+        if (targetLoad) {
+            const updatedLoad = {
+                ...targetLoad,
+                expenses: targetLoad.expenses.filter(e => e.id !== expenseId)
+            };
+            // Recalculate totals
+            updatedLoad.totalExpenses = updatedLoad.expenses.reduce((acc, exp) => acc + exp.amount, 0);
+            updatedLoad.netProfit = (updatedLoad.ownerAmount || 0) - updatedLoad.totalExpenses;
+
+            await saveFreight(user.uid, updatedLoad);
+        }
     };
 
     return (

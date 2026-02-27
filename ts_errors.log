@@ -1,0 +1,6 @@
+﻿src/app/api/scan-rate-con/route.ts(3,8): error TS1192: Module '"E:/Vibe/RVT-Freight-Ledger/node_modules/pdf-parse/dist/pdf-parse/esm/index"' has no default export.
+src/components/freight-form.tsx(214,44): error TS2552: Cannot find name 'comments'. Did you mean 'comment'?
+src/components/freight-form.tsx(252,48): error TS2552: Cannot find name 'comments'. Did you mean 'Comment'?
+src/components/freight-form.tsx(787,20): error TS2552: Cannot find name 'comments'. Did you mean 'Comment'?
+src/components/freight-form.tsx(793,20): error TS2552: Cannot find name 'comments'. Did you mean 'Comment'?
+src/components/freight-form.tsx(793,34): error TS7006: Parameter 'comment' implicitly has an 'any' type.

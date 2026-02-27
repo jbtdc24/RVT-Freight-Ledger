@@ -19,6 +19,8 @@ import { type DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Pie, PieChart, Cell } from "recharts";
+import { useAuthContext } from "@/lib/contexts/auth-context";
+import { saveExpense } from "@/lib/firebase/firestore";
 
 const CATEGORIES = {
     truck: ['Parking', 'Ticket', 'Cleaning supply', 'Tolls', 'Maintenance', 'Repair', 'Other'],
@@ -38,7 +40,8 @@ const chartConfig = {
 };
 
 export default function BusinessExpensesPage() {
-    const { expenses, setExpenses, assets, drivers, deleteItem } = useData();
+    const { expenses, assets, drivers, deleteItem } = useData();
+    const { user } = useAuthContext();
     const [editingId, setEditingId] = useState<string | null>(null);
 
     const [activeTab, setActiveTab] = useState("truck");
@@ -211,7 +214,8 @@ export default function BusinessExpensesPage() {
         })).sort((a, b) => b.amount - a.amount).slice(0, 5);
     }, [filteredExpenses, activeTab]);
 
-    const handleSave = () => {
+    const handleSave = async () => {
+        if (!user) return;
         const amount = parseFloat(newExpense.amount);
         if (isNaN(amount) || amount <= 0) return;
 
@@ -233,17 +237,21 @@ export default function BusinessExpensesPage() {
 
         if (editingId) {
             // UPDATE
-            setExpenses(prev => prev.map(e => e.id === editingId ? {
-                ...e,
-                category: finalCategory,
-                description: newExpense.description,
-                amount: amount,
-                date: new Date(newExpense.date).toISOString(),
-                assetId: activeTab === 'truck' ? newExpense.assetId : undefined,
-                assetName: activeTab === 'truck' ? assets.find(a => a.id === newExpense.assetId)?.identifier : undefined,
-                driverId: activeTab === 'driver' ? newExpense.driverId : undefined,
-                driverName: activeTab === 'driver' ? drivers.find(d => d.id === newExpense.driverId)?.name : undefined,
-            } : e));
+            const existingExpense = expenses.find(e => e.id === editingId);
+            if (existingExpense) {
+                const updatedExpense: StandaloneExpense = {
+                    ...existingExpense,
+                    category: finalCategory,
+                    description: newExpense.description,
+                    amount: amount,
+                    date: new Date(newExpense.date).toISOString(),
+                    assetId: activeTab === 'truck' ? newExpense.assetId : undefined,
+                    assetName: activeTab === 'truck' ? assets.find(a => a.id === newExpense.assetId)?.identifier : undefined,
+                    driverId: activeTab === 'driver' ? newExpense.driverId : undefined,
+                    driverName: activeTab === 'driver' ? drivers.find(d => d.id === newExpense.driverId)?.name : undefined,
+                };
+                await saveExpense(user.uid, updatedExpense);
+            }
         } else {
             // CREATE
             const expense: StandaloneExpense = {
@@ -266,7 +274,7 @@ export default function BusinessExpensesPage() {
                     }
                 ]
             };
-            setExpenses(prev => [...prev, expense]);
+            await saveExpense(user.uid, expense);
         }
 
         setIsDialogOpen(false);
