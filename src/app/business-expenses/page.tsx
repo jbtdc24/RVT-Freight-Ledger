@@ -58,6 +58,7 @@ export default function BusinessExpensesPage() {
     const [searchTerm, setSearchTerm] = useState("");
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isCustomCategory, setIsCustomCategory] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [dateFilterType, setDateFilterType] = useState<"week" | "month" | "year" | "range">("month");
     const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
 
@@ -145,10 +146,13 @@ export default function BusinessExpensesPage() {
 
             // Tie-breaker for same-day expenses to ensure newest is at the top
             // If they have an updatedAt timestamp from Firestore, use it
-            if (b.updatedAt && a.updatedAt) {
+            const aAny = a as any;
+            const bAny = b as any;
+
+            if (bAny.updatedAt && aAny.updatedAt) {
                 // Handle Firebase timestamp or string
-                const bTime = typeof b.updatedAt === 'string' ? new Date(b.updatedAt).getTime() : (b.updatedAt as any).toMillis?.() || 0;
-                const aTime = typeof a.updatedAt === 'string' ? new Date(a.updatedAt).getTime() : (a.updatedAt as any).toMillis?.() || 0;
+                const bTime = typeof bAny.updatedAt === 'string' ? new Date(bAny.updatedAt).getTime() : bAny.updatedAt.toMillis?.() || 0;
+                const aTime = typeof aAny.updatedAt === 'string' ? new Date(aAny.updatedAt).getTime() : aAny.updatedAt.toMillis?.() || 0;
                 return bTime - aTime;
             }
 
@@ -234,6 +238,8 @@ export default function BusinessExpensesPage() {
             return;
         }
 
+        if (isSubmitting) return;
+
         const amount = parseFloat(newExpense.amount);
         if (isNaN(amount) || amount <= 0) return;
 
@@ -249,6 +255,7 @@ export default function BusinessExpensesPage() {
 
         const finalCategory = activeTab === 'payroll' ? 'Payroll' : (newExpense.category.trim() || 'Other');
 
+        setIsSubmitting(true);
         try {
             if (activeTab !== 'payroll') {
                 const predefined = CATEGORIES[activeTab as keyof typeof CATEGORIES] || [];
@@ -276,7 +283,7 @@ export default function BusinessExpensesPage() {
                 }
             } else {
                 const expense: StandaloneExpense = {
-                    id: Math.random().toString(36).substr(2, 9),
+                    id: Date.now().toString() + "-" + Math.random().toString(36).substr(2, 5),
                     category: finalCategory,
                     description: newExpense.description || (activeTab === 'truck' ? 'Truck Expense' : activeTab === 'driver' ? 'Driver Expense' : activeTab === 'payroll' ? 'Payroll Expense' : 'Office Expense'),
                     amount: amount,
@@ -286,7 +293,7 @@ export default function BusinessExpensesPage() {
                     driverId: activeTab === 'driver' ? newExpense.driverId : undefined,
                     driverName: activeTab === 'driver' ? drivers.find(d => d.id === newExpense.driverId)?.name : undefined,
                     comments: [{
-                        id: Math.random().toString(36).substr(2, 9),
+                        id: Date.now().toString() + "-" + Math.random().toString(36).substr(2, 5),
                         text: "Expense created via Business Expenses tab.",
                         author: "System",
                         timestamp: new Date().toISOString(),
@@ -738,8 +745,10 @@ export default function BusinessExpensesPage() {
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                        <Button onClick={handleSave}>Save Expense</Button>
+                        <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSubmitting}>Cancel</Button>
+                        <Button onClick={handleSave} disabled={isSubmitting}>
+                            {isSubmitting ? "Saving..." : "Save Expense"}
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

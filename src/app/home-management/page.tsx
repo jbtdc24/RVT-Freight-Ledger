@@ -68,6 +68,7 @@ export default function HomeManagementPage() {
 
     // Transactions State logic
     const [isTransactionDialogOpen, setIsTransactionDialogOpen] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
     const [transactionForm, setTransactionForm] = useState({
         type: "expense" as TransactionType,
@@ -136,7 +137,20 @@ export default function HomeManagementPage() {
             });
         }
 
-        return result.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        return result.sort((a, b) => {
+            const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
+            if (dateDiff !== 0) return dateDiff;
+
+            const aAny = a as any;
+            const bAny = b as any;
+            if (bAny.updatedAt && aAny.updatedAt) {
+                const bTime = typeof bAny.updatedAt === 'string' ? new Date(bAny.updatedAt).getTime() : bAny.updatedAt?.toMillis?.() || 0;
+                const aTime = typeof aAny.updatedAt === 'string' ? new Date(aAny.updatedAt).getTime() : aAny.updatedAt?.toMillis?.() || 0;
+                return bTime - aTime;
+            }
+
+            return (b.id || "").localeCompare(a.id || "");
+        });
     }, [transactions, searchTerm, dateFilterType, dateRange]);
 
 
@@ -198,6 +212,9 @@ export default function HomeManagementPage() {
             });
             return;
         }
+
+        if (isSubmitting) return;
+
         const amount = parseFloat(transactionForm.amount);
         if (!amount || amount <= 0 || !transactionForm.category || !transactionForm.description.trim()) {
             toast({
@@ -213,12 +230,13 @@ export default function HomeManagementPage() {
         const currentCustoms = customCategories[transactionForm.type] || [];
 
         try {
+            setIsSubmitting(true);
             if (!predefined.includes(finalCategory) && !currentCustoms.includes(finalCategory)) {
                 await updateCustomCategories('home', transactionForm.type, [...currentCustoms, finalCategory]);
             }
 
             const transaction: HomeTransaction = {
-                id: editingTransactionId || Math.random().toString(36).substr(2, 9),
+                id: editingTransactionId || (Date.now().toString() + "-" + Math.random().toString(36).substr(2, 5)),
                 type: transactionForm.type,
                 amount,
                 category: finalCategory,
@@ -246,6 +264,8 @@ export default function HomeManagementPage() {
                 description: `Problem syncing with cloud (${errorCode}). ${errorMessage.substring(0, 50)}...`,
                 variant: "destructive"
             });
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -554,8 +574,10 @@ export default function HomeManagementPage() {
                                     </div>
                                 </div>
                                 <DialogFooter>
-                                    <Button variant="outline" onClick={() => { setIsTransactionDialogOpen(false); resetTransactionForm(); }}>Cancel</Button>
-                                    <Button onClick={handleSaveTransaction}>{editingTransactionId ? "Update" : "Add"}</Button>
+                                    <Button variant="outline" onClick={() => { setIsTransactionDialogOpen(false); resetTransactionForm(); }} disabled={isSubmitting}>Cancel</Button>
+                                    <Button onClick={handleSaveTransaction} disabled={isSubmitting}>
+                                        {isSubmitting ? "Saving..." : (editingTransactionId ? "Update" : "Add")}
+                                    </Button>
                                 </DialogFooter>
                             </DialogContent>
                         </Dialog>
