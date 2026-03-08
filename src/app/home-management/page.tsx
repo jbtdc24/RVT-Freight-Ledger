@@ -67,6 +67,7 @@ export default function HomeManagementPage() {
     const { toast } = useToast();
 
     // Transactions State logic
+    const [activeTab, setActiveTab] = useState("overview");
     const [isTransactionDialogOpen, setIsTransactionDialogOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
