@@ -4,21 +4,23 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Building2, Truck, Users, Plus, Search, Calendar as CalendarIcon, DollarSign, BarChart3, ChevronLeft, ChevronRight } from "lucide-react";
 import { format, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { cn } from "@/lib/utils";
-import { Freight, Asset, Driver, StandaloneExpense, ExpenseCategory } from "@/lib/types";
+import { Freight, Asset, Driver, StandaloneExpense, ExpenseCategory, HomeTransaction } from "@/lib/types";
 import { initialFreight, initialAssets, initialDrivers, initialExpenses } from './data';
 import { useAuthContext } from "./contexts/auth-context";
-import { subscribeToFreight, subscribeToAssets, subscribeToDrivers, subscribeToExpenses, saveFreight, saveAsset, saveDriver, saveExpense, deleteFreight, deleteAsset, deleteDriver, deleteExpense } from "./firebase/firestore";
+import { subscribeToFreight, subscribeToAssets, subscribeToDrivers, subscribeToExpenses, subscribeToHomeTransactions, saveFreight, saveAsset, saveDriver, saveExpense, saveHomeTransaction, deleteFreight, deleteAsset, deleteDriver, deleteExpense, deleteHomeTransaction } from "./firebase/firestore";
 
 type DataContextType = {
     freight: Freight[];
     assets: Asset[];
     drivers: Driver[];
     expenses: StandaloneExpense[];
+    homeTransactions: HomeTransaction[];
     setFreight: React.Dispatch<React.SetStateAction<Freight[]>>;
     setAssets: React.Dispatch<React.SetStateAction<Asset[]>>;
     setDrivers: React.Dispatch<React.SetStateAction<Driver[]>>;
     setExpenses: React.Dispatch<React.SetStateAction<StandaloneExpense[]>>;
-    deleteItem: (type: 'freight' | 'asset' | 'driver' | 'expense', id: string) => void;
+    setHomeTransactions: React.Dispatch<React.SetStateAction<HomeTransaction[]>>;
+    deleteItem: (type: 'freight' | 'asset' | 'driver' | 'expense' | 'homeTransaction', id: string) => void;
     deleteLoadExpense: (loadId: string, expenseId: string) => void;
     isLoaded: boolean;
 };
@@ -30,6 +32,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const [assets, setAssets] = useState<Asset[]>(initialAssets);
     const [drivers, setDrivers] = useState<Driver[]>(initialDrivers);
     const [expenses, setExpenses] = useState<StandaloneExpense[]>(initialExpenses);
+    const [homeTransactions, setHomeTransactions] = useState<HomeTransaction[]>([]);
     const [isLoaded, setIsLoaded] = useState(false);
     const { user, loading: authLoading } = useAuthContext();
 
@@ -40,6 +43,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             setAssets([]);
             setDrivers([]);
             setExpenses([]);
+            setHomeTransactions([]);
 
             // If we are definitely not loading auth anymore, signal that context data gathering is done
             if (!authLoading) {
@@ -66,6 +70,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             if (isMounted) setExpenses(data);
         });
 
+        const unsubHome = subscribeToHomeTransactions(user.uid, (data) => {
+            if (isMounted) setHomeTransactions(data);
+        });
+
         setIsLoaded(true);
 
         return () => {
@@ -74,10 +82,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             unsubAssets();
             unsubDrivers();
             unsubExpenses();
+            unsubHome();
         };
     }, [user, authLoading]);
 
-    const deleteItem = async (type: 'freight' | 'asset' | 'driver' | 'expense', id: string) => {
+    const deleteItem = async (type: 'freight' | 'asset' | 'driver' | 'expense' | 'homeTransaction', id: string) => {
         if (!user) return;
 
         if (type === 'freight') {
@@ -88,6 +97,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             await deleteDriver(user.uid, id);
         } else if (type === 'expense') {
             await deleteExpense(user.uid, id);
+        } else if (type === 'homeTransaction') {
+            await deleteHomeTransaction(user.uid, id);
         }
     };
 
@@ -114,10 +125,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             assets,
             drivers,
             expenses,
+            homeTransactions,
             setFreight,
             setAssets,
             setDrivers,
             setExpenses,
+            setHomeTransactions,
             deleteItem,
             deleteLoadExpense,
             isLoaded

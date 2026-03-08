@@ -20,18 +20,13 @@ import { format, startOfMonth, endOfMonth, isWithinInterval, startOfWeek, endOfW
 import { cn } from "@/lib/utils";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { type DateRange } from "react-day-picker";
+import { useData } from "@/lib/data-context";
+import { useAuthContext } from "@/lib/contexts/auth-context";
+import { saveHomeTransaction } from "@/lib/firebase/firestore";
+import type { HomeTransaction } from "@/lib/types";
 
 // Transaction Types
 type TransactionType = 'income' | 'expense';
-
-type Transaction = {
-    id: string;
-    type: TransactionType;
-    amount: number;
-    category: string;
-    description: string;
-    date: string;
-};
 
 
 
@@ -59,10 +54,9 @@ const expenseCategories = [
 
 
 export default function HomeManagementPage() {
+    const { homeTransactions: transactions, deleteItem } = useData();
+    const { user } = useAuthContext();
     const [activeTab, setActiveTab] = useState("overview");
-
-    // Transactions State
-    const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [isTransactionDialogOpen, setIsTransactionDialogOpen] = useState(false);
     const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
     const [transactionForm, setTransactionForm] = useState({
@@ -196,7 +190,8 @@ export default function HomeManagementPage() {
         setEditingTransactionId(null);
     };
 
-    const handleSaveTransaction = () => {
+    const handleSaveTransaction = async () => {
+        if (!user) return;
         const amount = parseFloat(transactionForm.amount);
         if (!amount || amount <= 0 || !transactionForm.category || !transactionForm.description.trim()) {
             alert("Please fill in all fields with valid values.");
@@ -213,23 +208,25 @@ export default function HomeManagementPage() {
         }
 
         if (editingTransactionId) {
-            setTransactions(prev => prev.map(t => t.id === editingTransactionId ? {
-                ...t,
+            const updatedTransaction: HomeTransaction = {
+                id: editingTransactionId,
                 type: transactionForm.type,
                 amount,
                 category: finalCategory,
                 description: transactionForm.description,
                 date: new Date(transactionForm.date).toISOString(),
-            } : t));
+            };
+            await saveHomeTransaction(user.uid, updatedTransaction);
         } else {
-            setTransactions(prev => [{
+            const newTransaction: HomeTransaction = {
                 id: Math.random().toString(36).substr(2, 9),
                 type: transactionForm.type,
                 amount,
                 category: finalCategory,
                 description: transactionForm.description,
                 date: new Date(transactionForm.date).toISOString(),
-            }, ...prev]);
+            };
+            await saveHomeTransaction(user.uid, newTransaction);
         }
 
         resetTransactionForm();
@@ -248,9 +245,10 @@ export default function HomeManagementPage() {
         setIsTransactionDialogOpen(true);
     };
 
-    const handleDeleteTransaction = (id: string) => {
+    const handleDeleteTransaction = async (id: string) => {
+        if (!user) return;
         if (window.confirm("Delete this transaction?")) {
-            setTransactions(prev => prev.filter(t => t.id !== id));
+            deleteItem('homeTransaction', id);
         }
     };
 

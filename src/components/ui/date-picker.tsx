@@ -11,6 +11,7 @@ import {
     Dialog,
     DialogContent,
     DialogTrigger,
+    DialogTitle,
 } from "@/components/ui/dialog"
 
 interface DatePickerProps {
@@ -77,6 +78,7 @@ export function DatePicker({ date, onDateChange, className, placeholder = "Pick 
                 </Button>
             </DialogTrigger>
             <DialogContent className="w-auto p-0 border-border bg-popover rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden scale-110">
+                <DialogTitle className="sr-only">Choose Date</DialogTitle>
                 <div className="p-8">
                     <Calendar
                         mode="single"

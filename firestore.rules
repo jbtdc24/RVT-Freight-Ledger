@@ -39,6 +39,10 @@ service cloud.firestore {
       match /expenses/{document=**} {
         allow read, write: if isOwner(userId);
       }
+      
+      match /homeTransactions/{document=**} {
+        allow read, write: if isOwner(userId);
+      }
     }
   }
 }
