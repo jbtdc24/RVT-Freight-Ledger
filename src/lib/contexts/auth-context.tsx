@@ -28,6 +28,7 @@ export interface UserData {
     displayName: string | null;
     subscriptionTier: "Free" | "Pro" | "Fleet";
     role?: "admin" | "user";
+    status?: "active" | "suspended";
     themePreference?: "light" | "dark" | "system";
     defaultOwnerPercentage?: number;
     createdAt: number;

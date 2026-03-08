@@ -263,6 +263,9 @@ export default function FreightLedgerPage() {
 
   const filteredFreight = useMemo(() => {
     return freight.filter(item => {
+      // Pinned items always show at the top, ignoring all filters
+      if (item.pinned) return true;
+
       const { freightId, route, textSearch, revenue, expenses, netProfit, dateRange, dateFilterType } = filters;
 
       if (freightId && !item.freightId.toLowerCase().includes(freightId.toLowerCase())) {

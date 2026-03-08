@@ -28,6 +28,7 @@ type DataContextType = {
     saveHomeTransaction: (transaction: HomeTransaction) => Promise<void>;
     deleteHomeTransaction: (id: string) => Promise<void>;
     updateCustomCategories: (module: 'business' | 'home', tab: string, categories: string[]) => Promise<void>;
+    setHomeTransactions: React.Dispatch<React.SetStateAction<HomeTransaction[]>>;
     deleteItem: (type: 'freight' | 'asset' | 'driver' | 'expense' | 'homeTransaction', id: string) => void;
     deleteLoadExpense: (loadId: string, expenseId: string) => void;
     isLoaded: boolean;
@@ -52,6 +53,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             setAssets([]);
             setDrivers([]);
             setExpenses([]);
+            setHomeTransactions([]);
 
             // If we are definitely not loading auth anymore, signal that context data gathering is done
             if (!authLoading) {
@@ -173,6 +175,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             saveHomeTransaction,
             deleteHomeTransaction,
             updateCustomCategories,
+            setHomeTransactions,
             deleteItem,
             deleteLoadExpense,
             isLoaded
