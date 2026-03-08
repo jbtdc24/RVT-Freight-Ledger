@@ -53,14 +53,9 @@ const expenseCategories = [
 ];
 
 
-import { useData } from "@/lib/data-context";
-import { useAuthContext } from "@/lib/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 
 export default function HomeManagementPage() {
-    const { homeTransactions: transactions, deleteItem } = useData();
-    const { user } = useAuthContext();
-    const [activeTab, setActiveTab] = useState("overview");
     const {
         homeTransactions: transactions,
         userMetadata,
