@@ -184,6 +184,20 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return null; // Return null instead of children so protected content never flashes
   }
 
+  // Suspended account enforcer
+  if (userData?.status === 'suspended' && pathname !== "/" && pathname !== "/login") {
+    return (
+      <div className="flex min-h-screen w-full flex-col items-center justify-center bg-background p-6 text-center">
+        <ShieldAlert className="h-16 w-16 text-destructive mb-4" />
+        <h1 className="text-3xl font-bold tracking-tight text-foreground mb-2">Account Suspended</h1>
+        <p className="text-muted-foreground max-w-md mb-8">
+          Your access to the platform has been temporarily suspended. Please contact the administrator for more information.
+        </p>
+        <Button onClick={() => signOut()} variant="outline">Sign Out</Button>
+      </div>
+    );
+  }
+
   const renderNavLinks = () => (
     <nav className="flex flex-col gap-2 px-4 py-4 ml-2">
       <DndContext

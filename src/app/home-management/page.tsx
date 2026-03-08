@@ -20,18 +20,13 @@ import { format, startOfMonth, endOfMonth, isWithinInterval, startOfWeek, endOfW
 import { cn } from "@/lib/utils";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { type DateRange } from "react-day-picker";
+import { useData } from "@/lib/data-context";
+import { useAuthContext } from "@/lib/contexts/auth-context";
+import { saveHomeTransaction } from "@/lib/firebase/firestore";
+import type { HomeTransaction } from "@/lib/types";
 
 // Transaction Types
 type TransactionType = 'income' | 'expense';
-
-type Transaction = {
-    id: string;
-    type: TransactionType;
-    amount: number;
-    category: string;
-    description: string;
-    date: string;
-};
 
 
 
@@ -58,12 +53,9 @@ const expenseCategories = [
 ];
 
 
-import { useData } from "@/lib/data-context";
-import { useAuthContext } from "@/lib/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 
 export default function HomeManagementPage() {
-    const [activeTab, setActiveTab] = useState("overview");
     const {
         homeTransactions: transactions,
         userMetadata,
@@ -206,7 +198,6 @@ export default function HomeManagementPage() {
             });
             return;
         }
-
         const amount = parseFloat(transactionForm.amount);
         if (!amount || amount <= 0 || !transactionForm.category || !transactionForm.description.trim()) {
             toast({
@@ -226,7 +217,7 @@ export default function HomeManagementPage() {
                 await updateCustomCategories('home', transactionForm.type, [...currentCustoms, finalCategory]);
             }
 
-            const transaction: Transaction = {
+            const transaction: HomeTransaction = {
                 id: editingTransactionId || Math.random().toString(36).substr(2, 9),
                 type: transactionForm.type,
                 amount,
@@ -270,7 +261,8 @@ export default function HomeManagementPage() {
         setIsTransactionDialogOpen(true);
     };
 
-    const handleDeleteTransaction = (id: string) => {
+    const handleDeleteTransaction = async (id: string) => {
+        if (!user) return;
         if (window.confirm("Delete this transaction?")) {
             deleteHomeTransaction(id);
         }

@@ -144,7 +144,6 @@ export type HomeTransaction = {
   description: string;
   date: string; // ISO string
 };
-
 export type UserMetadata = {
   customCategories?: {
     business?: Record<string, string[]>;
