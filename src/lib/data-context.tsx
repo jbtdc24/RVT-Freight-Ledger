@@ -4,10 +4,14 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Building2, Truck, Users, Plus, Search, Calendar as CalendarIcon, DollarSign, BarChart3, ChevronLeft, ChevronRight } from "lucide-react";
 import { format, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { cn } from "@/lib/utils";
-import { Freight, Asset, Driver, StandaloneExpense, ExpenseCategory, HomeTransaction } from "@/lib/types";
+import { Freight, Asset, Driver, StandaloneExpense, ExpenseCategory, HomeTransaction, UserMetadata } from "@/lib/types";
 import { initialFreight, initialAssets, initialDrivers, initialExpenses } from './data';
 import { useAuthContext } from "./contexts/auth-context";
-import { subscribeToFreight, subscribeToAssets, subscribeToDrivers, subscribeToExpenses, subscribeToHomeTransactions, saveFreight, saveAsset, saveDriver, saveExpense, saveHomeTransaction, deleteFreight, deleteAsset, deleteDriver, deleteExpense, deleteHomeTransaction } from "./firebase/firestore";
+import {
+    subscribeToFreight, subscribeToAssets, subscribeToDrivers, subscribeToExpenses, subscribeToHomeTransactions, subscribeToUserMetadata,
+    saveFreight, saveAsset, saveDriver, saveExpense as firestoreSaveExpense, saveHomeTransaction as firestoreSaveHome, saveUserMetadata,
+    deleteFreight, deleteAsset, deleteDriver, deleteExpense, deleteHomeTransaction as firestoreDeleteHome
+} from "./firebase/firestore";
 
 type DataContextType = {
     freight: Freight[];
@@ -15,10 +19,15 @@ type DataContextType = {
     drivers: Driver[];
     expenses: StandaloneExpense[];
     homeTransactions: HomeTransaction[];
+    userMetadata: UserMetadata;
     setFreight: React.Dispatch<React.SetStateAction<Freight[]>>;
     setAssets: React.Dispatch<React.SetStateAction<Asset[]>>;
     setDrivers: React.Dispatch<React.SetStateAction<Driver[]>>;
     setExpenses: React.Dispatch<React.SetStateAction<StandaloneExpense[]>>;
+    saveExpense: (expense: StandaloneExpense) => Promise<void>;
+    saveHomeTransaction: (transaction: HomeTransaction) => Promise<void>;
+    deleteHomeTransaction: (id: string) => Promise<void>;
+    updateCustomCategories: (module: 'business' | 'home', tab: string, categories: string[]) => Promise<void>;
     setHomeTransactions: React.Dispatch<React.SetStateAction<HomeTransaction[]>>;
     deleteItem: (type: 'freight' | 'asset' | 'driver' | 'expense' | 'homeTransaction', id: string) => void;
     deleteLoadExpense: (loadId: string, expenseId: string) => void;
@@ -33,6 +42,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const [drivers, setDrivers] = useState<Driver[]>(initialDrivers);
     const [expenses, setExpenses] = useState<StandaloneExpense[]>(initialExpenses);
     const [homeTransactions, setHomeTransactions] = useState<HomeTransaction[]>([]);
+    const [userMetadata, setUserMetadata] = useState<UserMetadata>({});
     const [isLoaded, setIsLoaded] = useState(false);
     const { user, loading: authLoading } = useAuthContext();
 
@@ -74,6 +84,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             if (isMounted) setHomeTransactions(data);
         });
 
+        const unsubMetadata = subscribeToUserMetadata(user.uid, (data) => {
+            if (isMounted) setUserMetadata(data || {});
+        });
+
         setIsLoaded(true);
 
         return () => {
@@ -83,6 +97,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             unsubDrivers();
             unsubExpenses();
             unsubHome();
+            unsubMetadata();
         };
     }, [user, authLoading]);
 
@@ -98,8 +113,33 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         } else if (type === 'expense') {
             await deleteExpense(user.uid, id);
         } else if (type === 'homeTransaction') {
-            await deleteHomeTransaction(user.uid, id);
+            await firestoreDeleteHome(user.uid, id);
         }
+    };
+
+    const saveHomeTransaction = async (transaction: HomeTransaction) => {
+        if (!user) return;
+        await firestoreSaveHome(user.uid, transaction);
+    };
+
+    const deleteHomeTransaction = async (id: string) => {
+        if (!user) return;
+        await firestoreDeleteHome(user.uid, id);
+    };
+
+    const updateCustomCategories = async (module: 'business' | 'home', tab: string, categories: string[]) => {
+        if (!user) return;
+        const newMetadata = { ...userMetadata };
+        if (!newMetadata.customCategories) newMetadata.customCategories = {};
+        if (!newMetadata.customCategories[module]) newMetadata.customCategories[module] = {};
+
+        newMetadata.customCategories[module]![tab] = categories;
+        await saveUserMetadata(user.uid, newMetadata);
+    };
+
+    const saveExpense = async (expense: StandaloneExpense) => {
+        if (!user) return;
+        await firestoreSaveExpense(user.uid, expense);
     };
 
     const deleteLoadExpense = async (loadId: string, expenseId: string) => {
@@ -126,10 +166,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             drivers,
             expenses,
             homeTransactions,
+            userMetadata,
             setFreight,
             setAssets,
             setDrivers,
             setExpenses,
+            saveExpense,
+            saveHomeTransaction,
+            deleteHomeTransaction,
+            updateCustomCategories,
             setHomeTransactions,
             deleteItem,
             deleteLoadExpense,

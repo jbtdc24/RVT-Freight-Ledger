@@ -30,6 +30,7 @@ export interface UserData {
     role?: "admin" | "user";
     status?: "active" | "suspended";
     themePreference?: "light" | "dark" | "system";
+    defaultOwnerPercentage?: number;
     createdAt: number;
 }
 

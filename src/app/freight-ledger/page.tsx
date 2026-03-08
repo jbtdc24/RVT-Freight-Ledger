@@ -152,7 +152,7 @@ export default function FreightLedgerPage() {
       bcoSpecialInstructions: extractedData.notes || "",
       // Some required defaults
       status: 'Draft',
-      ownerPercentage: 100,
+      ownerPercentage: userData?.defaultOwnerPercentage || 100,
       expenses: [],
       comments: [
         {

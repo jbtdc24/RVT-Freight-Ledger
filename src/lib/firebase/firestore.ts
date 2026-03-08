@@ -1,6 +1,6 @@
 import { collection, doc, query, getDocs, setDoc, deleteDoc, onSnapshot, serverTimestamp } from "firebase/firestore";
 import { db } from "./config";
-import { Freight, Asset, Driver, StandaloneExpense, HomeTransaction } from "@/lib/types";
+import { Freight, Asset, Driver, StandaloneExpense, HomeTransaction, UserMetadata } from "@/lib/types";
 
 // Helper generic function to get a user's collection reference
 const getUserCollection = (userId: string, collectionName: string) => {
@@ -151,11 +151,11 @@ export const subscribeToHomeTransactions = (userId: string, callback: (data: Hom
     if (!userId) return () => { };
     const q = query(getUserCollection(userId, "homeTransactions"));
     return onSnapshot(q, (snapshot) => {
-        const data: HomeTransaction[] = [];
+        const homeData: HomeTransaction[] = [];
         snapshot.forEach((doc) => {
-            data.push({ ...doc.data(), id: doc.id } as HomeTransaction);
+            homeData.push({ ...doc.data(), id: doc.id } as HomeTransaction);
         });
-        callback(data);
+        callback(homeData);
     });
 };
 
@@ -170,4 +170,24 @@ export const deleteHomeTransaction = async (userId: string, transactionId: strin
     if (!userId) return;
     const docRef = doc(getUserCollection(userId, "homeTransactions"), transactionId);
     await deleteDoc(docRef);
+};
+/**
+ * USER METADATA (Custom Categories, etc.)
+ */
+export const subscribeToUserMetadata = (userId: string, callback: (data: UserMetadata) => void) => {
+    if (!userId) return () => { };
+    const docRef = doc(getUserCollection(userId, "metadata"), "settings");
+    return onSnapshot(docRef, (doc) => {
+        if (doc.exists()) {
+            callback(doc.data() as UserMetadata);
+        } else {
+            callback({});
+        }
+    });
+};
+
+export const saveUserMetadata = async (userId: string, metadata: UserMetadata) => {
+    if (!userId) return;
+    const docRef = doc(getUserCollection(userId, "metadata"), "settings");
+    await setDoc(docRef, { ...metadata, updatedAt: serverTimestamp() }, { merge: true });
 };
