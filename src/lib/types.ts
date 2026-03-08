@@ -135,3 +135,19 @@ export type Driver = {
   idImages?: string[]; // Array of base64 or URLs
   comments?: LoadComment[];
 };
+
+export type HomeTransaction = {
+  id: string;
+  type: 'income' | 'expense';
+  amount: number;
+  category: string;
+  description: string;
+  date: string; // ISO string
+};
+
+export type UserMetadata = {
+  customCategories?: {
+    business?: Record<string, string[]>;
+    home?: Record<string, string[]>;
+  };
+};
