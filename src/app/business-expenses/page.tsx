@@ -139,7 +139,22 @@ export default function BusinessExpensesPage() {
             }
 
             return true;
-        }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        }).sort((a, b) => {
+            const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
+            if (dateDiff !== 0) return dateDiff;
+
+            // Tie-breaker for same-day expenses to ensure newest is at the top
+            // If they have an updatedAt timestamp from Firestore, use it
+            if (b.updatedAt && a.updatedAt) {
+                // Handle Firebase timestamp or string
+                const bTime = typeof b.updatedAt === 'string' ? new Date(b.updatedAt).getTime() : (b.updatedAt as any).toMillis?.() || 0;
+                const aTime = typeof a.updatedAt === 'string' ? new Date(a.updatedAt).getTime() : (a.updatedAt as any).toMillis?.() || 0;
+                return bTime - aTime;
+            }
+
+            // Fallback: sort by ID reverse alphabetically (newer IDs tend to be larger/later if time-based, or at least consistent)
+            return (b.id || "").localeCompare(a.id || "");
+        });
     }, [expenses, activeTab, searchTerm, dateRange, dateFilterType]);
 
     const totalPages = Math.ceil(filteredExpenses.length / itemsPerPage);
