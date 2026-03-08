@@ -331,7 +331,7 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
               </div>
               <div className="w-32">
                 <FormField control={form.control} name="status" render={({ field }) => (
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger className={cn(
                         "h-7 text-[10px] font-black uppercase tracking-widest px-3 border-none shadow-sm",
@@ -441,7 +441,7 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
                   <FormField control={form.control} name="driverId" render={({ field }) => (
                     <FormItem className="space-y-1">
                       <FormLabel className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-tighter">Driver</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl><SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Select" /></SelectTrigger></FormControl>
                         <SelectContent>{drivers.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}</SelectContent>
                       </Select>
@@ -450,7 +450,7 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
                   <FormField control={form.control} name="assetId" render={({ field }) => (
                     <FormItem className="space-y-1">
                       <FormLabel className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-tighter">Asset</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl><SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Select" /></SelectTrigger></FormControl>
                         <SelectContent>{assets.map(a => <SelectItem key={a.id} value={a.id}>{a.identifier}</SelectItem>)}</SelectContent>
                       </Select>
@@ -704,7 +704,7 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
 
                       <div className="flex items-center justify-between gap-2">
                         <FormField control={form.control} name={`expenses.${index}.category`} render={({ field }) => (
-                          <Select onValueChange={field.onChange} value={field.value}>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl>
                               <SelectTrigger className="h-4 text-[8px] font-black uppercase tracking-widest text-muted-foreground/50 border-none bg-transparent p-0 focus:ring-0 w-min hover:text-primary transition-colors">
                                 <SelectValue />
