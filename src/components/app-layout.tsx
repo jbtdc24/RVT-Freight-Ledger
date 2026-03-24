@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Gauge, Truck, Warehouse, Calculator, Menu, Users, Trash2, FileText, Building2, Home, ClipboardList, HandCoins, GripVertical, Settings, ShieldAlert, Wrench, Fuel } from "lucide-react";
+import { Gauge, Truck, Warehouse, Calculator, Menu, Users, Trash2, FileText, Building2, Home, ClipboardList, HandCoins, GripVertical, Settings, ShieldAlert, Wrench, Fuel, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { RvtLogo } from "@/components/icons";
@@ -42,6 +42,7 @@ const defaultNavItems = [
   { href: "/ifta", label: "IFTA Tax", icon: Fuel },
   { href: "/business-expenses", label: "Business Expenses", icon: Building2 },
   { href: "/home-management", label: "Home Management", icon: Home },
+  { href: "/billing", label: "Billing", icon: CreditCard },
 ];
 
 function SortableNavItem({ item, pathname }: { item: any; pathname: string }) {
