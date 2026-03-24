@@ -1,15 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { RvtLogo } from "@/components/icons";
 import { useAuthContext } from "@/lib/contexts/auth-context";
 import { Loader2, Chrome } from "lucide-react";
-import { cn } from "@/lib/utils";
 
-export default function LoginPage() {
+// Inner component that uses useSearchParams
+function LoginForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user, loading, signInWithGoogle } = useAuthContext();
@@ -158,5 +158,26 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Loading fallback for Suspense
+function LoginLoading() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="flex flex-col items-center gap-4">
+        <Loader2 className="h-8 w-8 text-primary animate-spin" />
+        <span className="text-sm text-muted-foreground">Loading...</span>
+      </div>
+    </div>
+  );
+}
+
+// Main page component wrapped in Suspense
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginLoading />}>
+      <LoginForm />
+    </Suspense>
   );
 }
