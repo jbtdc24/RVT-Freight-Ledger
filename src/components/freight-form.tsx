@@ -64,7 +64,7 @@ const formSchema = z.object({
   operatingEntity: z.string().optional(),
 
   // Identifiers
-  freightId: z.string().min(2, "Load # is required."),
+  freightId: z.string().min(1, "Load # is required."),
   freightBillNumber: z.string().optional(),
   customerReferenceNumber: z.string().optional(),
 
@@ -77,14 +77,14 @@ const formSchema = z.object({
   assetId: z.string().optional(),
 
   // Route
-  origin: z.string().min(2, "Origin is required."),
-  destination: z.string().min(2, "Destination is required."),
-  distance: z.coerce.number().positive("Distance must be a positive number."),
+  origin: z.string().min(1, "Origin is required."),
+  destination: z.string().min(1, "Destination is required."),
+  distance: z.coerce.number().min(0, "Distance must be a positive number."),
   pickup: stopDetailSchema.optional(),
   drop: stopDetailSchema.optional(),
 
   // Cargo & Equipment
-  weight: z.coerce.number().positive("Weight must be a positive number."),
+  weight: z.coerce.number().min(0, "Weight must be a positive number."),
   commodity: z.string().optional(),
   pieces: z.coerce.number().optional(),
   dimensions: z.string().optional(),
@@ -97,7 +97,7 @@ const formSchema = z.object({
   bcoSpecialInstructions: z.string().optional(),
 
   // Financials
-  lineHaul: z.coerce.number().positive("Line Haul must be a positive number."),
+  lineHaul: z.coerce.number().min(0, "Line Haul must be a positive number."),
   fuelSurcharge: z.coerce.number().min(0, "Fuel Surcharge cannot be negative."),
   loading: z.coerce.number().min(0, "Loading charge cannot be negative.").optional().default(0),
   unloading: z.coerce.number().min(0, "Unloading charge cannot be negative.").optional().default(0),

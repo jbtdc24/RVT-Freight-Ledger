@@ -1,11 +1,11 @@
-export type ExpenseCategory = string;
+export type ExpenseCategory = 'Fuel' | 'Tolls' | 'Lumper' | 'Parking' | 'Scales' | 'Maintenance' | 'Other' | string;
 
 export type LoadExpense = {
   id: string;
   category: ExpenseCategory;
   description: string;
   amount: number;
-  date?: string; // ISO string
+  date?: string; // ISO string - optional for load expenses (inherited from load date)
   loadId?: string; // Back-reference
 };
 
@@ -14,7 +14,7 @@ export type StandaloneExpense = {
   category: ExpenseCategory;
   description: string;
   amount: number;
-  date: string; // ISO string
+  date: string; // ISO string - required for standalone
 
   // Optional links
   driverId?: string;
@@ -34,6 +34,19 @@ export type LoadComment = {
   date?: string; // Optional custom event date (ISO string)
   type: 'manual' | 'system';
 };
+
+export type StopDetail = {
+  companyName: string;
+  address: string;
+  cityStateZip: string;
+  contactName?: string;
+  contactPhone?: string;
+  appointmentTime?: string;
+  appointmentNumber?: string;
+  notes?: string;
+};
+
+export type FreightStatus = 'Draft' | 'For Pickup' | 'In Route' | 'Delivered' | 'Cancelled';
 
 export type Freight = {
   // Header Info
@@ -103,50 +116,48 @@ export type Freight = {
   ownerAmount: number;
 
   // Status
-  status: 'Draft' | 'For Pickup' | 'In Route' | 'Delivered' | 'Cancelled';
+  status: FreightStatus;
   pinned?: boolean;
 };
 
-export type StopDetail = {
-  companyName: string;
-  address: string;
-  cityStateZip: string;
-  contactName?: string;
-  contactPhone?: string;
-  appointmentTime?: string;
-  appointmentNumber?: string;
-  notes?: string;
-};
+export type AssetType = 'Truck' | 'Business Car';
 
 export type Asset = {
   id: string;
-  type: 'Truck' | 'Business Car';
+  type: AssetType;
   identifier: string;
   description?: string;
   idImages?: string[]; // Array of base64 or URLs
   comments?: LoadComment[];
 };
 
+export type DriverPayType = 'per-mile' | 'percentage';
+
 export type Driver = {
   id: string;
   name: string;
   payRate: number; // can be $/mile or % of revenue
-  payType: 'per-mile' | 'percentage';
+  payType: DriverPayType;
   idImages?: string[]; // Array of base64 or URLs
   comments?: LoadComment[];
 };
 
+export type HomeTransactionType = 'income' | 'expense';
+
 export type HomeTransaction = {
   id: string;
-  type: 'income' | 'expense';
+  type: HomeTransactionType;
   amount: number;
   category: string;
   description: string;
   date: string; // ISO string
 };
+
+export type CustomCategories = {
+  business?: Record<string, string[]>;
+  home?: Record<string, string[]>;
+};
+
 export type UserMetadata = {
-  customCategories?: {
-    business?: Record<string, string[]>;
-    home?: Record<string, string[]>;
-  };
+  customCategories?: CustomCategories;
 };

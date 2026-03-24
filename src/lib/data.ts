@@ -1,14 +1,47 @@
 import type { Freight, LoadExpense, Asset, Driver, LoadComment } from "./types";
 
+// Default comments for new records
+const defaultComments: LoadComment[] = [
+  { 
+    id: 'sys-1', 
+    text: 'Record created.', 
+    author: 'System', 
+    timestamp: new Date().toISOString(), 
+    type: 'system' 
+  }
+];
+
 // Drivers
 export const initialDrivers: Driver[] = [
-  { id: 'drv-1', name: 'Mike Wilson', payRate: 0.65, payType: 'per-mile', idImages: [], comments: [] },
+  { 
+    id: 'drv-1', 
+    name: 'Mike Wilson', 
+    payRate: 0.65, 
+    payType: 'per-mile', 
+    idImages: [], 
+    comments: [] 
+  },
 ];
 
 // Assets
 export const initialAssets: Asset[] = [
-  { id: 'ast-1', type: 'Truck', identifier: 'Unit 101', description: '2022 Volvo VNL 760', idImages: [], comments: [] },
+  { 
+    id: 'ast-1', 
+    type: 'Truck', 
+    identifier: 'Unit 101', 
+    description: '2022 Volvo VNL 760', 
+    idImages: [], 
+    comments: [] 
+  },
 ];
+
+// Helper to create consistent dates (avoid hydration mismatch)
+const createDate = (daysAgo: number = 0): Date => {
+  const date = new Date();
+  date.setDate(date.getDate() - daysAgo);
+  date.setHours(12, 0, 0, 0); // Set to noon to avoid timezone issues
+  return date;
+};
 
 // Freight Load #1
 const freight1Expenses: LoadExpense[] = [
@@ -30,7 +63,7 @@ const freight1NetProfit = freight1OwnerAmount - freight1TotalExpenses;
 // Freight Load #2
 const freight2Expenses: LoadExpense[] = [
   { id: 'exp-2-1', category: 'Fuel', description: 'Fuel - California', amount: 380.00 },
-  { id: 'exp-2-2', category: 'Repairs', description: 'Flat tire repair', amount: 125.00 },
+  { id: 'exp-2-2', category: 'Maintenance', description: 'Flat tire repair', amount: 125.00 },
   { id: 'exp-2-3', category: 'Other', description: 'Lumper fee', amount: 75.00 },
 ];
 const freight2LineHaul = 2800;
@@ -52,7 +85,7 @@ export const initialFreight: Freight[] = [
     origin: 'Dallas, TX',
     destination: 'Los Angeles, CA',
     distance: 1450,
-    date: new Date(),
+    date: createDate(0),
     weight: 38000,
     driverId: 'drv-1',
     driverName: 'Mike Wilson',
@@ -72,7 +105,7 @@ export const initialFreight: Freight[] = [
     totalExpenses: freight1TotalExpenses,
     netProfit: freight1NetProfit,
 
-    comments: [{ id: 'com-1', text: 'Load created.', author: 'System', timestamp: new Date().toISOString(), type: 'system' }],
+    comments: [{ id: 'com-1', text: 'Load created.', author: 'System', timestamp: createDate(0).toISOString(), type: 'system' }],
 
     agencyName: 'ABC Logistics',
     contactName: 'Sarah Johnson',
@@ -93,7 +126,7 @@ export const initialFreight: Freight[] = [
     origin: 'Phoenix, AZ',
     destination: 'Seattle, WA',
     distance: 1420,
-    date: new Date(new Date().setDate(new Date().getDate() - 3)),
+    date: createDate(3),
     weight: 42000,
     driverId: 'drv-1',
     driverName: 'Mike Wilson',
@@ -113,7 +146,7 @@ export const initialFreight: Freight[] = [
     totalExpenses: freight2TotalExpenses,
     netProfit: freight2NetProfit,
 
-    comments: [{ id: 'com-2', text: 'Load created.', author: 'System', timestamp: new Date().toISOString(), type: 'system' }],
+    comments: [{ id: 'com-2', text: 'Load created.', author: 'System', timestamp: createDate(3).toISOString(), type: 'system' }],
 
     agencyName: 'XYZ Transport',
     contactName: 'John Miller',
@@ -131,13 +164,13 @@ export const initialFreight: Freight[] = [
 ];
 
 // Business Expenses (Standalone overhead expenses)
-export const initialExpenses: any[] = [
+export const initialExpenses: import("./types").StandaloneExpense[] = [
   {
     id: 'biz-exp-1',
     category: 'Fuel',
     description: 'Deadhead fuel - empty miles',
     amount: 250.00,
-    date: new Date(new Date().setDate(new Date().getDate() - 1)).toISOString(),
+    date: createDate(1).toISOString(),
     assetId: 'ast-1',
     assetName: 'Unit 101',
     comments: []
@@ -147,7 +180,7 @@ export const initialExpenses: any[] = [
     category: 'Maintenance',
     description: 'Oil change',
     amount: 450.00,
-    date: new Date(new Date().setDate(new Date().getDate() - 5)).toISOString(),
+    date: createDate(5).toISOString(),
     assetId: 'ast-1',
     assetName: 'Unit 101',
     comments: []
@@ -157,7 +190,7 @@ export const initialExpenses: any[] = [
     category: 'Other',
     description: 'Office rent - February',
     amount: 1200.00,
-    date: new Date(new Date().setDate(new Date().getDate() - 10)).toISOString(),
+    date: createDate(10).toISOString(),
     comments: []
   },
 ];
