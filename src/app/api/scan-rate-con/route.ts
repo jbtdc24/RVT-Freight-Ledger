@@ -4,8 +4,18 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+
 export async function POST(req: NextRequest) {
     try {
+        // Check API key first
+        if (!OPENROUTER_API_KEY) {
+            console.error("[SCAN] OPENROUTER_API_KEY not configured");
+            return NextResponse.json({ 
+                error: "AI not configured. Please add OPENROUTER_API_KEY to .env.local" 
+            }, { status: 500 });
+        }
+
         const pdfParse = require("pdf-parse");
         console.log("[SCAN] Received PDF scan request");
 
@@ -34,13 +44,6 @@ export async function POST(req: NextRequest) {
         const truncatedText = textContent.length > 5000 
             ? textContent.substring(0, 5000) + "..."
             : textContent;
-
-        // OpenRouter API Key
-        const apiKey = process.env.OPENROUTER_API_KEY || "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";
-
-        if (!apiKey) {
-            return NextResponse.json({ error: "OpenRouter API key not configured" }, { status: 500 });
-        }
 
         // Call OpenRouter with Gemini 2.0 Flash
         const payload = {
@@ -76,7 +79,7 @@ export async function POST(req: NextRequest) {
   "equipmentType": "",
   "hazardousMaterial": false
 }
-Use "" for missing strings, 0 for missing numbers. Return raw JSON only, no markdown.`
+Use "" for missing strings, 0 for missing numbers. Raw JSON only, no markdown.`
                 },
                 {
                     role: "user",
@@ -91,7 +94,7 @@ Use "" for missing strings, 0 for missing numbers. Return raw JSON only, no mark
         const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
             headers: {
-                "Authorization": `Bearer ${apiKey}`,
+                "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
                 "Content-Type": "application/json",
                 "HTTP-Referer": "http://localhost:9003",
                 "X-Title": "RVT Freight Ledger"

@@ -5,6 +5,7 @@ import AppLayout from '@/components/app-layout';
 import { ThemeProvider } from '@/components/theme-provider';
 import { DataProvider } from '@/lib/data-context';
 import { AuthProvider } from '@/lib/contexts/auth-context';
+import { AIChatbotWrapper } from '@/components/ai-chatbot-wrapper';
 
 export const metadata: Metadata = {
   title: 'RVT Accounting',
@@ -36,6 +37,7 @@ export default function RootLayout({
               <AppLayout>
                 {children}
               </AppLayout>
+              <AIChatbotWrapper />
             </DataProvider>
           </AuthProvider>
           <Toaster />
