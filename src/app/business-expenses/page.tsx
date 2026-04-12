@@ -61,7 +61,7 @@ export default function BusinessExpensesPage() {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isCustomCategory, setIsCustomCategory] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [dateFilterType, setDateFilterType] = useState<"week" | "month" | "year" | "range">("month");
+    const [dateFilterType, setDateFilterType] = useState<"all" | "week" | "month" | "year" | "range">("all");
     const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
 
     const customCategories = userMetadata?.customCategories?.business || {};
@@ -475,7 +475,7 @@ export default function BusinessExpensesPage() {
                             />
                         </div>
                         <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-full w-full sm:w-auto overflow-x-auto">
-                            {(['week', 'month', 'year', 'range'] as const).map(type => (
+                            {(['all', 'week', 'month', 'year', 'range'] as const).map(type => (
                                 <Button
                                     key={type}
                                     variant={dateFilterType === type ? "default" : "ghost"}
