@@ -66,7 +66,7 @@ export function AIScanButton({ onScanComplete, className }: AIScanButtonProps) {
 
             toast({
                 title: "Scanning Document",
-                description: "Gemini AI is extracting load details. This may take a few seconds...",
+                description: "AI is extracting load details. This may take a few seconds...",
             });
 
             // Send base64 to our backend to parse

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Check, ChevronsUpDown, MapPin } from "lucide-react";
 import { State, City } from "country-state-city";
 import { cn } from "@/lib/utils";
@@ -52,15 +52,22 @@ export function LocationSelect({
         return City.getCitiesOfState("US", selectedStateCode);
     }, [selectedStateCode]);
 
+    // Only trigger onChange when user actually selects (not on initial mount)
+    const isInitialMount = useRef(true);
     useEffect(() => {
-        if (selectedCityName && selectedStateCode) {
-            if (`${selectedCityName}, ${selectedStateCode}` !== value) {
-                onChange(`${selectedCityName}, ${selectedStateCode}`);
-            }
-        } else if (!selectedCityName && !selectedStateCode) {
-            if (value !== "") onChange("");
+        if (isInitialMount.current) {
+            isInitialMount.current = false;
+            return;
         }
-    }, [selectedCityName, selectedStateCode, onChange, value]);
+        if (selectedCityName && selectedStateCode) {
+            const newValue = `${selectedCityName}, ${selectedStateCode}`;
+            if (newValue !== value) {
+                onChange(newValue);
+            }
+        } else if (!selectedCityName && !selectedStateCode && value !== "") {
+            onChange("");
+        }
+    }, [selectedCityName, selectedStateCode]); // Removed value and onChange from deps
 
     // Handle external value changes (e.g., from form resets)
     useEffect(() => {
