@@ -27,6 +27,7 @@ import { AssetForm } from "./assets-form";
 import { Badge } from "@/components/ui/badge";
 import { useAuthContext } from "@/lib/contexts/auth-context";
 import { saveAsset } from "@/lib/firebase/firestore";
+import { generateId } from "@/lib/id-utils";
 
 export default function AssetsPage() {
   const { assets, deleteItem } = useData();
@@ -45,7 +46,7 @@ export default function AssetsPage() {
     if (editingAsset) {
       await saveAsset(user.uid, { ...editingAsset, ...values });
     } else {
-      const newAsset = { ...values, id: Math.random().toString(36).substr(2, 9) };
+      const newAsset = { ...values, id: generateId() };
       await saveAsset(user.uid, newAsset);
     }
     setIsDialogOpen(false);

@@ -5,6 +5,28 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/**
+ * Formats a number as USD currency
+ * @param value - The number to format
+ * @returns Formatted currency string (e.g., "$1,234.56")
+ */
+export function formatCurrency(value: number): string {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
+}
+
+/**
+ * Formats a driver's pay rate for display
+ * @param payRate - The pay rate value
+ * @param payType - The type of pay ('per-mile' or 'percentage')
+ * @returns Formatted pay rate string
+ */
+export function formatPayRate(payRate: number, payType: 'per-mile' | 'percentage'): string {
+  if (payType === 'per-mile') {
+    return formatCurrency(payRate) + '/mile';
+  }
+  return `${payRate}% of revenue`;
+}
+
 export function parseFlexibleDate(input: string): Date | undefined {
   const clean = input.replace(/[^0-9/.-]/g, '');
   if (!clean) return undefined;

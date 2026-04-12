@@ -26,6 +26,8 @@ import { cn } from "@/lib/utils";
 import { format, parse } from "date-fns";
 import { LocationSelect } from "@/components/ui/location-select";
 import { useAuthContext } from "@/lib/contexts/auth-context";
+import { generateId } from "@/lib/id-utils";
+import { formatCurrency } from "@/lib/utils";
 
 const expenseSchema = z.object({
   id: z.string(),
@@ -210,7 +212,7 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
     if (!newComment.trim()) return;
 
     const comment: z.infer<typeof commentSchema> = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: generateId(),
       text: newComment,
       author: "User",
       timestamp: new Date().toISOString(),
@@ -260,7 +262,7 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
     let finalComments = [...(values.comments || [])];
     if (newComment.trim()) {
       finalComments.unshift({
-        id: Math.random().toString(36).substr(2, 9),
+        id: generateId(),
         text: newComment,
         author: "User",
         timestamp: new Date().toISOString(),
@@ -270,7 +272,7 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
     }
 
     finalComments.unshift({
-      id: Math.random().toString(36).substr(2, 9),
+      id: generateId(),
       text: changeLog,
       author: "System",
       timestamp: new Date().toISOString(),
@@ -280,7 +282,8 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
     const totalExpenses = (values.expenses || []).reduce((sum, e) => sum + (e.amount || 0), 0);
 
     // Cast values to Freight (loose cast due to form values shape match)
-    const submissionData: any = {
+    // Type assertion needed due to form schema vs Freight type differences
+    const submissionData = {
       ...values,
       expenses: values.expenses,
       comments: finalComments,
@@ -297,7 +300,7 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
   }
 
   // Handler for form validation errors
-  const handleFormError = (errors: any) => {
+  const handleFormError = (errors: Record<string, { message?: string }>) => {
     const errorKeys = Object.keys(errors);
     if (errorKeys.length > 0) {
       // Show alert with error summary
@@ -316,7 +319,7 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
   const totalLoadExpenses = (watchAll.expenses || []).reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
   const loadNetProfit = ownerShare - totalLoadExpenses;
 
-  const formatCurrency = (val: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(val);
+  // formatCurrency is now imported from @/lib/utils
 
   return (
     <Form {...form}>
@@ -733,7 +736,7 @@ const FreightForm = forwardRef<FreightFormHandle, FreightFormProps>(({ onSubmit,
                   type="button"
                   variant="outline"
                   className="w-full h-8 border-dashed border bg-muted/5 hover:bg-primary/5 hover:border-primary/40 text-muted-foreground/60 hover:text-primary transition-all rounded-lg group flex items-center justify-center gap-2"
-                  onClick={() => appendExpense({ id: Math.random().toString(36).substr(2, 9), category: "Other", description: "", amount: 0 })}
+                  onClick={() => appendExpense({ id: generateId(), category: "Other", description: "", amount: 0 })}
                 >
                   <PlusCircle className="h-3 w-3" />
                   <span className="text-[8px] font-black uppercase tracking-widest">Add Expense</span>

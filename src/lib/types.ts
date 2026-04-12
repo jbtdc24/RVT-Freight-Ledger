@@ -108,9 +108,9 @@ export type Freight = {
 };
 
 export type StopDetail = {
-  companyName: string;
-  address: string;
-  cityStateZip: string;
+  companyName?: string;
+  address?: string;
+  cityStateZip?: string;
   contactName?: string;
   contactPhone?: string;
   appointmentTime?: string;

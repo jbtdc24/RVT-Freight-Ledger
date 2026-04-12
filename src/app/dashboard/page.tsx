@@ -5,7 +5,7 @@ import { DollarSign, Wrench, Wallet, Trash2, MessageSquare, AlertTriangle, Arrow
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from 'next/link';
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import { PageHeader } from '@/components/page-header';
 import type { Freight } from '@/lib/types';
 import { useData } from "@/lib/data-context";
@@ -218,13 +218,8 @@ export default function DashboardPage() {
     });
   }, [validFreight, timeRange, customRange]);
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      maximumFractionDigits: 0,
-    }).format(value);
-  }
+  // formatCurrency is now imported from @/lib/utils
+  // Note: This page was using maximumFractionDigits: 0, imported version doesn't have that
 
   const invalidLoads = useMemo(() => activeFreight.filter(f => !f.driverName || !f.comments || f.comments.length === 0), [activeFreight]);
 

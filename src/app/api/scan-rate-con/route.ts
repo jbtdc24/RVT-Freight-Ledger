@@ -1,14 +1,14 @@
 
 
-// We rely on process.env.GOOGLE_GEMINI_API_KEY being set in .env.local
-// The user provided an OpenRouter key, so we will use the fetch api directly.
+// Uses Kimi/Moonshot API for freight document extraction
+// Docs: https://platform.moonshot.cn/docs/api-reference
 
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
     try {
         const pdfParse = require("pdf-parse");
-        console.log("Received PDF scan request via Base64 payload");
+        console.log("[SCAN] Received PDF scan request");
 
         // 2. Extract base64 from request JSON
         const body = await req.json();
@@ -29,106 +29,141 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Could not extract text from the PDF" }, { status: 400 });
         }
 
-        console.log("PDF parsed successfully, extracting structured data via Gemini...");
+        console.log("[SCAN] PDF parsed, text length:", textContent.length);
 
-        // 5. Build prompt and expected schema for Gemini
-        const prompt = `
-            You are an expert logistics data extraction assistant. 
-            I am providing you with the raw text extracted from a freight Rate Confirmation or Bill of Lading (BOL).
-            Your job is to extract the relevant transportation details and return ONLY a valid JSON object matching the exact schema requested.
-            Do not include any string wrapper, markdown formatting (like \`\`\`json), or conversational text. Return ONLY the raw JSON object.
-            
-            Here is the raw text from the document:
-            """
-            ${textContent}
-            """
-        `;
+        // 5. Truncate if too long (Kimi has token limits)
+        const truncatedText = textContent.length > 8000 
+            ? textContent.substring(0, 8000) + "..."
+            : textContent;
 
-        const systemInstructionSchema = `
-        {
-            "date": "YYYY-MM-DD string, the date of the load or today if not found",
-            "agencyName": "string, the Operating Entity, Agency Name, or broker name",
-            "pro": "string, PRO number or Load ID",
-            "freightBillNumber": "string, Freight Bill # if available",
-            "reference": "string, any secondary reference numbers or Customer Reference",
-            "pickup": "string, City, ST of pickup. (e.g. 'Dallas, TX')",
-            "delivery": "string, City, ST of delivery. (e.g. 'Austin, TX')",
-            "pickupDate": "string, Date of pickup (e.g. 'Oct 24, 2023')",
-            "deliveryDate": "string, Date of delivery",
-            "commodity": "string, description of the cargo, item, or commodity",
-            "weight": 0, // number, total weight in lbs
-            "pieces": 0, // number, total pieces/pallets or Qty
-            "miles": 0, // number, total distance/miles (estimate if necessary or extract)
-            "rate": 0.00, // number, the main Linehaul pay or gross flat rate
-            "fuelSurcharge": 0.00, // number, Fuel Surcharge amount
-            "loading": 0.00, // number, Loading charge
-            "unloading": 0.00, // number, Unloading charge
-            "notes": "string, any special instructions, temps, or bco special instructions",
-            "contactName": "string, name of the contact person",
-            "contactPhone": "string, contact phone number",
-            "contactEmail": "string, contact email address",
-            "contactFax": "string, contact fax number",
-            "trailerNumber": "string, trailer number",
-            "equipmentType": "string, equipment type (e.g. VANL, REEFER)",
-            "hazardousMaterial": false // boolean, true if hazardous material is 'true' or indicated
-        }`;
-        // 6. Call OpenRouter API using standard fetch
-        const apiKey = process.env.GOOGLE_GEMINI_API_KEY; // Reusing the same env var name but it's an OpenRouter key
+        // 6. Build prompt
+        const messages = [
+            {
+                role: "system" as const,
+                content: `You are a logistics data extraction expert. Extract freight details and return ONLY JSON with this exact structure:
+{
+  "date": "YYYY-MM-DD",
+  "agencyName": "",
+  "pro": "",
+  "freightBillNumber": "",
+  "reference": "",
+  "pickup": "City, ST",
+  "delivery": "City, ST",
+  "pickupDate": "",
+  "deliveryDate": "",
+  "commodity": "",
+  "weight": 0,
+  "pieces": 0,
+  "miles": 0,
+  "rate": 0,
+  "fuelSurcharge": 0,
+  "loading": 0,
+  "unloading": 0,
+  "notes": "",
+  "contactName": "",
+  "contactPhone": "",
+  "contactEmail": "",
+  "contactFax": "",
+  "trailerNumber": "",
+  "equipmentType": "",
+  "hazardousMaterial": false
+}
+Use "" for missing strings, 0 for missing numbers. Return raw JSON only.`
+            },
+            {
+                role: "user" as const,
+                content: `Extract freight data from this Rate Confirmation/BOL:\n\n${truncatedText}`
+            }
+        ];
 
-        const openRouterPayload = {
-            model: "google/gemini-2.0-flash-001",
-            messages: [
-                {
-                    role: "developer",
-                    content: `Extract the data into this EXACT JSON structure. If a field is not found, leave it as an empty string ("") or 0 for numbers. Return ONLY this JSON. Do not include markdown formatting.\n${systemInstructionSchema}`
-                },
-                {
-                    role: "user",
-                    content: prompt
-                }
-            ],
-            response_format: { type: "json_object" }
+        // 7. Call Kimi API with exact format from docs
+        const apiKey = "sk-kimi-nEcqvDMDB80JcxNpZXUDVYhdKelSpIhrwWmMIuTg1Ml8eGfKlyX0zQHvoem55un0";
+        
+        const payload = {
+            model: "moonshot-v1-8k",
+            messages: messages,
+            temperature: 0.1,
+            max_tokens: 2048
         };
 
-        console.log("Calling OpenRouter API...");
-        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        console.log("[SCAN] Calling Kimi API...");
+        console.log("[SCAN] Payload:", JSON.stringify(payload, null, 2));
+        
+        const response = await fetch("https://api.moonshot.cn/v1/chat/completions", {
             method: "POST",
             headers: {
+                "Content-Type": "application/json",
                 "Authorization": `Bearer ${apiKey}`,
-                "Content-Type": "application/json"
+                "Accept": "application/json"
             },
-            body: JSON.stringify(openRouterPayload)
+            body: JSON.stringify(payload)
         });
 
+        const responseText = await response.text();
+        console.log("[SCAN] Response status:", response.status);
+        console.log("[SCAN] Response headers:", Object.fromEntries(response.headers.entries()));
+        console.log("[SCAN] Response body:", responseText.substring(0, 1000));
+
         if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`OpenRouter API Error: ${response.status} - ${errorText}`);
+            // Try to parse error
+            let errorDetail = responseText;
+            try {
+                const errJson = JSON.parse(responseText);
+                errorDetail = JSON.stringify(errJson, null, 2);
+            } catch {}
+            
+            return NextResponse.json(
+                { error: `Kimi API Error ${response.status}: ${errorDetail}` },
+                { status: 500 }
+            );
         }
 
-        const responseData = await response.json();
-        let resultText = responseData.choices?.[0]?.message?.content;
+        let responseData;
+        try {
+            responseData = JSON.parse(responseText);
+        } catch (e) {
+            return NextResponse.json(
+                { error: "Invalid JSON from Kimi API", raw: responseText },
+                { status: 500 }
+            );
+        }
+
+        const resultText = responseData.choices?.[0]?.message?.content;
 
         if (!resultText) {
-            throw new Error("Gemini returned an empty response.");
+            console.error("[SCAN] No content in response:", JSON.stringify(responseData, null, 2));
+            return NextResponse.json(
+                { error: "Kimi returned empty content" },
+                { status: 500 }
+            );
         }
 
-        console.log("Gemini extracted data:", resultText);
+        console.log("[SCAN] Raw result:", resultText.substring(0, 500));
 
-        // 7. Parse the JSON and return
+        // 8. Parse JSON from response
         let parsedData;
         try {
-            parsedData = JSON.parse(resultText);
+            // Remove markdown if present
+            const cleanText = resultText
+                .replace(/```json\n?/g, '')
+                .replace(/```\n?/g, '')
+                .trim();
+            parsedData = JSON.parse(cleanText);
         } catch (e) {
-            console.error("Failed to parse Gemini output as JSON", e);
-            return NextResponse.json({ error: "Failed to parse extraction results", raw: resultText }, { status: 500 });
+            console.error("[SCAN] JSON parse error:", e);
+            return NextResponse.json(
+                { error: "Failed to parse Kimi response as JSON", raw: resultText },
+                { status: 500 }
+            );
         }
 
         return NextResponse.json({ success: true, data: parsedData });
 
-    } catch (error: any) {
-        console.error("Error scanning rate con:", error);
+    } catch (error) {
+        console.error("[SCAN] Fatal error:", error);
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
         return NextResponse.json(
-            { error: error.message || "An unexpected error occurred during document scanning" },
+            { error: `Scan failed: ${errorMessage}` },
             { status: 500 }
         );
     }

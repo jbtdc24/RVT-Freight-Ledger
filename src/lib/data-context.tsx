@@ -1,10 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Building2, Truck, Users, Plus, Search, Calendar as CalendarIcon, DollarSign, BarChart3, ChevronLeft, ChevronRight } from "lucide-react";
-import { format, isWithinInterval, startOfDay, endOfDay } from "date-fns";
-import { cn } from "@/lib/utils";
-import { Freight, Asset, Driver, StandaloneExpense, ExpenseCategory, HomeTransaction, UserMetadata } from "@/lib/types";
+import { Freight, Asset, Driver, StandaloneExpense, HomeTransaction, UserMetadata } from "@/lib/types";
 import { initialFreight, initialAssets, initialDrivers, initialExpenses } from './data';
 import { useAuthContext } from "./contexts/auth-context";
 import {

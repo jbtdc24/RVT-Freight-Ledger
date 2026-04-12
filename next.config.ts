@@ -2,12 +2,8 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   /* config options here */
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  // TypeScript errors are now fixed, no need to ignore
+  // ESLint passes, no need to ignore
   serverExternalPackages: ['pdf-parse'],
   images: {
     remotePatterns: [
