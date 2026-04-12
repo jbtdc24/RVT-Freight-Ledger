@@ -21,6 +21,8 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Pie, PieChart, Cell } from "recharts";
 import { useAuthContext } from "@/lib/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
+import { generateUniqueId } from "@/lib/id-utils";
+import { formatCurrency } from "@/lib/utils";
 
 const CATEGORIES = {
     truck: ['Parking', 'Ticket', 'Cleaning supply', 'Tolls', 'Maintenance', 'Repair', 'Other'],
@@ -59,7 +61,7 @@ export default function BusinessExpensesPage() {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isCustomCategory, setIsCustomCategory] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [dateFilterType, setDateFilterType] = useState<"week" | "month" | "year" | "range">("month");
+    const [dateFilterType, setDateFilterType] = useState<"all" | "week" | "month" | "year" | "range">("all");
     const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
 
     const customCategories = userMetadata?.customCategories?.business || {};
@@ -168,7 +170,7 @@ export default function BusinessExpensesPage() {
     }, [filteredExpenses, currentPage]);
 
     // Reset pagination when filters change
-    useMemo(() => {
+    useEffect(() => {
         setCurrentPage(1);
     }, [activeTab, searchTerm, dateRange, dateFilterType]);
 
@@ -283,7 +285,7 @@ export default function BusinessExpensesPage() {
                 }
             } else {
                 const expense: StandaloneExpense = {
-                    id: Date.now().toString() + "-" + Math.random().toString(36).substr(2, 5),
+                    id: generateUniqueId(),
                     category: finalCategory,
                     description: newExpense.description || (activeTab === 'truck' ? 'Truck Expense' : activeTab === 'driver' ? 'Driver Expense' : activeTab === 'payroll' ? 'Payroll Expense' : 'Office Expense'),
                     amount: amount,
@@ -293,7 +295,7 @@ export default function BusinessExpensesPage() {
                     driverId: activeTab === 'driver' ? newExpense.driverId : undefined,
                     driverName: activeTab === 'driver' ? drivers.find(d => d.id === newExpense.driverId)?.name : undefined,
                     comments: [{
-                        id: Date.now().toString() + "-" + Math.random().toString(36).substr(2, 5),
+                        id: generateUniqueId(),
                         text: "Expense created via Business Expenses tab.",
                         author: "System",
                         timestamp: new Date().toISOString(),
@@ -320,12 +322,12 @@ export default function BusinessExpensesPage() {
                 driverId: "",
                 id: ""
             });
-        } catch (error: any) {
+        } catch (error) {
             console.error("Failed to save expense:", error);
 
             // Detailed message for developer console
-            const errorMessage = error?.message || "Unknown error";
-            const errorCode = error?.code || "no-code";
+            const errorMessage = error instanceof Error ? error.message : "Unknown error";
+            const errorCode = (error as { code?: string })?.code || "no-code";
 
             toast({
                 title: "Error saving expense",
@@ -367,7 +369,7 @@ export default function BusinessExpensesPage() {
         setIsDialogOpen(true);
     };
 
-    const formatCurrency = (val: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
+    // formatCurrency is now imported from @/lib/utils
 
     return (
         <>
@@ -473,7 +475,7 @@ export default function BusinessExpensesPage() {
                             />
                         </div>
                         <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-full w-full sm:w-auto overflow-x-auto">
-                            {(['week', 'month', 'year', 'range'] as const).map(type => (
+                            {(['all', 'week', 'month', 'year', 'range'] as const).map(type => (
                                 <Button
                                     key={type}
                                     variant={dateFilterType === type ? "default" : "ghost"}

@@ -1,16 +1,15 @@
 
 
-// We rely on process.env.GOOGLE_GEMINI_API_KEY being set in .env.local
-// The user provided an OpenRouter key, so we will use the fetch api directly.
+// Uses OpenRouter API with Google Gemini for freight document extraction
 
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
     try {
         const pdfParse = require("pdf-parse");
-        console.log("Received PDF scan request via Base64 payload");
+        console.log("[SCAN] Received PDF scan request");
 
-        // 2. Extract base64 from request JSON
+        // Extract base64 from request JSON
         const body = await req.json();
         const fileBase = body.fileBase;
 
@@ -18,10 +17,10 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "No file content provided" }, { status: 400 });
         }
 
-        // 3. Decode Base64 to Buffer
+        // Decode Base64 to Buffer
         const buffer = Buffer.from(fileBase, 'base64');
 
-        // 4. Parse PDF text
+        // Parse PDF text
         const pdfData = await pdfParse(buffer);
         const textContent = pdfData.text;
 
@@ -29,106 +28,120 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Could not extract text from the PDF" }, { status: 400 });
         }
 
-        console.log("PDF parsed successfully, extracting structured data via Gemini...");
+        console.log("[SCAN] PDF text length:", textContent.length);
 
-        // 5. Build prompt and expected schema for Gemini
-        const prompt = `
-            You are an expert logistics data extraction assistant. 
-            I am providing you with the raw text extracted from a freight Rate Confirmation or Bill of Lading (BOL).
-            Your job is to extract the relevant transportation details and return ONLY a valid JSON object matching the exact schema requested.
-            Do not include any string wrapper, markdown formatting (like \`\`\`json), or conversational text. Return ONLY the raw JSON object.
-            
-            Here is the raw text from the document:
-            """
-            ${textContent}
-            """
-        `;
+        // Truncate if too long
+        const truncatedText = textContent.length > 5000 
+            ? textContent.substring(0, 5000) + "..."
+            : textContent;
 
-        const systemInstructionSchema = `
-        {
-            "date": "YYYY-MM-DD string, the date of the load or today if not found",
-            "agencyName": "string, the Operating Entity, Agency Name, or broker name",
-            "pro": "string, PRO number or Load ID",
-            "freightBillNumber": "string, Freight Bill # if available",
-            "reference": "string, any secondary reference numbers or Customer Reference",
-            "pickup": "string, City, ST of pickup. (e.g. 'Dallas, TX')",
-            "delivery": "string, City, ST of delivery. (e.g. 'Austin, TX')",
-            "pickupDate": "string, Date of pickup (e.g. 'Oct 24, 2023')",
-            "deliveryDate": "string, Date of delivery",
-            "commodity": "string, description of the cargo, item, or commodity",
-            "weight": 0, // number, total weight in lbs
-            "pieces": 0, // number, total pieces/pallets or Qty
-            "miles": 0, // number, total distance/miles (estimate if necessary or extract)
-            "rate": 0.00, // number, the main Linehaul pay or gross flat rate
-            "fuelSurcharge": 0.00, // number, Fuel Surcharge amount
-            "loading": 0.00, // number, Loading charge
-            "unloading": 0.00, // number, Unloading charge
-            "notes": "string, any special instructions, temps, or bco special instructions",
-            "contactName": "string, name of the contact person",
-            "contactPhone": "string, contact phone number",
-            "contactEmail": "string, contact email address",
-            "contactFax": "string, contact fax number",
-            "trailerNumber": "string, trailer number",
-            "equipmentType": "string, equipment type (e.g. VANL, REEFER)",
-            "hazardousMaterial": false // boolean, true if hazardous material is 'true' or indicated
-        }`;
-        // 6. Call OpenRouter API using standard fetch
-        const apiKey = process.env.GOOGLE_GEMINI_API_KEY; // Reusing the same env var name but it's an OpenRouter key
+        // OpenRouter API Key
+        const apiKey = process.env.OPENROUTER_API_KEY || "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";
 
-        const openRouterPayload = {
+        if (!apiKey) {
+            return NextResponse.json({ error: "OpenRouter API key not configured" }, { status: 500 });
+        }
+
+        // Call OpenRouter with Gemini 2.0 Flash
+        const payload = {
             model: "google/gemini-2.0-flash-001",
             messages: [
                 {
-                    role: "developer",
-                    content: `Extract the data into this EXACT JSON structure. If a field is not found, leave it as an empty string ("") or 0 for numbers. Return ONLY this JSON. Do not include markdown formatting.\n${systemInstructionSchema}`
+                    role: "system",
+                    content: `You are a logistics data extraction expert. Extract freight details from Rate Confirmation/BOL and return ONLY JSON with this exact structure:
+{
+  "date": "YYYY-MM-DD",
+  "agencyName": "",
+  "pro": "",
+  "freightBillNumber": "",
+  "reference": "",
+  "pickup": "City, ST",
+  "delivery": "City, ST",
+  "pickupDate": "",
+  "deliveryDate": "",
+  "commodity": "",
+  "weight": 0,
+  "pieces": 0,
+  "miles": 0,
+  "rate": 0,
+  "fuelSurcharge": 0,
+  "loading": 0,
+  "unloading": 0,
+  "notes": "",
+  "contactName": "",
+  "contactPhone": "",
+  "contactEmail": "",
+  "contactFax": "",
+  "trailerNumber": "",
+  "equipmentType": "",
+  "hazardousMaterial": false
+}
+Use "" for missing strings, 0 for missing numbers. Return raw JSON only, no markdown.`
                 },
                 {
                     role: "user",
-                    content: prompt
+                    content: `Extract freight data from this document:\n\n${truncatedText}`
                 }
             ],
-            response_format: { type: "json_object" }
+            temperature: 0.1
         };
 
-        console.log("Calling OpenRouter API...");
+        console.log("[SCAN] Calling OpenRouter API...");
+        
         const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
             headers: {
                 "Authorization": `Bearer ${apiKey}`,
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
+                "HTTP-Referer": "http://localhost:9003",
+                "X-Title": "RVT Freight Ledger"
             },
-            body: JSON.stringify(openRouterPayload)
+            body: JSON.stringify(payload)
         });
 
+        const responseData = await response.json();
+        console.log("[SCAN] Response status:", response.status);
+
         if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`OpenRouter API Error: ${response.status} - ${errorText}`);
+            console.error("[SCAN] API error:", responseData);
+            return NextResponse.json(
+                { error: `OpenRouter Error: ${response.status} - ${JSON.stringify(responseData)}` },
+                { status: 500 }
+            );
         }
 
-        const responseData = await response.json();
-        let resultText = responseData.choices?.[0]?.message?.content;
+        const resultText = responseData.choices?.[0]?.message?.content;
 
         if (!resultText) {
-            throw new Error("Gemini returned an empty response.");
+            return NextResponse.json(
+                { error: "Empty response from AI", data: responseData },
+                { status: 500 }
+            );
         }
 
-        console.log("Gemini extracted data:", resultText);
+        console.log("[SCAN] Result:", resultText.substring(0, 300));
 
-        // 7. Parse the JSON and return
+        // Parse JSON
         let parsedData;
         try {
-            parsedData = JSON.parse(resultText);
+            const cleanText = resultText
+                .replace(/```json\n?/g, '')
+                .replace(/```\n?/g, '')
+                .trim();
+            parsedData = JSON.parse(cleanText);
         } catch (e) {
-            console.error("Failed to parse Gemini output as JSON", e);
-            return NextResponse.json({ error: "Failed to parse extraction results", raw: resultText }, { status: 500 });
+            return NextResponse.json(
+                { error: "JSON parse error", raw: resultText },
+                { status: 500 }
+            );
         }
 
         return NextResponse.json({ success: true, data: parsedData });
 
-    } catch (error: any) {
-        console.error("Error scanning rate con:", error);
+    } catch (error) {
+        console.error("[SCAN] Error:", error);
         return NextResponse.json(
-            { error: error.message || "An unexpected error occurred during document scanning" },
+            { error: error instanceof Error ? error.message : "Scan failed" },
             { status: 500 }
         );
     }

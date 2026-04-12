@@ -40,7 +40,7 @@ export function SettingsModal({ open, onOpenChange, children }: SettingsModalPro
 
     useEffect(() => {
         if (userData?.defaultOwnerPercentage) {
-            setPreferences(prev => ({ ...prev, lineHaulPercent: userData.defaultOwnerPercentage.toString() }));
+            setPreferences(prev => ({ ...prev, lineHaulPercent: userData.defaultOwnerPercentage!.toString() }));
         }
     }, [userData]);
 

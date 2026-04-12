@@ -17,7 +17,7 @@ import {
     ArrowUpCircle, ArrowDownCircle, X, Search
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, isWithinInterval, startOfWeek, endOfWeek, startOfYear, endOfYear, startOfDay, endOfDay } from "date-fns";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { type DateRange } from "react-day-picker";
 import { useData } from "@/lib/data-context";
@@ -90,7 +90,7 @@ export default function HomeManagementPage() {
 
     // Filter State
     const [searchTerm, setSearchTerm] = useState("");
-    const [dateFilterType, setDateFilterType] = useState<"week" | "month" | "year" | "range">("month");
+    const [dateFilterType, setDateFilterType] = useState<"all" | "week" | "month" | "year" | "range">("all");
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
     const getCategoryLabel = (value: string) => {
@@ -98,8 +98,7 @@ export default function HomeManagementPage() {
         return all.find(c => c.value === value)?.label || value;
     };
 
-    const formatCurrency = (value: number) =>
-        new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
+    // formatCurrency is now imported from @/lib/utils
 
     const filteredTransactions = useMemo(() => {
         let result = transactions;
@@ -254,11 +253,11 @@ export default function HomeManagementPage() {
 
             resetTransactionForm();
             setIsTransactionDialogOpen(false);
-        } catch (error: any) {
+        } catch (error) {
             console.error("Failed to save transaction:", error);
 
-            const errorMessage = error?.message || "Unknown error";
-            const errorCode = error?.code || "no-code";
+            const errorMessage = error instanceof Error ? error.message : "Unknown error";
+            const errorCode = (error as { code?: string })?.code || "no-code";
 
             toast({
                 title: "Save failed",
@@ -270,7 +269,7 @@ export default function HomeManagementPage() {
         }
     };
 
-    const handleEditTransaction = (transaction: Transaction) => {
+    const handleEditTransaction = (transaction: HomeTransaction) => {
         setEditingTransactionId(transaction.id);
         setTransactionForm({
             type: transaction.type,
@@ -322,7 +321,7 @@ export default function HomeManagementPage() {
                     />
                 </div>
                 <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-full w-full sm:w-auto overflow-x-auto">
-                    {(['week', 'month', 'year', 'range'] as const).map(type => (
+                    {(['all', 'week', 'month', 'year', 'range'] as const).map(type => (
                         <Button
                             key={type}
                             variant={dateFilterType === type ? "default" : "ghost"}

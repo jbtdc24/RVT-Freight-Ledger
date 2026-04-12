@@ -19,6 +19,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import type { Driver, LoadComment } from "@/lib/types";
+import { generateId } from "@/lib/id-utils";
+import { compressImage } from "@/lib/image-utils";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
   Dialog,
@@ -69,45 +71,7 @@ export function DriverForm({ onSubmit, initialData, onDelete }: DriverFormProps)
     },
   });
 
-  const compressImage = (file: File): Promise<string> => {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
-
-          const MAX_WIDTH = 800;
-          const MAX_HEIGHT = 800;
-
-          if (width > height) {
-            if (width > MAX_WIDTH) {
-              height *= MAX_WIDTH / width;
-              width = MAX_WIDTH;
-            }
-          } else {
-            if (height > MAX_HEIGHT) {
-              width *= MAX_HEIGHT / height;
-              height = MAX_HEIGHT;
-            }
-          }
-
-          canvas.width = width;
-          canvas.height = height;
-
-          const ctx = canvas.getContext('2d');
-          ctx?.drawImage(img, 0, 0, width, height);
-
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-          resolve(dataUrl);
-        };
-        img.src = event.target?.result as string;
-      };
-      reader.readAsDataURL(file);
-    });
-  };
+  // Image compression is now handled by compressImage utility from @/lib/image-utils
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -129,7 +93,7 @@ export function DriverForm({ onSubmit, initialData, onDelete }: DriverFormProps)
     if (!newComment.trim()) return;
 
     const comment: LoadComment = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: generateId(),
       text: newComment,
       author: "User",
       timestamp: new Date().toISOString(),
@@ -147,7 +111,7 @@ export function DriverForm({ onSubmit, initialData, onDelete }: DriverFormProps)
 
     if (!initialData) {
       finalComments.unshift({
-        id: Math.random().toString(36).substr(2, 9),
+        id: generateId(),
         text: "Driver profile created",
         author: "System",
         timestamp: new Date().toISOString(),

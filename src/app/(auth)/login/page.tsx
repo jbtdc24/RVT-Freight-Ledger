@@ -41,8 +41,9 @@ function LoginForm() {
             setError(null);
             await signInWithGoogle();
             router.push("/"); // Will hit protected layout and show dashboard
-        } catch (err: any) {
-            setError(err.message || "Failed to sign in with Google.");
+        } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : "Failed to sign in with Google.";
+            setError(errorMessage);
             setLoading(false);
         }
     };
@@ -66,9 +67,13 @@ function LoginForm() {
                 setMessage("Password reset email sent. Check your inbox.");
                 setMode("login");
             }
-        } catch (err: any) {
+        } catch (err) {
             // Clean up Firebase error messages for the user
-            let errMsg = err.message;
+            const firebaseError = err as { message?: string; code?: string };
+            let errMsg = firebaseError.message || "An error occurred";
+            if (errMsg.includes("auth/invalid-credential")) errMsg = "Invalid email or password.";
+            if (errMsg.includes("auth/email-already-in-use")) errMsg = "An account with this email already exists.";
+            if (errMsg.includes("auth/weak-password")) errMsg = "Password should be at least 6 characters.";
             if (errMsg.includes("auth/invalid-credential")) errMsg = "Invalid email or password.";
             if (errMsg.includes("auth/email-already-in-use")) errMsg = "An account with this email already exists.";
             if (errMsg.includes("auth/weak-password")) errMsg = "Password should be at least 6 characters.";

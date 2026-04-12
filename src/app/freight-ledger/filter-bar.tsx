@@ -25,7 +25,7 @@ export type FiltersState = {
   expenses: { min: string; max: string };
   netProfit: { min: string; max: string };
   dateRange: DateRange | undefined;
-  dateFilterType: "week" | "month" | "year" | "range";
+  dateFilterType: "all" | "week" | "month" | "year" | "range";
 };
 
 type FilterBarProps = {
@@ -40,7 +40,7 @@ export function FilterBar({ onFilterChange }: FilterBarProps) {
   const [expenses, setExpenses] = useState({ min: "", max: "" });
   const [netProfit, setNetProfit] = useState({ min: "", max: "" });
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
-  const [dateFilterType, setDateFilterType] = useState<"week" | "month" | "year" | "range">("month");
+  const [dateFilterType, setDateFilterType] = useState<"all" | "week" | "month" | "year" | "range">("all");
 
   useEffect(() => {
     onFilterChange({ freightId, route, textSearch, revenue, expenses, netProfit, dateRange, dateFilterType });
@@ -54,14 +54,14 @@ export function FilterBar({ onFilterChange }: FilterBarProps) {
     setExpenses({ min: "", max: "" });
     setNetProfit({ min: "", max: "" });
     setDateRange(undefined);
-    setDateFilterType("month");
+    setDateFilterType("all");
   };
 
   return (
     <div className="space-y-4 mb-4">
       <div className="flex justify-end gap-4">
         <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-full w-full sm:w-auto overflow-x-auto">
-          {(['week', 'month', 'year', 'range'] as const).map(type => (
+          {(['all', 'week', 'month', 'year', 'range'] as const).map(type => (
             <Button
               key={type}
               variant={dateFilterType === type ? "default" : "ghost"}

@@ -47,6 +47,8 @@ import { FreightForm } from "@/components/freight-form";
 import { AIScanButton } from "@/components/ai-scan-button";
 import { isBefore, isAfter, startOfDay, endOfDay, format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, isWithinInterval } from 'date-fns';
 import { useToast } from "@/hooks/use-toast";
+import { generateId } from "@/lib/id-utils";
+import { formatCurrency } from "@/lib/utils";
 
 const ITEMS_PER_PAGE = 12;
 
@@ -156,7 +158,7 @@ export default function FreightLedgerPage() {
       expenses: [],
       comments: [
         {
-          id: Math.random().toString(36).substr(2, 9),
+          id: generateId(),
           text: "Form auto-filled by AI PDF Scan. Please review.",
           author: "System - AI",
           timestamp: new Date().toISOString(),
@@ -190,7 +192,7 @@ export default function FreightLedgerPage() {
       // CREATING new freight
       const newFreight: Freight = {
         ...values,
-        id: Math.random().toString(36).substr(2, 9),
+        id: generateId(),
       } as Freight;
       console.log("Creating new freight:", newFreight);
       await saveFreight(user.uid, newFreight);
@@ -213,7 +215,7 @@ export default function FreightLedgerPage() {
     if (existingFreight) {
       // Create change comment
       const statusComment = {
-        id: Math.random().toString(36).substr(2, 9),
+        id: generateId(),
         text: `Status changed: ${existingFreight.status} -> ${newStatus}`,
         author: "System",
         timestamp: new Date().toISOString(),
@@ -222,7 +224,7 @@ export default function FreightLedgerPage() {
 
       // Create user note comment
       const userComment = {
-        id: Math.random().toString(36).substr(2, 9),
+        id: generateId(),
         text: comment,
         author: "User",
         timestamp: new Date().toISOString(),
@@ -249,7 +251,7 @@ export default function FreightLedgerPage() {
     }
   };
 
-  const formatCurrency = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
+  // formatCurrency is now imported from @/lib/utils
 
   const handleRowClick = (item: Freight) => {
     const isInvalid = !item.driverName || !item.comments || item.comments.length === 0;

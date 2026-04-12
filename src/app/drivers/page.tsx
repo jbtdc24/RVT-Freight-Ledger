@@ -28,6 +28,8 @@ import { DriverForm } from "./drivers-form";
 import { Badge } from "@/components/ui/badge";
 import { useAuthContext } from "@/lib/contexts/auth-context";
 import { saveDriver } from "@/lib/firebase/firestore";
+import { generateId } from "@/lib/id-utils";
+import { formatPayRate } from "@/lib/utils";
 
 export default function DriversPage() {
   const { drivers, deleteItem } = useData();
@@ -45,7 +47,7 @@ export default function DriversPage() {
     if (editingDriver) {
       await saveDriver(user.uid, { ...editingDriver, ...values });
     } else {
-      const newDriver = { ...values, id: Math.random().toString(36).substr(2, 9) };
+      const newDriver = { ...values, id: generateId() };
       await saveDriver(user.uid, newDriver);
     }
     setIsDialogOpen(false);
@@ -60,12 +62,7 @@ export default function DriversPage() {
 
   const activeDrivers = drivers;
 
-  const formatPayRate = (driver: Driver) => {
-    if (driver.payType === 'per-mile') {
-      return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(driver.payRate) + '/mile';
-    }
-    return `${driver.payRate}% of revenue`;
-  }
+  // formatPayRate is now imported from @/lib/utils
 
   return (
     <>
@@ -115,7 +112,7 @@ export default function DriversPage() {
                 <TableCell className="font-semibold text-foreground">{item.name}</TableCell>
                 <TableCell>
                   <div className="flex flex-col gap-0.5">
-                    <span className="text-sm font-medium">{formatPayRate(item)}</span>
+                    <span className="text-sm font-medium">{formatPayRate(item.payRate, item.payType)}</span>
                     <Badge variant="outline" className="w-fit text-[10px] uppercase font-black px-1.5 py-0">{item.payType}</Badge>
                   </div>
                 </TableCell>
